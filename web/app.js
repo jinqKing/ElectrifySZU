@@ -2,6 +2,7 @@ const form = document.querySelector("#queryForm");
 const demoButton = document.querySelector("#demoButton");
 const message = document.querySelector("#message");
 const heroStatus = document.querySelector("#heroStatus");
+const languageButtons = document.querySelectorAll("[data-lang]");
 
 const fields = {
   campusGroup: document.querySelector("#campusGroup"),
@@ -35,21 +36,203 @@ const view = {
 let campuses = [];
 let allBuildings = [];
 let buildingChoices = [];
+let currentStatusData = null;
+let lastMessage = { key: "message.initial", values: {}, isError: false, raw: null };
+let lastHeroStatus = { key: "status.waiting", values: {}, status: "unknown", raw: null };
 
 const API_BASE = window.ELECTRIFYSZU_API_BASE || "";
 const IS_STATIC_PAGE =
   location.protocol === "file:" ||
   location.hostname.endsWith(".github.io") ||
   location.hostname === "github.io";
-const STATIC_PAGE_MESSAGE =
-  "GitHub Pages 只能托管静态页面，真实查询需要运行本地后端：uv run electrifyszu，或部署一个可访问的后端 API。";
+const DEFAULT_LOCALE = "zh-CN";
+const LOCALE_QUERY = {
+  zh: "zh-CN",
+  "zh-CN": "zh-CN",
+  en: "en-US",
+  "en-US": "en-US",
+};
+const translations = {
+  "zh-CN": {
+    "meta.title": "ElectrifySZU 深大宿舍电费快查",
+    "hero.title": "宿舍不断电：电费仪表盘",
+    "hero.subtitle": "搜索宿舍楼栋并输入房间号，自动完成查询并展示余额和使用情况。",
+    "query.ariaLabel": "查询条件",
+    "form.campus": "校区",
+    "form.building": "宿舍楼栋",
+    "form.buildingPlaceholder": "搜索宿舍楼栋",
+    "form.room": "房间号",
+    "form.roomPlaceholder": "例如 713",
+    "form.days": "统计天数",
+    "form.submit": "查询余额",
+    "form.demo": "载入演示",
+    "message.initial": "连接校园网后查询真实余额，可先载入演示数据预览效果。",
+    "message.staticPage": "GitHub Pages 只能托管静态页面，真实查询需要运行本地后端：uv run electrifyszu，或部署一个可访问的后端 API。",
+    "message.staticMode": "当前为静态页面模式，真实查询需要连接后端服务。",
+    "message.demoLoaded": "已载入静态演示数据。",
+    "message.loading": "正在查询电费余额...",
+    "message.complete": "查询完成。",
+    "error.nonJson": "当前地址没有返回 JSON API。请确认后端服务已启动，且前端请求地址指向后端。",
+    "error.requestFailed": "请求失败",
+    "error.queryFailed": "查询失败",
+    "metrics.remaining": "当前余额",
+    "metrics.dailyAvg": "日均用电",
+    "metrics.daysLeft": "预计可用",
+    "metrics.totalUsed": "周期用电",
+    "unit.days": "days",
+    "unit.yuan": "元",
+    "chart.ariaLabel": "用电趋势",
+    "chart.title": "余额与用电趋势",
+    "chart.note": "余额走势和每日用电量会在查询后自动更新。",
+    "chart.svgLabel": "余额与用电趋势图",
+    "chart.balanceLabel": "余额 kWh",
+    "chart.dailyUseLabel": "柱: 日用电",
+    "details.warning": "预警状态",
+    "details.room": "房间",
+    "details.lastRecord": "最近记录",
+    "details.period": "统计周期",
+    "details.records": "记录数",
+    "recharge.title": "最近充值",
+    "status.waiting": "等待查询",
+    "status.needBackend": "需要后端",
+    "status.queryFailed": "查询失败",
+    "status.unchecked": "未查询",
+    "powerStatus.ok": "电量充足",
+    "powerStatus.low": "低电量",
+    "powerStatus.critical": "即将耗尽",
+    "powerStatus.unknown": "暂无数据",
+    "empty.noData": "暂无数据",
+    "empty.noTrend": "暂无趋势数据",
+    "empty.unknownTime": "未知时间",
+    "empty.unknownMethod": "未知方式",
+    "format.records": "{count} 条",
+    "format.dateRange": "{begin} 至 {end}",
+    "campus.yuehai": "粤海 / Yuehai",
+    "campus.lihu": "丽湖 / Lihu",
+    "payment.wechat": "微信支付",
+    "payment.alipay": "支付宝",
+  },
+  "en-US": {
+    "meta.title": "ElectrifySZU SZU Dorm Power Monitor",
+    "hero.title": "Dorm Power Dashboard",
+    "hero.subtitle": "Search a dorm building, enter a room number, and check the balance and recent usage.",
+    "query.ariaLabel": "Query filters",
+    "form.campus": "Campus",
+    "form.building": "Dorm building",
+    "form.buildingPlaceholder": "Search dorm building",
+    "form.room": "Room",
+    "form.roomPlaceholder": "e.g. 713",
+    "form.days": "Days",
+    "form.submit": "Check balance",
+    "form.demo": "Load demo",
+    "message.initial": "Connect to the campus network for live balances, or load demo data to preview the dashboard.",
+    "message.staticPage": "GitHub Pages can only host the static page. Live queries need the local backend: uv run electrifyszu, or a deployed API endpoint.",
+    "message.staticMode": "Static page mode is active. Live queries need a backend service.",
+    "message.demoLoaded": "Static demo data loaded.",
+    "message.loading": "Checking power balance...",
+    "message.complete": "Query complete.",
+    "error.nonJson": "This address did not return a JSON API response. Confirm the backend is running and the frontend points to it.",
+    "error.requestFailed": "Request failed",
+    "error.queryFailed": "Query failed",
+    "metrics.remaining": "Current balance",
+    "metrics.dailyAvg": "Daily average",
+    "metrics.daysLeft": "Estimated days",
+    "metrics.totalUsed": "Period usage",
+    "unit.days": "days",
+    "unit.yuan": "yuan",
+    "chart.ariaLabel": "Power usage trend",
+    "chart.title": "Balance and Usage Trend",
+    "chart.note": "Balance history and daily usage update automatically after a query.",
+    "chart.svgLabel": "Balance and usage trend chart",
+    "chart.balanceLabel": "Balance kWh",
+    "chart.dailyUseLabel": "Bars: daily use",
+    "details.warning": "Warning status",
+    "details.room": "Room",
+    "details.lastRecord": "Latest record",
+    "details.period": "Period",
+    "details.records": "Records",
+    "recharge.title": "Recent top-ups",
+    "status.waiting": "Waiting",
+    "status.needBackend": "Backend needed",
+    "status.queryFailed": "Query failed",
+    "status.unchecked": "Not checked",
+    "powerStatus.ok": "Enough power",
+    "powerStatus.low": "Low power",
+    "powerStatus.critical": "Nearly depleted",
+    "powerStatus.unknown": "No data",
+    "empty.noData": "No data",
+    "empty.noTrend": "No trend data",
+    "empty.unknownTime": "Unknown time",
+    "empty.unknownMethod": "Unknown method",
+    "format.records": "{count} records",
+    "format.dateRange": "{begin} to {end}",
+    "campus.yuehai": "粤海 / Yuehai",
+    "campus.lihu": "丽湖 / Lihu",
+    "payment.wechat": "WeChat Pay",
+    "payment.alipay": "Alipay",
+  },
+};
+const campusLabels = {
+  粤海: "粤海 / Yuehai",
+  丽湖: "丽湖 / Lihu",
+};
+const sourceCampusLabels = {
+  北校区: "北校区",
+  南校区: "南校区",
+  丽湖校区: "丽湖校区",
+  深大新斋区: "深大新斋区",
+};
+const buildingEnglishNames = {
+  "乔林阁": "Qiaolin Hall",
+  "乔木阁": "Qiaomu Hall",
+  "乔森阁": "Qiaosen Hall",
+  "乔相阁": "Qiaoxiang Hall",
+  "乔梧阁": "Qiaowu Hall",
+  "山茶斋": "Shancha Zhai",
+  "红榴斋": "Hongliu Zhai",
+  "米兰斋": "Milan Zhai",
+  "海桐斋": "Haitong Zhai",
+  "桃李斋": "Taoli Zhai",
+  "凌霄斋": "Lingxiao Zhai",
+  "银桦斋": "Yinhua Zhai",
+  "木犀轩": "Muxi Xuan",
+  "丹枫轩": "Danfeng Xuan",
+  "紫檀轩": "Zitan Xuan",
+  "石楠轩": "Shinan Xuan",
+  "苏铁轩": "Sutie Xuan",
+  "芸香阁": "Yunxiang Hall",
+  "丁香阁": "Dingxiang Hall",
+  "文杏阁": "Wenxing Hall",
+  "海棠阁": "Haitang Hall",
+  "疏影阁": "Shuying Hall",
+  "杜衡阁": "Duheng Hall",
+  "辛夷阁": "Xinyi Hall",
+  "韵竹阁": "Yunzhu Hall",
+  "云杉轩": "Yunshan Xuan",
+  "紫藤轩": "Ziteng Xuan",
+  "留学生公寓": "International Student Apartment",
+  "春笛": "Chundi",
+  "夏筝": "Xiazheng",
+  "秋瑟": "Qiuse",
+  "冬筑": "Dongzhu",
+  "A栋风信子": "Building A Hyacinth",
+  "B栋山楂树": "Building B Hawthorn",
+  "C栋胡杨林": "Building C Poplar",
+  "风槐斋": "Fenghuai Zhai",
+  "雨鹃斋": "Yujuan Zhai",
+  "蓬莱客舍": "Penglai House",
+  "聚翰斋": "Juhan Zhai",
+  "紫薇斋": "Ziwei Zhai",
+  "红豆斋": "Hongdou Zhai",
+};
+let currentLocale = resolveInitialLocale();
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   syncSelectedBuilding();
   if (!canUseBackend()) {
-    setMessage(STATIC_PAGE_MESSAGE, true);
-    setHeroStatus("需要后端", "critical");
+    setMessageKey("message.staticPage", {}, true);
+    setHeroStatusKey("status.needBackend", {}, "critical");
     return;
   }
   await loadStatus(apiUrl("/api/status") + "?" + new URLSearchParams(new FormData(form)));
@@ -77,15 +260,22 @@ document.addEventListener("click", (event) => {
 
 demoButton.addEventListener("click", async () => {
   renderStatus(staticDemoStatus());
-  setMessage("已载入静态演示数据。");
+  setMessageKey("message.demoLoaded");
 });
 
+languageButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setLanguage(button.dataset.lang);
+  });
+});
+
+setLanguage(currentLocale, { persist: false });
 loadBuildings();
 
 async function loadBuildings() {
   if (!canUseBackend()) {
     loadStaticBuildings();
-    setMessage(STATIC_PAGE_MESSAGE);
+    setMessageKey("message.staticPage");
     return;
   }
 
@@ -102,7 +292,7 @@ async function loadBuildings() {
     }
   } catch {
     loadStaticBuildings();
-    setMessage("当前为静态页面模式，真实查询需要连接后端服务。");
+    setMessageKey("message.staticMode");
   }
 }
 
@@ -121,12 +311,12 @@ async function fetchJson(url) {
   const response = await fetch(url);
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
   if (!contentType.includes("application/json")) {
-    throw new Error("当前地址没有返回 JSON API。请确认后端服务已启动，且前端请求地址指向后端。");
+    throw new Error(t("error.nonJson"));
   }
 
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload.hint || payload.error || "请求失败");
+    throw new Error(payload.hint || payload.error || t("error.requestFailed"));
   }
   return payload;
 }
@@ -179,6 +369,8 @@ function mergeBuildingChoices(buildings) {
     const key = `${building.campusGroup}:${baseBuildingName(building.name)}`;
     const current = groups.get(key) || {
       displayName: baseBuildingName(building.name),
+      displayLabel: bilingualBuildingName(baseBuildingName(building.name)),
+      searchText: "",
       campusGroup: building.campusGroup,
       campusName: building.campusName,
       sourceCampusNames: new Set(),
@@ -192,14 +384,26 @@ function mergeBuildingChoices(buildings) {
   return [...groups.values()].map((group) => ({
     ...group,
     sourceCampusName: [...group.sourceCampusNames].join(" / "),
+    sourceCampusLabel: [...group.sourceCampusNames].map(bilingualSourceCampusName).join(" / "),
+    searchText: [
+      group.displayName,
+      group.displayLabel,
+      buildingEnglishName(group.displayName),
+      group.campusName,
+      bilingualCampusName(group.campusName),
+      ...group.sourceCampusNames,
+      ...[...group.sourceCampusNames].map(bilingualSourceCampusName),
+      ...group.variants.map((building) => building.name),
+      ...group.variants.map((building) => bilingualBuildingName(building.name)),
+    ].join(" ").toLowerCase(),
     variants: group.variants.sort((a, b) => (a.minFloor || 0) - (b.minFloor || 0)),
   }));
 }
 
 function baseBuildingName(name) {
   const base = name
-    .replace(/阁?\d+\s*-\s*\d+层?/g, "")
-    .replace(/\d+\s*-\s*\d+楼/g, "")
+    .replace(/\d+\s*-\s*\d+\s*楼/g, "")
+    .replace(/\d+\s*-\s*\d+\s*层/g, "")
     .replace(/\d+\s*-\s*\d+$/g, "")
     .trim();
   if (base.startsWith("乔") && !base.endsWith("阁")) {
@@ -211,15 +415,16 @@ function baseBuildingName(name) {
 function renderCampusOptions() {
   const preferredCampus = fields.campusGroup.value || "yuehai";
   const campusGroups = [
-    { value: "yuehai", label: "粤海" },
-    { value: "lihu", label: "丽湖" },
+    { value: "yuehai", labelKey: "campus.yuehai" },
+    { value: "lihu", labelKey: "campus.lihu" },
   ].filter((group) => allBuildings.some((building) => building.campusGroup === group.value));
 
   fields.campusGroup.innerHTML = "";
   for (const campus of campusGroups) {
     const option = document.createElement("option");
     option.value = campus.value;
-    option.textContent = campus.label;
+    option.dataset.i18n = campus.labelKey;
+    option.textContent = t(campus.labelKey);
     if (campus.value === preferredCampus) {
       option.selected = true;
     }
@@ -234,11 +439,7 @@ function renderBuildingOptions(filter = "") {
       if (!keyword) {
         return true;
       }
-      return (
-        choice.displayName.toLowerCase().includes(keyword) ||
-        choice.sourceCampusName.toLowerCase().includes(keyword) ||
-        choice.variants.some((building) => building.name.toLowerCase().includes(keyword))
-      );
+      return choice.searchText.includes(keyword);
     });
 
   const list = document.querySelector("#buildingOptions");
@@ -248,9 +449,9 @@ function renderBuildingOptions(filter = "") {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "combo-option";
-    button.innerHTML = `${choice.displayName}<small>${choice.campusName} · ${choice.sourceCampusName}</small>`;
+    button.innerHTML = `${choice.displayLabel}<small>${bilingualCampusName(choice.campusName)} · ${choice.sourceCampusLabel}</small>`;
     button.addEventListener("click", () => {
-      fields.buildingSearch.value = choice.displayName;
+      fields.buildingSearch.value = choice.displayLabel;
       syncSelectedBuilding();
       closeBuildingOptions();
     });
@@ -260,35 +461,39 @@ function renderBuildingOptions(filter = "") {
 
 async function loadStatus(url) {
   setBusy(true);
-  setMessage("正在查询电费余额...");
+  setMessageKey("message.loading");
   try {
     const payload = await fetchJson(url);
     if (!payload.ok) {
-      throw new Error(payload.hint || payload.error || "查询失败");
+      throw new Error(payload.hint || payload.error || t("error.queryFailed"));
     }
     renderStatus(payload.data);
-    setMessage("查询完成。");
+    setMessageKey("message.complete");
   } catch (error) {
-    setMessage(error.message, true);
-    setHeroStatus("查询失败", "critical");
+    setMessageRaw(error.message, true);
+    setHeroStatusKey("status.queryFailed", {}, "critical");
   } finally {
     setBusy(false);
   }
 }
 
 function renderStatus(data) {
+  currentStatusData = data;
   const remaining = numberOrNull(data.remaining);
   view.remaining.textContent = formatNumber(remaining);
   view.dailyAvg.textContent = formatNumber(data.daily_avg_kwh);
   view.daysLeft.textContent = data.est_days_left == null ? "--" : formatNumber(data.est_days_left);
   view.daysLeftDate.textContent = formatEstimatedDateText(data.last_record, data.est_days_left);
   view.totalUsed.textContent = formatNumber(data.total_used_kwh);
-  view.roomLabel.textContent = `${data.campus_name || "--"} ${data.building_name || "--"} ${data.room_name || "--"}`;
+  view.roomLabel.textContent = `${bilingualCampusName(data.campus_name) || "--"} ${bilingualBuildingName(data.building_name) || "--"} ${data.room_name || "--"}`;
   view.lastRecord.textContent = data.last_record || "--";
-  view.records.textContent = `${data.records ?? 0} 条`;
+  view.records.textContent = formatRecordCount(data.records ?? 0);
 
   if (data.period) {
-    view.period.textContent = `${data.period.begin} 至 ${data.period.end}`;
+    view.period.textContent = t("format.dateRange", {
+      begin: data.period.begin,
+      end: data.period.end,
+    });
   } else {
     view.period.textContent = "--";
   }
@@ -296,7 +501,7 @@ function renderStatus(data) {
   const status = data.status || "unknown";
   view.statusBadge.className = `badge ${status}`;
   view.statusBadge.textContent = statusText(status);
-  setHeroStatus(statusText(status), status);
+  setHeroStatusRaw(statusText(status), status);
 
   const threshold = Number(data.threshold_kwh || 20);
   const meterMax = Math.max(threshold * 3, 60);
@@ -309,12 +514,12 @@ function renderStatus(data) {
 }
 
 function renderRecharges(recharges) {
-  view.rechargeCount.textContent = `${recharges.length} 条`;
+  view.rechargeCount.textContent = formatRecordCount(recharges.length);
   view.rechargeList.innerHTML = "";
   view.rechargeList.classList.toggle("empty", recharges.length === 0);
 
   if (recharges.length === 0) {
-    view.rechargeList.textContent = "暂无数据";
+    view.rechargeList.textContent = t("empty.noData");
     return;
   }
 
@@ -324,9 +529,9 @@ function renderRecharges(recharges) {
     row.innerHTML = `
       <div>
         <strong>+${formatNumber(item.kwh)} kWh</strong>
-        <span>${item.time || "未知时间"} · ${item.method || "未知方式"}</span>
+        <span>${item.time || t("empty.unknownTime")} · ${paymentMethodText(item.method)}</span>
       </div>
-      <strong>${formatNumber(item.yuan)} 元</strong>
+      <strong>${formatNumber(item.yuan)} ${t("unit.yuan")}</strong>
     `;
     view.rechargeList.append(row);
   }
@@ -338,8 +543,8 @@ function renderTrend(trend) {
   view.trendChart.classList.toggle("empty", points.length < 2);
 
   if (points.length < 2) {
-    view.trendChart.textContent = "暂无趋势数据";
-    view.chartRange.textContent = "暂无数据";
+    view.trendChart.textContent = t("empty.noTrend");
+    view.chartRange.textContent = t("empty.noData");
     return;
   }
 
@@ -375,10 +580,13 @@ function renderTrend(trend) {
 
   const firstDate = shortDate(points[0].date);
   const lastDate = shortDate(points[points.length - 1].date);
-  view.chartRange.textContent = `${firstDate} 至 ${lastDate}`;
+  view.chartRange.textContent = t("format.dateRange", {
+    begin: firstDate,
+    end: lastDate,
+  });
 
   view.trendChart.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="余额与用电趋势图">
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${t("chart.svgLabel")}">
       <line class="chart-axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
       <line class="chart-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
       <line class="chart-grid" x1="${padding.left}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top}"></line>
@@ -389,8 +597,8 @@ function renderTrend(trend) {
       ${dots}
       <text class="chart-label" x="${padding.left}" y="${height - 14}">${firstDate}</text>
       <text class="chart-label" x="${width - padding.right - 52}" y="${height - 14}">${lastDate}</text>
-      <text class="chart-label" x="${padding.left}" y="14">余额 kWh</text>
-      <text class="chart-label" x="${width - padding.right - 88}" y="14">柱: 日用电</text>
+      <text class="chart-label" x="${padding.left}" y="14">${t("chart.balanceLabel")}</text>
+      <text class="chart-label" x="${width - padding.right - 96}" y="14">${t("chart.dailyUseLabel")}</text>
     </svg>
   `;
 }
@@ -398,7 +606,7 @@ function renderTrend(trend) {
 function chooseDefaultBuildingForCampus() {
   const defaultChoice = preferredChoice() || choicesForCurrentCampus()[0] || buildingChoices[0];
   if (defaultChoice) {
-    fields.buildingSearch.value = defaultChoice.displayName;
+    fields.buildingSearch.value = defaultChoice.displayLabel;
   }
 }
 
@@ -416,15 +624,18 @@ function syncSelectedBuilding() {
 
 function selectedBuilding() {
   const text = fields.buildingSearch.value.trim();
-  const exactChoice = buildingChoices.find((item) => item.displayName === text);
+  const normalizedText = text.toLowerCase();
+  const exactChoice = buildingChoices.find(
+    (item) => item.displayName === text || item.displayLabel === text || buildingEnglishName(item.displayName) === text
+  );
   if (exactChoice) {
     return pickVariantForRoom(exactChoice.variants);
   }
 
   const choices = choicesForCurrentCampus();
   const choice =
-    choices.find((item) => item.displayName === text) ||
-    choices.find((item) => item.displayName.includes(text)) ||
+    choices.find((item) => item.displayName === text || item.displayLabel === text) ||
+    choices.find((item) => item.searchText.includes(normalizedText)) ||
     preferredChoice() ||
     choices[0] ||
     buildingChoices[0];
@@ -492,9 +703,29 @@ function setBusy(isBusy) {
   });
 }
 
+function setMessageKey(key, values = {}, isError = false) {
+  lastMessage = { key, values, isError, raw: null };
+  setMessage(t(key, values), isError);
+}
+
+function setMessageRaw(text, isError = false) {
+  lastMessage = { key: null, values: {}, isError, raw: text };
+  setMessage(text, isError);
+}
+
 function setMessage(text, isError = false) {
   message.textContent = text;
   message.classList.toggle("error", isError);
+}
+
+function setHeroStatusKey(key, values = {}, status = "unknown") {
+  lastHeroStatus = { key, values, status, raw: null };
+  setHeroStatus(t(key, values), status);
+}
+
+function setHeroStatusRaw(text, status = "unknown") {
+  lastHeroStatus = { key: null, values: {}, status, raw: text };
+  setHeroStatus(text, status);
 }
 
 function setHeroStatus(text, status = "unknown") {
@@ -504,11 +735,11 @@ function setHeroStatus(text, status = "unknown") {
 
 function statusText(status) {
   return {
-    ok: "电量充足",
-    low: "低电量",
-    critical: "即将耗尽",
-    unknown: "暂无数据",
-  }[status] || "暂无数据";
+    ok: t("powerStatus.ok"),
+    low: t("powerStatus.low"),
+    critical: t("powerStatus.critical"),
+    unknown: t("powerStatus.unknown"),
+  }[status] || t("powerStatus.unknown");
 }
 
 function statusColor(status) {
@@ -530,10 +761,127 @@ function formatNumber(value) {
   if (number == null) {
     return "--";
   }
-  return number.toLocaleString("zh-CN", {
+  return number.toLocaleString(currentLocale, {
     maximumFractionDigits: 2,
     minimumFractionDigits: Number.isInteger(number) ? 0 : 1,
   });
+}
+
+function formatRecordCount(count) {
+  return t("format.records", { count });
+}
+
+function paymentMethodText(method) {
+  if (!method) {
+    return t("empty.unknownMethod");
+  }
+  return {
+    微信支付: t("payment.wechat"),
+    支付宝: t("payment.alipay"),
+  }[method] || method;
+}
+
+function bilingualCampusName(name) {
+  return campusLabels[name] || name || "";
+}
+
+function bilingualSourceCampusName(name) {
+  return sourceCampusLabels[name] || name || "";
+}
+
+function bilingualBuildingName(name) {
+  if (!name) {
+    return "";
+  }
+  const english = buildingEnglishName(name);
+  return english ? `${name} / ${english}` : name;
+}
+
+function buildingEnglishName(name) {
+  if (!name) {
+    return "";
+  }
+  const base = baseBuildingName(name);
+  return buildingEnglishNames[base] || "";
+}
+
+function resolveInitialLocale() {
+  const requested = new URLSearchParams(location.search).get("lang");
+  const queryLocale = LOCALE_QUERY[requested];
+  if (queryLocale) {
+    return queryLocale;
+  }
+
+  try {
+    const stored = localStorage.getItem("electrifyszu.locale");
+    if (translations[stored]) {
+      return stored;
+    }
+  } catch {
+    // localStorage may be unavailable on some static hosts.
+  }
+
+  return DEFAULT_LOCALE;
+}
+
+function setLanguage(locale, options = {}) {
+  if (!translations[locale]) {
+    locale = DEFAULT_LOCALE;
+  }
+  currentLocale = locale;
+  document.documentElement.lang = locale;
+  document.title = t("meta.title");
+
+  if (options.persist !== false) {
+    try {
+      localStorage.setItem("electrifyszu.locale", locale);
+    } catch {
+      // The language switch still works for the current page.
+    }
+  }
+
+  languageButtons.forEach((button) => {
+    const isSelected = button.dataset.lang === locale;
+    button.classList.toggle("active", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  });
+
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    element.setAttribute("placeholder", t(element.dataset.i18nPlaceholder));
+  });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  });
+
+  if (buildingChoices.length > 0) {
+    renderCampusOptions();
+  }
+  if (currentStatusData) {
+    renderStatus(currentStatusData);
+  } else {
+    view.rechargeCount.textContent = formatRecordCount(0);
+  }
+
+  if (lastMessage.raw != null) {
+    setMessage(lastMessage.raw, lastMessage.isError);
+  } else {
+    setMessage(t(lastMessage.key, lastMessage.values), lastMessage.isError);
+  }
+
+  if (lastHeroStatus.raw != null) {
+    setHeroStatus(lastHeroStatus.raw, lastHeroStatus.status);
+  } else {
+    setHeroStatus(t(lastHeroStatus.key, lastHeroStatus.values), lastHeroStatus.status);
+  }
+}
+
+function t(key, values = {}) {
+  const dictionary = translations[currentLocale] || translations[DEFAULT_LOCALE];
+  const fallback = translations[DEFAULT_LOCALE][key] || key;
+  return (dictionary[key] || fallback).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
 }
 
 function shortDate(value) {
@@ -544,9 +892,11 @@ function shortDate(value) {
 function formatEstimatedDateText(lastRecord, daysLeft) {
   const estimatedDate = estimateAvailableUntilDate(lastRecord, daysLeft);
   if (!estimatedDate) {
-    return "暂无预计日期";
+    return currentLocale === "zh-CN" ? "暂无预计日期" : "No estimated date";
   }
-  return `预计到 ${formatDisplayDate(estimatedDate)}`;
+  return currentLocale === "zh-CN"
+    ? `预计到 ${formatDisplayDate(estimatedDate)}`
+    : `Until ${formatDisplayDate(estimatedDate)}`;
 }
 
 function estimateAvailableUntilDate(lastRecord, daysLeft) {
@@ -597,7 +947,7 @@ function parseIsoDate(value) {
 }
 
 function formatDisplayDate(date) {
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(currentLocale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

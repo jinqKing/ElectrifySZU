@@ -11,112 +11,118 @@
       <section class="hero" aria-labelledby="page-title">
         <div>
           <p class="eyebrow">SZU Dorm Power Monitor</p>
-          <h1 id="page-title">宿舍不断电：电费仪表盘</h1>
-          <p class="subtitle">搜索宿舍楼栋并输入房间号，自动完成查询并展示余额和使用情况。</p>
+          <h1 id="page-title" data-i18n="hero.title">宿舍不断电：电费仪表盘</h1>
+          <p class="subtitle" data-i18n="hero.subtitle">搜索宿舍楼栋并输入房间号，自动完成查询并展示余额和使用情况。</p>
         </div>
-        <div class="hero-status" id="heroStatus">
-          <span class="pulse"></span>
-          <span>等待查询</span>
+        <div class="hero-side">
+          <div class="language-switcher" role="group" aria-label="Language">
+            <button type="button" data-lang="zh-CN" aria-pressed="true">中文</button>
+            <button type="button" data-lang="en-US" aria-pressed="false">English</button>
+          </div>
+          <div class="hero-status" id="heroStatus">
+            <span class="pulse"></span>
+            <span data-i18n="status.waiting">等待查询</span>
+          </div>
         </div>
       </section>
 
-      <section class="query-panel" aria-label="查询条件">
+      <section class="query-panel" aria-label="查询条件" data-i18n-aria-label="query.ariaLabel">
         <form id="queryForm" class="query-form">
           <label>
-            <span>校区</span>
+            <span data-i18n="form.campus">校区</span>
             <select id="campusGroup">
-              <option value="yuehai" selected>粤海</option>
-              <option value="lihu">丽湖</option>
+              <option value="yuehai" data-i18n="campus.yuehai" selected>粤海</option>
+              <option value="lihu" data-i18n="campus.lihu">丽湖</option>
             </select>
             <input id="client" name="client" type="hidden" value="192.168.84.87" />
             <input id="campusName" name="campusName" type="hidden" value="粤海" />
           </label>
           <label>
-            <span>宿舍楼栋</span>
+            <span data-i18n="form.building">宿舍楼栋</span>
             <div class="combo">
-              <input id="buildingSearch" value="风槐斋" placeholder="搜索宿舍楼栋" autocomplete="off" />
+              <input id="buildingSearch" value="风槐斋" placeholder="搜索宿舍楼栋" data-i18n-placeholder="form.buildingPlaceholder" autocomplete="off" />
               <div id="buildingOptions" class="combo-list" role="listbox"></div>
             </div>
             <input id="buildingId" name="buildingId" type="hidden" value="7126" />
             <input id="buildingName" name="buildingName" type="hidden" value="风槐斋" />
           </label>
           <label>
-            <span>房间号</span>
-            <input id="roomName" name="roomName" value="713" placeholder="例如 713" autocomplete="off" />
+            <span data-i18n="form.room">房间号</span>
+            <input id="roomName" name="roomName" value="713" placeholder="例如 713" data-i18n-placeholder="form.roomPlaceholder" autocomplete="off" />
           </label>
           <label>
-            <span>统计天数</span>
+            <span data-i18n="form.days">统计天数</span>
             <input id="days" name="days" type="number" min="1" max="180" value="30" />
           </label>
           <div class="actions">
-            <button class="primary" type="submit">查询余额</button>
-            <button class="secondary" type="button" id="demoButton">载入演示</button>
+            <button class="primary" type="submit" data-i18n="form.submit">查询余额</button>
+            <button class="secondary" type="button" id="demoButton" data-i18n="form.demo">载入演示</button>
           </div>
         </form>
-        <p class="message query-hint" id="message">
+        <p class="message query-hint" id="message" data-i18n="message.initial">
           连接校园网后查询真实余额，可先载入演示数据预览效果。
         </p>
       </section>
 
       <section class="metrics" aria-live="polite">
         <article class="metric balance">
-          <span class="metric-label">当前余额</span>
+          <span class="metric-label" data-i18n="metrics.remaining">当前余额</span>
           <strong id="remaining">--</strong>
           <small>kWh</small>
         </article>
         <article class="metric">
-          <span class="metric-label">日均用电</span>
+          <span class="metric-label" data-i18n="metrics.dailyAvg">日均用电</span>
           <strong id="dailyAvg">--</strong>
           <small>kWh / day</small>
         </article>
         <article class="metric">
-          <span class="metric-label">预计可用</span>
+          <span class="metric-label" data-i18n="metrics.daysLeft">预计可用</span>
           <strong id="daysLeft">--</strong>
           <small id="daysLeftDate" class="metric-subtext">--</small>
-          <small>days</small>
+          <small data-i18n="unit.days">days</small>
         </article>
         <article class="metric">
-          <span class="metric-label">周期用电</span>
+          <span class="metric-label" data-i18n="metrics.totalUsed">周期用电</span>
           <strong id="totalUsed">--</strong>
           <small>kWh</small>
         </article>
       </section>
 
-      <section class="chart-panel" aria-label="用电趋势">
+      <section class="chart-panel" aria-label="用电趋势" data-i18n-aria-label="chart.ariaLabel">
         <div class="section-head">
           <div>
-            <h2>余额与用电趋势</h2>
-            <p class="section-note">余额走势和每日用电量会在查询后自动更新。</p>
+            <h2 data-i18n="chart.title">余额与用电趋势</h2>
+            <p class="section-note" data-i18n="chart.note">余额走势和每日用电量会在查询后自动更新。</p>
           </div>
-          <span id="chartRange">暂无数据</span>
+          <span id="chartRange" data-i18n="empty.noData">暂无数据</span>
         </div>
-        <div id="trendChart" class="trend-chart empty">暂无趋势数据</div>
+        <div id="trendChart" class="trend-chart empty" data-i18n="empty.noTrend">暂无趋势数据</div>
       </section>
 
       <section class="details-grid">
         <article class="detail">
           <div class="section-head">
-            <h2>预警状态</h2>
-            <span class="badge" id="statusBadge">未查询</span>
+            <h2 data-i18n="details.warning">预警状态</h2>
+            <span class="badge" id="statusBadge" data-i18n="status.unchecked">未查询</span>
           </div>
           <div class="meter" aria-hidden="true">
             <div id="meterFill"></div>
           </div>
           <dl class="facts">
             <div>
-              <dt>房间</dt>
+              <dt data-i18n="details.room">房间</dt>
               <dd id="roomLabel">--</dd>
             </div>
             <div>
-              <dt>最近记录</dt>
+              <dt data-i18n="details.lastRecord">最近记录</dt>
               <dd id="lastRecord">--</dd>
             </div>
             <div>
-              <dt>统计周期</dt>
+              <dt data-i18n="details.period">统计周期</dt>
               <dd id="period">--</dd>
             </div>
             <div>
-              <dt>记录数</dt>
+              <dt data-i18n="details.records">记录数</dt>
               <dd id="records">--</dd>
             </div>
           </dl>
@@ -124,10 +130,10 @@
 
         <article class="detail">
           <div class="section-head">
-            <h2>最近充值</h2>
+            <h2 data-i18n="recharge.title">最近充值</h2>
             <span id="rechargeCount">0 条</span>
           </div>
-          <div id="rechargeList" class="recharge-list empty">暂无数据</div>
+          <div id="rechargeList" class="recharge-list empty" data-i18n="empty.noData">暂无数据</div>
         </article>
       </section>
 

@@ -48,6 +48,40 @@ select {
   margin-bottom: 24px;
 }
 
+.hero-side {
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+}
+
+.language-switcher {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: var(--shadow);
+}
+
+.language-switcher button {
+  min-height: 36px;
+  border-radius: 0;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.language-switcher button + button {
+  border-left: 1px solid var(--line);
+}
+
+.language-switcher button.active {
+  background: var(--surface-strong);
+  color: #fff;
+}
+
 .eyebrow {
   margin: 0 0 10px;
   color: var(--blue);
@@ -486,6 +520,10 @@ dd {
   .hero {
     display: grid;
     align-items: start;
+  }
+
+  .hero-side {
+    justify-items: start;
   }
 
   .metrics {
