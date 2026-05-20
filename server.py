@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent
 MONITOR_DIR = ROOT / "room-power-monitor"
 WEB_DIR = ROOT / "web"
 BUILDINGS_FILE = MONITOR_DIR / "data" / "buildings.txt"
+ENV_FILE = ROOT / ".env"
 sys.path.insert(0, str(MONITOR_DIR))
 
 from src.api import DormApi  # noqa: E402
@@ -22,6 +23,7 @@ from src.config import Config  # noqa: E402
 from src.discover import discover_room_id  # noqa: E402
 from subscription_alerts.subscriptions import (  # noqa: E402
     AlertSettings,
+    AlertRunner,
     SubscriptionStore,
     start_alert_worker,
 )
@@ -45,6 +47,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/unsubscribe":
             self._handle_unsubscribe(parse_qs(parsed.query))
             return
+        if parsed.path == "/api/alerts/check":
+            self._handle_alert_check(parse_qs(parsed.query))
+            return
         self._serve_static(parsed.path)
 
     def do_POST(self) -> None:
@@ -59,7 +64,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _handle_status(self, query: dict[str, list[str]]) -> None:
         try:
-            config = Config.from_env(str(MONITOR_DIR / ".env"))
+            config = Config.from_env(str(ENV_FILE))
             client = _query_value(query, "client") or config.client
             campus_name = _query_value(query, "campusName") or config.campus_name
             config.client = client
@@ -99,7 +104,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_buildings(self) -> None:
-        config = Config.from_env(str(MONITOR_DIR / ".env"))
+        config = Config.from_env(str(ENV_FILE))
         data = merge_campuses(
             default_campuses(config),
             load_buildings_file(),
@@ -108,8 +113,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _handle_subscription(self) -> None:
         try:
-            config = Config.from_env(str(MONITOR_DIR / ".env"))
-            settings = AlertSettings.from_env(MONITOR_DIR)
+            config = Config.from_env(str(ENV_FILE))
+            settings = AlertSettings.from_env(ROOT)
             store = SubscriptionStore(settings.csv_path)
             data = self._read_request_data()
             subscription = store.upsert(
@@ -154,7 +159,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_unsubscribe(self, query: dict[str, list[str]]) -> None:
-        settings = AlertSettings.from_env(MONITOR_DIR)
+        settings = AlertSettings.from_env(ROOT)
         token = _query_value(query, "token")
         ok = SubscriptionStore(settings.csv_path).unsubscribe(token)
         if ok:
@@ -329,11 +334,24 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the ElectrifySZU dashboard.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8000, type=int)
+    parser.add_argument(
+        "--check-now",
+        action="store_true",
+        help="Run one alert check immediately before serving.",
+    )
+    parser.add_argument(
+        "--no-skip",
+        action="store_true",
+        help="Do not skip subscriptions already alerted today.",
+    )
     args = parser.parse_args()
 
     server = ThreadingHTTPServer((args.host, args.port), DashboardHandler)
     print(f"ElectrifySZU dashboard: http://{args.host}:{args.port}")
-    start_alert_worker(MONITOR_DIR)
+    if args.check_now:
+        stats = AlertRunner(ROOT).run_once(skip_recent=not args.no_skip)
+        print(f"[alert] startup check finished: {stats}")
+    start_alert_worker(ROOT, skip_recent=not args.no_skip)
     server.serve_forever()
 
 

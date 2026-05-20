@@ -1,11 +1,21 @@
+import argparse
 import os
 import smtplib
+import sys
 from dataclasses import dataclass
 from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import formataddr
+from pathlib import Path
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+MONITOR_DIR = PROJECT_DIR / "room-power-monitor"
+if str(MONITOR_DIR) not in sys.path:
+    sys.path.insert(0, str(MONITOR_DIR))
 
 from src.config import _load_dotenv
+
+DEFAULT_ENV_FILE = PROJECT_DIR / ".env"
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -33,8 +43,8 @@ class EmailConfig:
     sender_name: str = "电费预警系统"
 
     @classmethod
-    def from_env(cls, env_path: str = ".env") -> "EmailConfig":
-        _load_dotenv(env_path)
+    def from_env(cls, env_path: str | os.PathLike[str] | None = None) -> "EmailConfig":
+        _load_dotenv(str(env_path or DEFAULT_ENV_FILE))
         smtp_host = require_env("SMTP_HOST")
         if smtp_host in {"smtp.example.com", "example.com"}:
             raise RuntimeError("SMTP_HOST is still a placeholder.")
@@ -90,3 +100,28 @@ class EmailService:
             server.sendmail(self.config.sender_email, [to_email], message.as_string())
         finally:
             server.quit()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Send a standalone ElectrifySZU test email.")
+    parser.add_argument("--to", required=True, help="Recipient email address.")
+    parser.add_argument("--subject", default="??????", help="Email subject.")
+    parser.add_argument("--content", default="?????????", help="Email body.")
+    parser.add_argument("--env", default=str(DEFAULT_ENV_FILE), help="Path to the project .env file.")
+    parser.add_argument("--show-config", action="store_true", help="Print the resolved sender and SMTP settings before sending.")
+    args = parser.parse_args()
+
+    config = EmailConfig.from_env(args.env)
+    if args.show_config:
+        print(f"sender_name={config.sender_name}")
+        print(f"sender_email={config.sender_email}")
+        print(f"smtp_host={config.smtp_host}:{config.smtp_port}")
+        print(f"smtp_ssl={config.smtp_ssl}")
+        print(f"smtp_starttls={config.smtp_starttls}")
+
+    EmailService(config).send_text(args.to, args.subject, args.content)
+    print(f"sent to {args.to}")
+
+
+if __name__ == "__main__":
+    main()
