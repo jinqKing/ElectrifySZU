@@ -18,6 +18,7 @@ const view = {
   remaining: document.querySelector("#remaining"),
   dailyAvg: document.querySelector("#dailyAvg"),
   daysLeft: document.querySelector("#daysLeft"),
+  daysLeftDate: document.querySelector("#daysLeftDate"),
   totalUsed: document.querySelector("#totalUsed"),
   roomLabel: document.querySelector("#roomLabel"),
   lastRecord: document.querySelector("#lastRecord"),
@@ -280,6 +281,7 @@ function renderStatus(data) {
   view.remaining.textContent = formatNumber(remaining);
   view.dailyAvg.textContent = formatNumber(data.daily_avg_kwh);
   view.daysLeft.textContent = data.est_days_left == null ? "--" : formatNumber(data.est_days_left);
+  view.daysLeftDate.textContent = formatEstimatedDateText(data.last_record, data.est_days_left);
   view.totalUsed.textContent = formatNumber(data.total_used_kwh);
   view.roomLabel.textContent = `${data.campus_name || "--"} ${data.building_name || "--"} ${data.room_name || "--"}`;
   view.lastRecord.textContent = data.last_record || "--";
@@ -537,6 +539,49 @@ function formatNumber(value) {
 function shortDate(value) {
   const text = String(value || "");
   return text.length >= 10 ? text.slice(5, 10) : text || "--";
+}
+
+function formatEstimatedDateText(lastRecord, daysLeft) {
+  const estimatedDate = estimateAvailableUntilDate(lastRecord, daysLeft);
+  if (!estimatedDate) {
+    return "暂无预计日期";
+  }
+  return `预计到 ${formatDisplayDate(estimatedDate)}`;
+}
+
+function estimateAvailableUntilDate(lastRecord, daysLeft) {
+  const baseDate = parseIsoDate(lastRecord);
+  const days = numberOrNull(daysLeft);
+  if (!baseDate || days == null || days < 0) {
+    return null;
+  }
+  const estimatedDate = new Date(baseDate);
+  estimatedDate.setDate(estimatedDate.getDate() + Math.ceil(days));
+  return estimatedDate;
+}
+
+function parseIsoDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+function formatDisplayDate(date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 function staticCampuses() {
