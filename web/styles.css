@@ -241,6 +241,54 @@ label {
   font-weight: 700;
 }
 
+.email-input-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.email-input-group:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.email-input-group input {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.email-input-group input:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.email-domain-hint {
+  flex-shrink: 0;
+  padding-right: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.email-input-group.has-custom-domain .email-domain-hint {
+  display: none;
+}
+
+.field-hint {
+  color: #7a8797;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 input,
 select {
   width: 100%;

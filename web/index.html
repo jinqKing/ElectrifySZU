@@ -78,7 +78,20 @@
         <form id="subscriptionForm" class="subscription-form">
           <label>
             <span data-i18n="subscribe.email">预警邮箱</span>
-            <input id="subscriberEmail" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
+            <div class="email-input-group" data-default-domain="@email.szu.edu.cn">
+              <input
+                id="subscriberEmail"
+                name="email"
+                type="text"
+                inputmode="email"
+                placeholder="yourid"
+                data-i18n-placeholder="subscribe.emailPlaceholder"
+                autocomplete="email"
+                required
+              />
+              <span class="email-domain-hint" id="subscriberEmailDomainHint" aria-hidden="true">@email.szu.edu.cn</span>
+            </div>
+            <small class="field-hint" data-i18n="subscribe.emailHint">可只填写邮箱前缀，默认补全 @email.szu.edu.cn；也支持输入其他完整邮箱。</small>
           </label>
           <button class="secondary" type="submit" data-i18n="subscribe.submit">订阅低电量预警</button>
         </form>
