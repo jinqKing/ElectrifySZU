@@ -160,6 +160,16 @@ h2 {
   align-items: end;
 }
 
+.subscription-form {
+  display: grid;
+  grid-template-columns: minmax(240px, 360px) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
 .query-hint {
   margin: 12px 0 0;
   color: #7a8797;
@@ -513,6 +523,7 @@ dd {
 @media (max-width: 880px) {
   .hero,
   .query-form,
+  .subscription-form,
   .details-grid {
     grid-template-columns: 1fr;
   }

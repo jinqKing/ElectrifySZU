@@ -62,6 +62,13 @@
         <p class="message query-hint" id="message" data-i18n="message.initial">
           连接校园网后查询真实余额，可先载入演示数据预览效果。
         </p>
+        <form id="subscriptionForm" class="subscription-form">
+          <label>
+            <span data-i18n="subscribe.email">预警邮箱</span>
+            <input id="subscriberEmail" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
+          </label>
+          <button class="secondary" type="submit" data-i18n="subscribe.submit">订阅低电量预警</button>
+        </form>
       </section>
 
       <section class="metrics" aria-live="polite">
