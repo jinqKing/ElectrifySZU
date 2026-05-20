@@ -5,34 +5,7 @@
     timeoutAfterMs: 9000,
   };
 
-  const COPY = {
-    "zh-CN": {
-      lines: [
-        "电费正在快速消耗，请求也在一路狂奔。",
-        "校园网可能在绕路，但我们已经追上去了。",
-        "电费账单正在飞速发送中。",
-        "正在敲门叫醒宿舍电表。",
-      ],
-      timeoutLines: [
-        "这次有点久，校园网可能断了又连上了。",
-        "还没回来，服务器也许正在翻旧账单。",
-        "如果继续转圈，稍后再试一次会更稳。",
-      ],
-    },
-    "en-US": {
-      lines: [
-        "Power is draining fast, and the request is sprinting after it.",
-        "The campus network may be taking the scenic route.",
-        "Your power bill is being dispatched at top speed.",
-        "Knocking on the meter room door right now.",
-      ],
-      timeoutLines: [
-        "This is taking a while. The campus network may have blinked.",
-        "Still waiting. The server might be digging through old bills.",
-        "If it keeps spinning, trying again in a moment may help.",
-      ],
-    },
-  };
+  const COPY = window.ElectrifySZUI18n?.loadingStatusCopy || {};
 
   function localeCopy(locale) {
     return COPY[locale] || COPY["zh-CN"];
