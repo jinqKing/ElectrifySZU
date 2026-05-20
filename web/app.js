@@ -1,4 +1,5 @@
 const form = document.querySelector("#queryForm");
+const subscriptionForm = document.querySelector("#subscriptionForm");
 const demoButton = document.querySelector("#demoButton");
 const message = document.querySelector("#message");
 const heroStatus = document.querySelector("#heroStatus");
@@ -13,6 +14,7 @@ const fields = {
   buildingName: document.querySelector("#buildingName"),
   roomName: document.querySelector("#roomName"),
   days: document.querySelector("#days"),
+  subscriberEmail: document.querySelector("#subscriberEmail"),
 };
 
 const view = {
@@ -66,6 +68,11 @@ const translations = {
     "form.days": "统计天数",
     "form.submit": "查询余额",
     "form.demo": "载入演示",
+    "subscribe.email": "预警邮箱",
+    "subscribe.submit": "订阅低电量预警",
+    "subscribe.saving": "正在保存订阅...",
+    "subscribe.saved": "订阅已保存。余额低于阈值时，系统每天最多发送一次预警邮件。",
+    "subscribe.needsBackend": "订阅功能需要后端服务，GitHub Pages 预览页不会保存邮箱。",
     "message.initial": "连接校园网后查询真实余额，可先载入演示数据预览效果。",
     "message.staticPage": "GitHub Pages 只能托管静态页面，真实查询需要运行本地后端：uv run electrifyszu，或部署一个可访问的后端 API。",
     "message.staticMode": "当前为静态页面模式，真实查询需要连接后端服务。",
@@ -125,6 +132,11 @@ const translations = {
     "form.days": "Days",
     "form.submit": "Check balance",
     "form.demo": "Load demo",
+    "subscribe.email": "Alert email",
+    "subscribe.submit": "Subscribe to low-balance alerts",
+    "subscribe.saving": "Saving subscription...",
+    "subscribe.saved": "Subscription saved. The system sends at most one low-balance alert per day.",
+    "subscribe.needsBackend": "Subscriptions need the backend service; the GitHub Pages preview will not save email addresses.",
     "message.initial": "Connect to the campus network for live balances, or load demo data to preview the dashboard.",
     "message.staticPage": "GitHub Pages can only host the static page. Live queries need the local backend: uv run electrifyszu, or a deployed API endpoint.",
     "message.staticMode": "Static page mode is active. Live queries need a backend service.",
@@ -238,6 +250,17 @@ form.addEventListener("submit", async (event) => {
   await loadStatus(apiUrl("/api/status") + "?" + new URLSearchParams(new FormData(form)));
 });
 
+subscriptionForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  syncSelectedBuilding();
+  if (!canUseBackend()) {
+    setMessageKey("subscribe.needsBackend", {}, true);
+    setHeroStatusKey("status.needBackend", {}, "critical");
+    return;
+  }
+  await saveSubscription();
+});
+
 fields.campusGroup.addEventListener("change", () => {
   chooseDefaultBuildingForCampus();
   renderBuildingOptions();
@@ -319,6 +342,44 @@ async function fetchJson(url) {
     throw new Error(payload.hint || payload.error || t("error.requestFailed"));
   }
   return payload;
+}
+
+async function postJson(url, data) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  if (!contentType.includes("application/json")) {
+    throw new Error(t("error.nonJson"));
+  }
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.hint || payload.error || t("error.requestFailed"));
+  }
+  return payload;
+}
+
+async function saveSubscription() {
+  setSubscriptionBusy(true);
+  setMessageKey("subscribe.saving");
+  try {
+    const payload = await postJson(apiUrl("/api/subscriptions"), {
+      email: fields.subscriberEmail.value,
+      client: fields.client.value,
+      campusName: fields.campusName.value,
+      buildingId: fields.buildingId.value,
+      buildingName: fields.buildingName.value,
+      roomName: fields.roomName.value,
+    });
+    setMessageRaw(payload.message || t("subscribe.saved"));
+  } catch (error) {
+    setMessageRaw(error.message, true);
+  } finally {
+    setSubscriptionBusy(false);
+  }
 }
 
 function loadStaticBuildings() {
@@ -699,6 +760,12 @@ function floorRange(name) {
 
 function setBusy(isBusy) {
   form.querySelectorAll("button, input, select").forEach((element) => {
+    element.disabled = isBusy;
+  });
+}
+
+function setSubscriptionBusy(isBusy) {
+  subscriptionForm.querySelectorAll("button, input").forEach((element) => {
     element.disabled = isBusy;
   });
 }
