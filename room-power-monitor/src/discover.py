@@ -24,15 +24,18 @@ import httpx
 
 from .config import Config
 
-BASE_URL = "http://192.168.84.3:9090/cgcSims"
+CONFIG = Config.from_env()
+BASE_URL = CONFIG.base_url.rstrip("/")
 
 
 def get_proxy() -> str:
+    Config.from_env()
     return os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy") or ""
 
 
-def list_buildings(client_ip: str = "192.168.84.87") -> dict:
+def list_buildings(client_ip: str = "") -> dict:
     """获取楼栋列表，返回 {buildingId: buildingName}"""
+    client_ip = client_ip or CONFIG.client
     client = httpx.Client(proxy=get_proxy() or None)
     r = client.get(f"{BASE_URL}/login.do?task=station&client={client_ip}")
     opts = re.findall(rb'<option value="(\d+)">([^<]*)</option>', r.content)
@@ -40,7 +43,7 @@ def list_buildings(client_ip: str = "192.168.84.87") -> dict:
 
 
 def discover_room_id(building_id: str, room_name: str,
-                     client_ip: str = "192.168.84.87") -> str | None:
+                     client_ip: str = "") -> str | None:
     """
     通过登录表单获取 roomId。
 
@@ -52,6 +55,7 @@ def discover_room_id(building_id: str, room_name: str,
     Returns:
         roomId 字符串，找不到返回 None
     """
+    client_ip = client_ip or CONFIG.client
     client = httpx.Client(proxy=get_proxy() or None)
 
     # Step 1: GET login page
@@ -107,7 +111,7 @@ def main():
         return
 
     if sys.argv[1] == "--list":
-        print("楼栋列表 (client=192.168.84.87):\n")
+        print(f"楼栋列表 (client={CONFIG.client}):\n")
         buildings = list_buildings()
         for bid, name in buildings.items():
             print(f"  buildingId={bid:>6}    {name}")
@@ -129,7 +133,7 @@ def main():
         print(f"\n  将以下配置加入 .env:")
         print(f"  DORM_ROOM_ID={room_id}")
         print(f"  DORM_ROOM_NAME={room_name}")
-        print(f"  DORM_CLIENT=192.168.84.87")
+        print(f"  DORM_CLIENT={CONFIG.client}")
     else:
         print(f"\n  [!] 未找到。请确认:")
         print(f"      - buildingId 正确 (用 --list 查看)")

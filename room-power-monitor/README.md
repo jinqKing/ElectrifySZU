@@ -2,7 +2,9 @@
 
 > ElectrifySZU 的宿舍电费查询模块。
 
-本目录保留查询校园电费系统所需的 Python 代码、配置模板和楼栋数据。它面向命令行、本地 API 代理和部署在校园内网的服务器使用；公开的 GitHub Pages 页面只展示静态仪表盘，不直接运行这里的 Python 代码。
+本目录保留查询校园电费系统所需的 Python 代码和楼栋数据。它面向命令行、本地 API 代理和部署在校园内网的服务器使用；公开的 GitHub Pages 页面只展示静态仪表盘，不直接运行这里的 Python 代码。
+
+项目配置统一放在仓库根目录 `.env`，模板为根目录 `.env.example`。本模块不再维护自己的 `.env`。
 
 ## 工作原理
 
@@ -31,8 +33,6 @@
 
 ```
 room-power-monitor/
-├── .env                # 房间配置
-├── .env.example        # 模板
 ├── src/
 │   ├── config.py       # .env 读取
 │   ├── api.py          # selectList.do 客户端
@@ -45,12 +45,13 @@ room-power-monitor/
 ## 使用
 
 ```bash
-# 配置（.env）
+# 配置（仓库根目录 .env）
 DORM_ROOM_ID=7322
 DORM_ROOM_NAME=713
 DORM_CLIENT=192.168.84.87
 
 # 命令行
+cd ..
 python -m src.cli status         # 当前状态
 python -m src.cli status 714     # 换房间
 python -m src.cli json           # JSON 输出

@@ -2,6 +2,11 @@
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+PACKAGE_DIR = Path(__file__).resolve().parents[1]
+PROJECT_DIR = PACKAGE_DIR.parent
+DEFAULT_ENV_FILE = PROJECT_DIR / ".env"
 
 
 @dataclass
@@ -17,8 +22,8 @@ class Config:
     low_power_threshold: float = 20.0
 
     @classmethod
-    def from_env(cls, env_file: str = ".env") -> "Config":
-        _load_dotenv(env_file)
+    def from_env(cls, env_file: str | os.PathLike[str] | None = None) -> "Config":
+        _load_dotenv(str(env_file or DEFAULT_ENV_FILE))
         return cls(
             base_url=os.getenv("DORM_API_BASE", cls.base_url),
             client=os.getenv("DORM_CLIENT", cls.client),

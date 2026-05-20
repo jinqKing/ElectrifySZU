@@ -6,10 +6,16 @@ import re
 import secrets
 import threading
 import time
+import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+MONITOR_DIR = PROJECT_DIR / "room-power-monitor"
+if str(MONITOR_DIR) not in sys.path:
+    sys.path.insert(0, str(MONITOR_DIR))
 
 from src.api import DormApi
 from src.config import Config, _load_dotenv
@@ -170,7 +176,9 @@ class SubscriptionStore:
         temp_path.replace(self.path)
 
 
-def build_subscription(values: dict[str, Any], default_threshold: float) -> Subscription:
+def build_subscription(
+    values: dict[str, Any], default_threshold: float
+) -> Subscription:
     email = str(values.get("email", "")).strip().lower()
     if not EMAIL_PATTERN.match(email):
         raise ValueError("请输入有效的邮箱地址。")
@@ -228,13 +236,13 @@ class AlertSettings:
     env_path: Path
 
     @classmethod
-    def from_env(cls, monitor_dir: Path) -> "AlertSettings":
-        env_path = monitor_dir / ".env"
+    def from_env(cls, project_dir: Path) -> "AlertSettings":
+        env_path = project_dir / ".env"
         _load_dotenv(str(env_path))
-        default_csv = monitor_dir / "data" / "subscriptions.csv"
+        default_csv = project_dir / "data" / "subscriptions.csv"
         csv_path = Path(_env("SUBSCRIPTIONS_CSV", str(default_csv)))
         if not csv_path.is_absolute():
-            csv_path = monitor_dir / csv_path
+            csv_path = project_dir / csv_path
         return cls(
             csv_path=csv_path,
             check_time=_env("ALERT_CHECK_TIME", "08:00"),
@@ -245,25 +253,40 @@ class AlertSettings:
 
 
 class AlertRunner:
-    def __init__(self, monitor_dir: Path):
-        self.monitor_dir = monitor_dir
-        self.settings = AlertSettings.from_env(monitor_dir)
+    def __init__(self, project_dir: Path):
+        self.project_dir = project_dir
+        self.settings = AlertSettings.from_env(project_dir)
         self.store = SubscriptionStore(self.settings.csv_path)
 
-    def run_once(self) -> dict[str, int]:
+    def run_once(self, skip_recent: bool = True) -> dict[str, int]:
         today = date.today().isoformat()
         stats = {"checked": 0, "sent": 0, "skipped": 0, "failed": 0}
         for subscription in self.store.list_enabled():
             stats["checked"] += 1
             try:
-                if subscription.last_alert_date == today:
+                if skip_recent and subscription.last_alert_date == today:
                     stats["skipped"] += 1
+                    print(
+                        "[alert] skipped "
+                        f"{subscription.email} {subscription.building_name} "
+                        f"{subscription.room_name} {subscription.last_alert_date}"
+                    )
                     continue
                 sent = self._check_subscription(subscription, today)
                 if sent:
                     stats["sent"] += 1
+                    print(
+                        "[alert] sent "
+                        f"{subscription.email} {subscription.building_name} "
+                        f"{subscription.room_name} {subscription.last_alert_date}"
+                    )
                 else:
                     stats["skipped"] += 1
+                    print(
+                        "[alert] skipped because of _check_subscription "
+                        f"{subscription.email} {subscription.building_name} "
+                        f"{subscription.room_name} {subscription.last_alert_date}"
+                    )
             except Exception as exc:
                 stats["failed"] += 1
                 print(
@@ -273,10 +296,10 @@ class AlertRunner:
                 )
         return stats
 
-    def run_forever(self) -> None:
+    def run_forever(self, skip_recent: bool = True) -> None:
         print(
             "[alert] daily subscription worker started; "
-            f"check_time={self.settings.check_time}, csv={self.settings.csv_path}"
+            f"check_time={self.settings.check_time}, skip_recent={skip_recent}, csv={self.settings.csv_path}"
         )
         while True:
             now = datetime.now()
@@ -284,7 +307,7 @@ class AlertRunner:
             sleep_seconds = max((next_run - now).total_seconds(), 1)
             time.sleep(min(sleep_seconds, self.settings.loop_interval_seconds))
             if datetime.now() >= next_run:
-                stats = self.run_once()
+                stats = self.run_once(skip_recent=skip_recent)
                 print(f"[alert] daily check finished: {stats}")
                 time.sleep(60)
 
@@ -321,9 +344,14 @@ class AlertRunner:
         return True
 
 
-def start_alert_worker(monitor_dir: Path) -> threading.Thread:
-    runner = AlertRunner(monitor_dir)
-    thread = threading.Thread(target=runner.run_forever, name="alert-worker", daemon=True)
+def start_alert_worker(project_dir: Path, skip_recent: bool = True) -> threading.Thread:
+    runner = AlertRunner(project_dir)
+    thread = threading.Thread(
+        target=runner.run_forever,
+        kwargs={"skip_recent": skip_recent},
+        name="alert-worker",
+        daemon=True,
+    )
     thread.start()
     return thread
 
