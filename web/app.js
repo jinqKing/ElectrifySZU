@@ -33,6 +33,7 @@ const view = {
 
 let campuses = [];
 let allBuildings = [];
+let buildingChoices = [];
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -50,6 +51,15 @@ fields.buildingSearch.addEventListener("change", syncSelectedBuilding);
 fields.buildingSearch.addEventListener("input", () => {
   renderBuildingOptions(fields.buildingSearch.value);
 });
+fields.buildingSearch.addEventListener("focus", () => {
+  renderBuildingOptions("");
+});
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".combo")) {
+    closeBuildingOptions();
+  }
+});
 
 demoButton.addEventListener("click", async () => {
   await loadStatus("/api/demo-status");
@@ -64,6 +74,7 @@ async function loadBuildings() {
     if (Array.isArray(payload.data) && payload.data.length > 0) {
       campuses = normalizeCampuses(payload.data);
       allBuildings = flattenBuildings(campuses);
+      buildingChoices = mergeBuildingChoices(allBuildings);
       renderCampusOptions();
       chooseDefaultBuildingForCampus();
       renderBuildingOptions();
@@ -97,12 +108,45 @@ function flattenBuildings(campusData) {
     return (campus.buildings || []).map((building) => ({
       id: building.id,
       name: building.name,
+      ...floorRange(building.name),
       client: campus.client,
       campusName: uiCampus,
       campusGroup,
       sourceCampusName: campus.name,
     }));
   });
+}
+
+function mergeBuildingChoices(buildings) {
+  const groups = new Map();
+  for (const building of buildings) {
+    const key = `${building.campusGroup}:${baseBuildingName(building.name)}`;
+    const current = groups.get(key) || {
+      displayName: baseBuildingName(building.name),
+      campusGroup: building.campusGroup,
+      campusName: building.campusName,
+      sourceCampusNames: new Set(),
+      variants: [],
+    };
+    current.sourceCampusNames.add(building.sourceCampusName);
+    current.variants.push(building);
+    groups.set(key, current);
+  }
+
+  return [...groups.values()].map((group) => ({
+    ...group,
+    sourceCampusName: [...group.sourceCampusNames].join(" / "),
+    variants: group.variants.sort((a, b) => (a.minFloor || 0) - (b.minFloor || 0)),
+  }));
+}
+
+function baseBuildingName(name) {
+  return name
+    .replace(/阁?\d+\s*-\s*\d+层?/g, "")
+    .replace(/\d+\s*-\s*\d+楼/g, "")
+    .replace(/\d+\s*-\s*\d+$/g, "")
+    .replace(/阁$/, "")
+    .trim();
 }
 
 function renderCampusOptions() {
@@ -126,26 +170,36 @@ function renderCampusOptions() {
 
 function renderBuildingOptions(filter = "") {
   const keyword = filter.trim().toLowerCase();
-  const options = allBuildings
-    .filter((building) => {
+  const options = buildingChoices
+    .filter((choice) => {
+      if (!keyword && choice.campusGroup !== fields.campusGroup.value) {
+        return false;
+      }
       if (!keyword) {
         return true;
       }
       return (
-        building.name.toLowerCase().includes(keyword) ||
-        building.campusName.toLowerCase().includes(keyword) ||
-        building.sourceCampusName.toLowerCase().includes(keyword)
+        choice.displayName.toLowerCase().includes(keyword) ||
+        choice.sourceCampusName.toLowerCase().includes(keyword) ||
+        choice.variants.some((building) => building.name.toLowerCase().includes(keyword))
       );
     })
-    .slice(0, 80);
+    .slice(0, 5);
 
-  const datalist = document.querySelector("#buildingOptions");
-  datalist.innerHTML = "";
-  for (const building of options) {
-    const option = document.createElement("option");
-    option.value = building.name;
-    option.label = `${building.campusName} · ${building.sourceCampusName}`;
-    datalist.append(option);
+  const list = document.querySelector("#buildingOptions");
+  list.innerHTML = "";
+  list.classList.toggle("open", options.length > 0);
+  for (const choice of options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "combo-option";
+    button.innerHTML = `${choice.displayName}<small>${choice.campusName} · ${choice.sourceCampusName}</small>`;
+    button.addEventListener("click", () => {
+      fields.buildingSearch.value = choice.displayName;
+      syncSelectedBuilding();
+      closeBuildingOptions();
+    });
+    list.append(button);
   }
 }
 
@@ -287,9 +341,9 @@ function renderTrend(trend) {
 }
 
 function chooseDefaultBuildingForCampus() {
-  const defaultBuilding = preferredBuilding() || buildingsForCurrentCampus()[0] || allBuildings[0];
-  if (defaultBuilding) {
-    fields.buildingSearch.value = defaultBuilding.name;
+  const defaultChoice = preferredChoice() || choicesForCurrentCampus()[0] || buildingChoices[0];
+  if (defaultChoice) {
+    fields.buildingSearch.value = defaultChoice.displayName;
   }
 }
 
@@ -307,24 +361,74 @@ function syncSelectedBuilding() {
 
 function selectedBuilding() {
   const text = fields.buildingSearch.value.trim();
-  const exact = allBuildings.filter((building) => building.name === text);
-  const scopedExact = exact.find((building) => building.campusGroup === fields.campusGroup.value);
-  if (scopedExact || exact[0]) {
-    return scopedExact || exact[0];
+  const exactChoice = buildingChoices.find((item) => item.displayName === text);
+  if (exactChoice) {
+    return pickVariantForRoom(exactChoice.variants);
   }
 
-  const fuzzy = allBuildings.find((building) => building.name.includes(text));
-  return fuzzy || preferredBuilding() || buildingsForCurrentCampus()[0] || allBuildings[0];
+  const choices = choicesForCurrentCampus();
+  const choice =
+    choices.find((item) => item.displayName === text) ||
+    choices.find((item) => item.displayName.includes(text)) ||
+    preferredChoice() ||
+    choices[0] ||
+    buildingChoices[0];
+
+  if (!choice) {
+    return null;
+  }
+
+  return pickVariantForRoom(choice.variants);
 }
 
-function preferredBuilding() {
-  return allBuildings.find(
-    (building) => building.client === "192.168.84.87" && building.id === "7126"
+function pickVariantForRoom(variants) {
+  const floor = roomFloor(fields.roomName.value);
+  if (floor != null) {
+    const matched = variants.find((building) => {
+      if (building.minFloor == null || building.maxFloor == null) {
+        return false;
+      }
+      return floor >= building.minFloor && floor <= building.maxFloor;
+    });
+    if (matched) {
+      return matched;
+    }
+  }
+  return variants[0];
+}
+
+function preferredChoice() {
+  return buildingChoices.find(
+    (choice) => choice.variants.some((building) => building.client === "192.168.84.87" && building.id === "7126")
   );
 }
 
-function buildingsForCurrentCampus() {
-  return allBuildings.filter((building) => building.campusGroup === fields.campusGroup.value);
+function choicesForCurrentCampus() {
+  return buildingChoices.filter((choice) => choice.campusGroup === fields.campusGroup.value);
+}
+
+function closeBuildingOptions() {
+  document.querySelector("#buildingOptions").classList.remove("open");
+}
+
+function roomFloor(roomName) {
+  const match = String(roomName || "").match(/\d+/);
+  if (!match) {
+    return null;
+  }
+  const digits = match[0];
+  if (digits.length < 3) {
+    return null;
+  }
+  return Number(digits.slice(0, -2));
+}
+
+function floorRange(name) {
+  const match = name.match(/(\d+)\s*-\s*(\d+)(?:层|楼)?/);
+  if (!match) {
+    return { minFloor: null, maxFloor: null };
+  }
+  return { minFloor: Number(match[1]), maxFloor: Number(match[2]) };
 }
 
 function setBusy(isBusy) {
