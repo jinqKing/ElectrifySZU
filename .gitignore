@@ -1,0 +1,28 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Local environment and secrets
+.env
+*.env
+!.env.example
+
+# Captured campus portal responses may contain room/session details
+room-power-monitor/data/*.html
+
+# Local data stores and temporary files
+*.db
+*.sqlite
+*.tmp
+.DS_Store
+
+# IDE
+.idea/
+.vscode/

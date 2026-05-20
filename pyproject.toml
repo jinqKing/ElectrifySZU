@@ -1,0 +1,10 @@
+[project]
+name = "electrifyszu"
+version = "0.1.0"
+description = "SZU dorm power balance dashboard and alerting toolkit"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28.1",
+    "xlrd>=2.0.1",
+]
