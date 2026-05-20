@@ -276,6 +276,11 @@ button:disabled {
   font-weight: 700;
 }
 
+.metric-subtext {
+  min-height: 18px;
+  font-size: 12px;
+}
+
 .balance {
   background: var(--surface-strong);
   color: #fff;
