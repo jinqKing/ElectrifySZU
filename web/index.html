@@ -59,7 +59,7 @@
             <button class="secondary" type="button" id="demoButton" data-i18n="form.demo">载入演示</button>
           </div>
         </form>
-        <p class="message query-hint" id="message" data-i18n="message.initial">
+        <p class="message query-hint" id="message" data-i18n="message.initial" aria-live="polite">
           连接校园网后查询真实余额，可先载入演示数据预览效果。
         </p>
         <form id="subscriptionForm" class="subscription-form">
@@ -146,6 +146,7 @@
 
     </main>
 
+    <script src="loading-status.js" defer></script>
     <script src="app.js" defer></script>
   </body>
 </html>
