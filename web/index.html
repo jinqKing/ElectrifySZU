@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ElectrifySZU 电费仪表盘</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">SZU Dorm Power Monitor</p>
+          <h1 id="page-title">电费余额仪表盘</h1>
+          <p class="subtitle">输入房间参数后查询当前余额、近期用电和预计可用天数。</p>
+        </div>
+        <div class="hero-status" id="heroStatus">
+          <span class="pulse"></span>
+          <span>等待查询</span>
+        </div>
+      </section>
+
+      <section class="query-panel" aria-label="查询条件">
+        <form id="queryForm" class="query-form">
+          <label>
+            <span>roomId</span>
+            <input id="roomId" name="roomId" placeholder="例如 7322" autocomplete="off" />
+          </label>
+          <label>
+            <span>房间号</span>
+            <input id="roomName" name="roomName" placeholder="例如 713" autocomplete="off" />
+          </label>
+          <label>
+            <span>统计天数</span>
+            <input id="days" name="days" type="number" min="1" max="180" value="30" />
+          </label>
+          <div class="actions">
+            <button class="primary" type="submit">查询余额</button>
+            <button class="secondary" type="button" id="demoButton">载入演示</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="metrics" aria-live="polite">
+        <article class="metric balance">
+          <span class="metric-label">当前余额</span>
+          <strong id="remaining">--</strong>
+          <small>kWh</small>
+        </article>
+        <article class="metric">
+          <span class="metric-label">日均用电</span>
+          <strong id="dailyAvg">--</strong>
+          <small>kWh / day</small>
+        </article>
+        <article class="metric">
+          <span class="metric-label">预计可用</span>
+          <strong id="daysLeft">--</strong>
+          <small>days</small>
+        </article>
+        <article class="metric">
+          <span class="metric-label">周期用电</span>
+          <strong id="totalUsed">--</strong>
+          <small>kWh</small>
+        </article>
+      </section>
+
+      <section class="details-grid">
+        <article class="detail">
+          <div class="section-head">
+            <h2>预警状态</h2>
+            <span class="badge" id="statusBadge">未查询</span>
+          </div>
+          <div class="meter" aria-hidden="true">
+            <div id="meterFill"></div>
+          </div>
+          <dl class="facts">
+            <div>
+              <dt>房间</dt>
+              <dd id="roomLabel">--</dd>
+            </div>
+            <div>
+              <dt>最近记录</dt>
+              <dd id="lastRecord">--</dd>
+            </div>
+            <div>
+              <dt>统计周期</dt>
+              <dd id="period">--</dd>
+            </div>
+            <div>
+              <dt>记录数</dt>
+              <dd id="records">--</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="detail">
+          <div class="section-head">
+            <h2>最近充值</h2>
+            <span id="rechargeCount">0 条</span>
+          </div>
+          <div id="rechargeList" class="recharge-list empty">暂无数据</div>
+        </article>
+      </section>
+
+      <p class="message" id="message">
+        请先确认已连接校园网；也可以使用演示数据预览仪表盘效果。
+      </p>
+    </main>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
