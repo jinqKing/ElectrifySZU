@@ -12,3 +12,9 @@ The format follows the spirit of Keep a Changelog, and this project uses a light
 - Added the existing `room-power-monitor` crawler/query module.
 - Added public project documentation, MIT license, and repository hygiene rules.
 - Prepared the project for GitHub collaboration before the dashboard MVP work starts.
+- Added the first static dashboard MVP with a local Python API proxy.
+- Added demo data support for offline presentation previews.
+
+### Changed
+
+- Made the status query period dynamic instead of hard-coding a single date range.

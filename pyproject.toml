@@ -8,3 +8,6 @@ dependencies = [
     "httpx>=0.28.1",
     "xlrd>=2.0.1",
 ]
+
+[project.scripts]
+electrifyszu = "server:main"
