@@ -81,7 +81,14 @@ async function loadBuildings() {
       syncSelectedBuilding();
     }
   } catch {
-    setMessage("暂时无法加载校区楼栋列表，已使用默认选项。", true);
+    campuses = staticCampuses();
+    allBuildings = flattenBuildings(campuses);
+    buildingChoices = mergeBuildingChoices(allBuildings);
+    renderCampusOptions();
+    chooseDefaultBuildingForCampus();
+    renderBuildingOptions();
+    syncSelectedBuilding();
+    setMessage("当前为静态页面模式，真实查询需要连接后端服务。");
   }
 }
 
@@ -215,6 +222,12 @@ async function loadStatus(url) {
     renderStatus(payload.data);
     setMessage("查询完成。");
   } catch (error) {
+    if (url.includes("/api/demo-status")) {
+      renderStatus(staticDemoStatus());
+      setMessage("已载入静态演示数据。");
+      setBusy(false);
+      return;
+    }
     setMessage(error.message, true);
     setHeroStatus("查询失败", "critical");
   } finally {
@@ -484,4 +497,74 @@ function formatNumber(value) {
 function shortDate(value) {
   const text = String(value || "");
   return text.length >= 10 ? text.slice(5, 10) : text || "--";
+}
+
+function staticCampuses() {
+  return [
+    {
+      client: "192.168.84.87",
+      name: "深大新斋区",
+      buildings: [
+        { id: "7126", name: "风槐斋" },
+        { id: "7603", name: "雨鹃斋" },
+        { id: "17887", name: "蓬莱客舍" },
+        { id: "18118", name: "聚翰斋" },
+        { id: "18119", name: "紫薇斋" },
+        { id: "18120", name: "红豆斋" },
+      ],
+    },
+    {
+      client: "192.168.84.1",
+      name: "北校区",
+      buildings: [
+        { id: "6363", name: "乔林11-12层" },
+        { id: "6364", name: "乔木11-12层" },
+        { id: "6875", name: "乔森阁2-10层" },
+        { id: "6876", name: "乔森11-20层" },
+        { id: "6877", name: "乔相阁2-10层" },
+      ],
+    },
+    {
+      client: "172.21.101.11",
+      name: "西丽校区",
+      buildings: [
+        { id: "10057", name: "A栋风信子" },
+        { id: "10934", name: "B栋山楂树" },
+        { id: "10935", name: "C栋胡杨林" },
+      ],
+    },
+  ];
+}
+
+function staticDemoStatus() {
+  return {
+    client: "192.168.84.87",
+    campus_name: "粤海",
+    building_id: "7126",
+    building_name: "风槐斋",
+    room_id: "7322",
+    room_name: "713",
+    period: { begin: "2026-04-20", end: "2026-05-20", days: 30 },
+    records: 30,
+    threshold_kwh: 20,
+    status: "low",
+    remaining: 18.6,
+    total_used_kwh: 42.8,
+    daily_avg_kwh: 1.43,
+    est_days_left: 13.0,
+    last_record: "2026-05-20",
+    trend: [
+      { date: "2026-05-14", remaining: 27.8, daily_used_kwh: 1.5 },
+      { date: "2026-05-15", remaining: 26.1, daily_used_kwh: 1.7 },
+      { date: "2026-05-16", remaining: 24.9, daily_used_kwh: 1.2 },
+      { date: "2026-05-17", remaining: 23.0, daily_used_kwh: 1.9 },
+      { date: "2026-05-18", remaining: 21.4, daily_used_kwh: 1.6 },
+      { date: "2026-05-19", remaining: 20.0, daily_used_kwh: 1.4 },
+      { date: "2026-05-20", remaining: 18.6, daily_used_kwh: 1.4 },
+    ],
+    recharges: [
+      { time: "2026-05-08", kwh: 50, yuan: 30.5, method: "微信支付" },
+      { time: "2026-04-19", kwh: 30, yuan: 18.3, method: "支付宝" },
+    ],
+  };
 }
