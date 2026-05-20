@@ -73,14 +73,12 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  padding: 0 13px;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.82);
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 800;
+  color: #181717;
   text-decoration: none;
   box-shadow: var(--shadow);
   transition:
@@ -92,8 +90,26 @@ select {
 .repo-link:hover,
 .repo-link:focus-visible {
   border-color: rgba(37, 99, 235, 0.35);
-  color: var(--blue);
+  color: #181717;
   transform: translateY(-1px);
+}
+
+.repo-link svg {
+  width: 19px;
+  height: 19px;
+  display: block;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .language-switcher {
@@ -773,10 +789,13 @@ dd {
     width: 100%;
   }
 
-  .repo-link,
   .language-switcher,
   .hero-status {
     width: 100%;
+  }
+
+  .repo-link {
+    width: 36px;
   }
 
   .language-switcher button {
