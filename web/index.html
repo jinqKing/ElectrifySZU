@@ -24,16 +24,18 @@
         <form id="queryForm" class="query-form">
           <label>
             <span>校区</span>
-            <select id="client" name="client">
-              <option value="192.168.84.87" selected>深大新斋区</option>
+            <select id="campusGroup">
+              <option value="yuehai" selected>粤海</option>
+              <option value="lihu">丽湖</option>
             </select>
-            <input id="campusName" name="campusName" type="hidden" value="深大新斋区" />
+            <input id="client" name="client" type="hidden" value="192.168.84.87" />
+            <input id="campusName" name="campusName" type="hidden" value="粤海" />
           </label>
           <label>
             <span>宿舍楼栋</span>
-            <select id="buildingId" name="buildingId">
-              <option value="7126" selected>风槐斋</option>
-            </select>
+            <input id="buildingSearch" list="buildingOptions" value="风槐斋" placeholder="搜索宿舍楼栋" autocomplete="off" />
+            <datalist id="buildingOptions"></datalist>
+            <input id="buildingId" name="buildingId" type="hidden" value="7126" />
             <input id="buildingName" name="buildingName" type="hidden" value="风槐斋" />
           </label>
           <label>
@@ -49,6 +51,9 @@
             <button class="secondary" type="button" id="demoButton">载入演示</button>
           </div>
         </form>
+        <p class="message query-hint" id="message">
+          连接校园网后查询真实余额，也可先载入演示数据预览效果。
+        </p>
       </section>
 
       <section class="metrics" aria-live="polite">
@@ -72,6 +77,17 @@
           <strong id="totalUsed">--</strong>
           <small>kWh</small>
         </article>
+      </section>
+
+      <section class="chart-panel" aria-label="用电趋势">
+        <div class="section-head">
+          <div>
+            <h2>余额与用电趋势</h2>
+            <p class="section-note">余额走势和每日用电量会在查询后自动更新。</p>
+          </div>
+          <span id="chartRange">暂无数据</span>
+        </div>
+        <div id="trendChart" class="trend-chart empty">暂无趋势数据</div>
       </section>
 
       <section class="details-grid">
@@ -112,9 +128,6 @@
         </article>
       </section>
 
-      <p class="message" id="message">
-        请先确认已连接校园网；也可以使用演示数据预览仪表盘效果。
-      </p>
     </main>
 
     <script src="/app.js" defer></script>

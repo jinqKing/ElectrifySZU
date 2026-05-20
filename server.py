@@ -193,7 +193,7 @@ def demo_status() -> dict[str, object]:
         "data": {
             "building_id": "7126",
             "client": "192.168.84.87",
-            "campus_name": "深大新斋区",
+            "campus_name": "粤海",
             "building_name": "风槐斋",
             "room_id": "7322",
             "room_name": "713",
@@ -206,6 +206,15 @@ def demo_status() -> dict[str, object]:
             "daily_avg_kwh": 1.43,
             "est_days_left": 13.0,
             "last_record": "2026-05-20",
+            "trend": [
+                {"date": "2026-05-14", "remaining": 27.8, "daily_used_kwh": 1.5},
+                {"date": "2026-05-15", "remaining": 26.1, "daily_used_kwh": 1.7},
+                {"date": "2026-05-16", "remaining": 24.9, "daily_used_kwh": 1.2},
+                {"date": "2026-05-17", "remaining": 23.0, "daily_used_kwh": 1.9},
+                {"date": "2026-05-18", "remaining": 21.4, "daily_used_kwh": 1.6},
+                {"date": "2026-05-19", "remaining": 20.0, "daily_used_kwh": 1.4},
+                {"date": "2026-05-20", "remaining": 18.6, "daily_used_kwh": 1.4},
+            ],
             "recharges": [
                 {"time": "2026-05-08", "kwh": 50, "yuan": 30.5, "method": "微信支付"},
                 {"time": "2026-04-19", "kwh": 30, "yuan": 18.3, "method": "支付宝"},

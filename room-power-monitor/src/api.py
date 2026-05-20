@@ -101,6 +101,7 @@ class DormApi:
             "threshold_kwh": threshold,
             "status": "unknown",
             "recharges": [],
+            "trend": [],
         }
 
         if usage:
@@ -110,6 +111,7 @@ class DormApi:
             remaining = _to_float(last.get(keys[2]))
             total_used = max(_to_float(last.get(keys[3])) - _to_float(first.get(keys[3])), 0)
             daily_avg = round(total_used / max(len(usage), 1), 2)
+            result["trend"] = _build_trend(usage, keys)
 
             result.update(
                 {
@@ -171,3 +173,21 @@ def _status_level(remaining: float, threshold: float | None) -> str:
     if threshold is not None and remaining <= threshold:
         return "low"
     return "ok"
+
+
+def _build_trend(records: list[dict[str, Any]], keys: list[Any]) -> list[dict[str, Any]]:
+    trend: list[dict[str, Any]] = []
+    previous_total: float | None = None
+    for row in records:
+        total = _to_float(row.get(keys[3]))
+        daily_used = 0.0 if previous_total is None else max(total - previous_total, 0.0)
+        trend.append(
+            {
+                "date": str(row.get(keys[5], "")),
+                "remaining": _to_float(row.get(keys[2])),
+                "daily_used_kwh": round(daily_used, 2),
+                "total_used_kwh": total,
+            }
+        )
+        previous_total = total
+    return trend
