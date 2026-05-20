@@ -113,26 +113,37 @@
       </section>
 
       <section class="metrics" aria-live="polite">
-        <article class="metric balance">
+        <article class="metric balance" data-metric-card data-metric-key="remaining" role="button" tabindex="0" aria-label="Toggle current balance unit">
           <span class="metric-label" data-i18n="metrics.remaining">当前余额</span>
-          <strong id="remaining">--</strong>
-          <small>kWh</small>
+          <div class="metric-main">
+            <strong id="remaining">--</strong>
+            <small id="remainingUnit">kWh</small>
+          </div>
+          <small id="remainingAlt" class="metric-alt">--</small>
         </article>
-        <article class="metric">
+        <article class="metric" data-metric-card data-metric-key="dailyAvg" role="button" tabindex="0" aria-label="Toggle daily average unit">
           <span class="metric-label" data-i18n="metrics.dailyAvg">日均用电</span>
-          <strong id="dailyAvg">--</strong>
-          <small>kWh / day</small>
+          <div class="metric-main">
+            <strong id="dailyAvg">--</strong>
+            <small id="dailyAvgUnit">kWh / day</small>
+          </div>
+          <small id="dailyAvgAlt" class="metric-alt">--</small>
         </article>
-        <article class="metric">
+        <article class="metric" data-metric-card data-metric-key="daysLeft" role="button" tabindex="0" aria-label="Toggle estimated days amount">
           <span class="metric-label" data-i18n="metrics.daysLeft">预计可用</span>
-          <strong id="daysLeft">--</strong>
+          <div class="metric-main">
+            <strong id="daysLeft">--</strong>
+            <small id="daysLeftUnit" data-i18n="unit.days">days</small>
+          </div>
           <small id="daysLeftDate" class="metric-subtext">--</small>
-          <small data-i18n="unit.days">days</small>
         </article>
-        <article class="metric">
+        <article class="metric" data-metric-card data-metric-key="totalUsed" role="button" tabindex="0" aria-label="Toggle period usage unit">
           <span class="metric-label" data-i18n="metrics.totalUsed">周期用电</span>
-          <strong id="totalUsed">--</strong>
-          <small>kWh</small>
+          <div class="metric-main">
+            <strong id="totalUsed">--</strong>
+            <small id="totalUsedUnit">kWh</small>
+          </div>
+          <small id="totalUsedAlt" class="metric-alt">--</small>
         </article>
       </section>
 

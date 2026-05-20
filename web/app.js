@@ -21,10 +21,17 @@ const fields = {
 
 const view = {
   remaining: document.querySelector("#remaining"),
+  remainingUnit: document.querySelector("#remainingUnit"),
+  remainingAlt: document.querySelector("#remainingAlt"),
   dailyAvg: document.querySelector("#dailyAvg"),
+  dailyAvgUnit: document.querySelector("#dailyAvgUnit"),
+  dailyAvgAlt: document.querySelector("#dailyAvgAlt"),
   daysLeft: document.querySelector("#daysLeft"),
+  daysLeftUnit: document.querySelector("#daysLeftUnit"),
   daysLeftDate: document.querySelector("#daysLeftDate"),
   totalUsed: document.querySelector("#totalUsed"),
+  totalUsedUnit: document.querySelector("#totalUsedUnit"),
+  totalUsedAlt: document.querySelector("#totalUsedAlt"),
   roomLabel: document.querySelector("#roomLabel"),
   lastRecord: document.querySelector("#lastRecord"),
   period: document.querySelector("#period"),
@@ -51,6 +58,8 @@ const IS_STATIC_PAGE =
   location.hostname === "github.io";
 const DEFAULT_LOCALE = "zh-CN";
 const DEFAULT_EMAIL_DOMAIN = "@email.szu.edu.cn";
+const DEFAULT_YUAN_PER_KWH = 0.61;
+const MONEY_UNIT = "￥";
 const translations = window.ElectrifySZUI18n?.translations || {};
 translations["zh-CN"] ||= {};
 translations["en-US"] ||= {};
@@ -124,6 +133,12 @@ const buildingEnglishNames = {
 };
 let currentLocale = resolveInitialLocale();
 const loadingStatusController = window.ElectrifySZULoadingStatus?.createController(message, loadingStatusOptions()) || null;
+const metricMode = {
+  remaining: "kwh",
+  dailyAvg: "kwh",
+  daysLeft: "days",
+  totalUsed: "kwh",
+};
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -161,6 +176,16 @@ fields.buildingSearch.addEventListener("focus", () => {
   renderBuildingOptions("");
 });
 fields.subscriberEmail.addEventListener("input", syncEmailInputState);
+
+document.querySelectorAll("[data-metric-card]").forEach((card) => {
+  card.addEventListener("click", () => toggleMetricMode(card.dataset.metricKey));
+  card.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggleMetricMode(card.dataset.metricKey);
+    }
+  });
+});
 
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".combo")) {
@@ -468,11 +493,7 @@ async function loadStatus(url) {
 function renderStatus(data) {
   currentStatusData = data;
   const remaining = numberOrNull(data.remaining);
-  view.remaining.textContent = formatNumber(remaining);
-  view.dailyAvg.textContent = formatNumber(data.daily_avg_kwh);
-  view.daysLeft.textContent = data.est_days_left == null ? "--" : formatNumber(data.est_days_left);
-  view.daysLeftDate.textContent = formatEstimatedDateText(data.last_record, data.est_days_left);
-  view.totalUsed.textContent = formatNumber(data.total_used_kwh);
+  renderMetricCards(data);
   view.roomLabel.textContent = `${bilingualCampusName(data.campus_name) || "--"} ${bilingualBuildingName(data.building_name) || "--"} ${data.room_name || "--"}`;
   view.lastRecord.textContent = data.last_record || "--";
   view.records.textContent = formatRecordCount(data.records ?? 0);
@@ -499,6 +520,73 @@ function renderStatus(data) {
 
   renderRecharges(data.recharges || []);
   renderTrend(data.trend || []);
+}
+
+function renderMetricCards(data) {
+  const rate = yuanPerKwh(data);
+  const dailyAvg = numberOrNull(data.daily_avg_kwh);
+  const daysLeft = numberOrNull(data.est_days_left);
+  const totalUsed = numberOrNull(data.total_used_kwh);
+
+  setPowerMetric("remaining", numberOrNull(data.remaining), rate, {
+    kwhUnit: "kWh",
+    yuanUnit: MONEY_UNIT,
+  });
+  setPowerMetric("dailyAvg", dailyAvg, rate, {
+    kwhUnit: "kWh / day",
+    yuanUnit: `${MONEY_UNIT} / day`,
+  });
+  setDaysMetric(daysLeft, data.last_record);
+  setPowerMetric("totalUsed", totalUsed, rate, {
+    kwhUnit: "kWh",
+    yuanUnit: MONEY_UNIT,
+  });
+}
+
+function setPowerMetric(key, kwhValue, rate, units) {
+  const isYuanMode = metricMode[key] === "yuan";
+  const yuanValue = kwhValue == null ? null : kwhValue * rate;
+  const primaryValue = isYuanMode ? yuanValue : kwhValue;
+  const secondaryValue = isYuanMode ? kwhValue : yuanValue;
+  const primaryUnit = isYuanMode ? units.yuanUnit : units.kwhUnit;
+  const secondaryUnit = isYuanMode ? units.kwhUnit : units.yuanUnit;
+
+  view[key].textContent = isYuanMode ? formatMoneyNumber(primaryValue) : formatNumber(primaryValue);
+  view[`${key}Unit`].textContent = primaryUnit;
+  view[`${key}Alt`].textContent = secondaryValue == null
+    ? "--"
+    : isYuanMode
+      ? `${formatNumber(secondaryValue)} ${secondaryUnit}`
+      : formatMoney(secondaryValue);
+}
+
+function setDaysMetric(daysLeft, lastRecord) {
+  const isDateMode = metricMode.daysLeft === "date";
+  const estimatedDate = estimateAvailableUntilDate(lastRecord, daysLeft);
+  const dateText = estimatedDate ? formatDisplayDate(estimatedDate) : "--";
+  const daysText = daysLeft == null ? "--" : `${formatNumber(daysLeft)} ${t("unit.days")}`;
+
+  document.querySelector('[data-metric-key="daysLeft"] .metric-label').textContent = isDateMode
+    ? daysLeftDateLabel()
+    : t("metrics.daysLeft");
+  view.daysLeft.textContent = isDateMode ? dateText : formatNumber(daysLeft);
+  view.daysLeftUnit.textContent = isDateMode ? "" : t("unit.days");
+  view.daysLeftUnit.hidden = isDateMode;
+  view.daysLeftDate.textContent = isDateMode
+    ? daysText
+    : formatEstimatedDateText(lastRecord, daysLeft);
+}
+
+function toggleMetricMode(key) {
+  if (!key || !metricMode[key]) {
+    return;
+  }
+  metricMode[key] = metricMode[key] === "yuan" || metricMode[key] === "date"
+    ? (key === "daysLeft" ? "days" : "kwh")
+    : (key === "daysLeft" ? "date" : "yuan");
+  if (currentStatusData) {
+    renderMetricCards(currentStatusData);
+  }
 }
 
 function renderRecharges(recharges) {
@@ -762,6 +850,38 @@ function formatNumber(value) {
   });
 }
 
+function formatMoney(value) {
+  const text = formatMoneyNumber(value);
+  return text === "--" ? text : `${MONEY_UNIT}${text}`;
+}
+
+function formatMoneyNumber(value) {
+  const number = numberOrNull(value);
+  if (number == null) {
+    return "--";
+  }
+  return number.toLocaleString(currentLocale, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  });
+}
+
+function yuanPerKwh(data) {
+  const rates = (data.recharges || [])
+    .map((item) => {
+      const yuan = numberOrNull(item.yuan);
+      const kwh = numberOrNull(item.kwh);
+      return yuan != null && kwh > 0 ? yuan / kwh : null;
+    })
+    .filter((rate) => rate != null && Number.isFinite(rate) && rate > 0);
+
+  if (rates.length === 0) {
+    return DEFAULT_YUAN_PER_KWH;
+  }
+
+  return rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
+}
+
 function formatRecordCount(count) {
   return t("format.records", { count });
 }
@@ -916,6 +1036,10 @@ function formatEstimatedDateText(lastRecord, daysLeft) {
   return currentLocale === "zh-CN"
     ? `预计到 ${formatDisplayDate(estimatedDate)}`
     : `Until ${formatDisplayDate(estimatedDate)}`;
+}
+
+function daysLeftDateLabel() {
+  return currentLocale === "zh-CN" ? "预计到" : "Until";
 }
 
 function estimateAvailableUntilDate(lastRecord, daysLeft) {
