@@ -414,33 +414,75 @@ button:disabled {
 }
 
 .metric {
+  position: relative;
+  display: grid;
+  align-content: start;
   min-height: 154px;
   padding: 20px;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.metric:hover,
+.metric:focus-visible {
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 22px 48px rgba(24, 39, 75, 0.14);
+  transform: translateY(-2px);
+}
+
+.metric:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.24);
+  outline-offset: 3px;
 }
 
 .metric-label {
   display: block;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   color: var(--muted);
   font-size: 14px;
   font-weight: 800;
 }
 
+.metric-main {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+}
+
 .metric strong {
-  display: block;
-  font-size: 42px;
+  display: inline-block;
+  min-width: 0;
+  font-size: clamp(32px, 4vw, 42px);
   line-height: 1;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .metric small {
   display: block;
-  margin-top: 8px;
   color: var(--muted);
   font-weight: 700;
 }
 
+.metric-main small {
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+.metric-alt {
+  min-height: 20px;
+  margin-top: 12px;
+  color: #3f4f63;
+  font-size: 15px;
+}
+
 .metric-subtext {
+  margin-top: 10px;
   min-height: 18px;
   font-size: 12px;
 }
@@ -453,6 +495,10 @@ button:disabled {
 .balance .metric-label,
 .balance small {
   color: rgba(255, 255, 255, 0.72);
+}
+
+.balance .metric-alt {
+  color: rgba(255, 255, 255, 0.86);
 }
 
 .details-grid {
