@@ -226,6 +226,7 @@ const buildingEnglishNames = {
   "红豆斋": "Hongdou Zhai",
 };
 let currentLocale = resolveInitialLocale();
+const loadingStatusController = window.ElectrifySZULoadingStatus?.createController(message, loadingStatusOptions()) || null;
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -461,7 +462,7 @@ function renderBuildingOptions(filter = "") {
 
 async function loadStatus(url) {
   setBusy(true);
-  setMessageKey("message.loading");
+  startLoadingMessage();
   try {
     const payload = await fetchJson(url);
     if (!payload.ok) {
@@ -714,6 +715,7 @@ function setMessageRaw(text, isError = false) {
 }
 
 function setMessage(text, isError = false) {
+  loadingStatusController?.stop();
   message.textContent = text;
   message.classList.toggle("error", isError);
 }
@@ -865,7 +867,9 @@ function setLanguage(locale, options = {}) {
     view.rechargeCount.textContent = formatRecordCount(0);
   }
 
-  if (lastMessage.raw != null) {
+  if (loadingStatusController?.isActive() && lastMessage.key === "message.loading") {
+    loadingStatusController.updateConfig(loadingStatusOptions());
+  } else if (lastMessage.raw != null) {
     setMessage(lastMessage.raw, lastMessage.isError);
   } else {
     setMessage(t(lastMessage.key, lastMessage.values), lastMessage.isError);
@@ -882,6 +886,23 @@ function t(key, values = {}) {
   const dictionary = translations[currentLocale] || translations[DEFAULT_LOCALE];
   const fallback = translations[DEFAULT_LOCALE][key] || key;
   return (dictionary[key] || fallback).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
+}
+
+function loadingStatusOptions() {
+  return {
+    locale: currentLocale,
+    mainText: t("message.loading"),
+  };
+}
+
+function startLoadingMessage() {
+  lastMessage = { key: "message.loading", values: {}, isError: false, raw: null };
+  if (!loadingStatusController) {
+    setMessage(t("message.loading"));
+    return;
+  }
+  message.classList.remove("error");
+  loadingStatusController.start(loadingStatusOptions());
 }
 
 function shortDate(value) {
