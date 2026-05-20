@@ -106,7 +106,8 @@ h2 {
 
 .query-panel,
 .detail,
-.metric {
+.metric,
+.chart-panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -123,6 +124,13 @@ h2 {
   grid-template-columns: 1fr 1fr 0.9fr 0.55fr auto;
   gap: 14px;
   align-items: end;
+}
+
+.query-hint {
+  margin: 12px 0 0;
+  color: #7a8797;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 label {
@@ -189,6 +197,11 @@ button:disabled {
   margin-bottom: 18px;
 }
 
+.chart-panel {
+  padding: 22px;
+  margin-bottom: 18px;
+}
+
 .metric {
   min-height: 154px;
   padding: 20px;
@@ -242,6 +255,68 @@ button:disabled {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 18px;
+}
+
+.section-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.trend-chart {
+  min-height: 280px;
+}
+
+.trend-chart.empty {
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.trend-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.chart-axis {
+  stroke: #cfd8e3;
+  stroke-width: 1;
+}
+
+.chart-grid {
+  stroke: #edf1f5;
+  stroke-width: 1;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 3;
+}
+
+.chart-area {
+  fill: rgba(37, 99, 235, 0.1);
+}
+
+.chart-bar {
+  fill: rgba(15, 159, 110, 0.28);
+}
+
+.chart-dot {
+  fill: var(--surface);
+  stroke: var(--blue);
+  stroke-width: 2;
+}
+
+.chart-label {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .badge {
@@ -341,7 +416,6 @@ dd {
 
 .message {
   min-height: 24px;
-  margin: 18px 0 0;
   color: var(--muted);
   font-weight: 700;
 }
