@@ -6,6 +6,8 @@ const heroStatus = document.querySelector("#heroStatus");
 const languageButtons = document.querySelectorAll("[data-lang]");
 const emailInputGroup = document.querySelector(".email-input-group");
 const emailDomainHint = document.querySelector("#subscriberEmailDomainHint");
+const usageLevelForm = document.querySelector("#usageLevelForm");
+const resetUsageLevelsButton = document.querySelector("#resetUsageLevels");
 
 const fields = {
   campusGroup: document.querySelector("#campusGroup"),
@@ -17,6 +19,8 @@ const fields = {
   roomName: document.querySelector("#roomName"),
   days: document.querySelector("#days"),
   subscriberEmail: document.querySelector("#subscriberEmail"),
+  mediumUseThreshold: document.querySelector("#mediumUseThreshold"),
+  highUseThreshold: document.querySelector("#highUseThreshold"),
 };
 
 const view = {
@@ -60,6 +64,8 @@ const DEFAULT_LOCALE = "zh-CN";
 const DEFAULT_EMAIL_DOMAIN = "@email.szu.edu.cn";
 const DEFAULT_YUAN_PER_KWH = 0.61;
 const MONEY_UNIT = "￥";
+const USAGE_LEVEL_STORAGE_KEY = "electrifyszu.usageLevels";
+let customUsageLevels = loadUsageLevelSettings();
 const translations = window.ElectrifySZUI18n?.translations || {};
 translations["zh-CN"] ||= {};
 translations["en-US"] ||= {};
@@ -202,6 +208,24 @@ languageButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setLanguage(button.dataset.lang);
   });
+});
+
+usageLevelForm.addEventListener("input", () => {
+  customUsageLevels = readUsageLevelInputs();
+  saveUsageLevelSettings(customUsageLevels);
+  if (currentStatusData) {
+    renderTrend(currentStatusData.trend || []);
+  }
+});
+
+resetUsageLevelsButton.addEventListener("click", () => {
+  customUsageLevels = { medium: null, high: null };
+  saveUsageLevelSettings(customUsageLevels);
+  if (currentStatusData) {
+    renderTrend(currentStatusData.trend || []);
+  } else {
+    syncUsageLevelInputs([]);
+  }
 });
 
 setLanguage(currentLocale, { persist: false });
@@ -625,8 +649,8 @@ function renderTrend(trend) {
   }
 
   const width = 920;
-  const height = 280;
-  const padding = { top: 18, right: 28, bottom: 42, left: 54 };
+  const height = 300;
+  const padding = { top: 28, right: 34, bottom: 48, left: 58 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const remainingValues = points.map((item) => Number(item.remaining));
@@ -634,24 +658,42 @@ function renderTrend(trend) {
   const maxRemaining = Math.max(...remainingValues, 1);
   const minRemaining = Math.min(...remainingValues, 0);
   const maxUsed = Math.max(...usedValues, 1);
+  const usageLevels = resolveUsageLevels(usedValues);
+  syncUsageLevelInputs(usedValues);
   const x = (index) => padding.left + (index / (points.length - 1)) * plotWidth;
   const y = (value) => {
     const range = Math.max(maxRemaining - minRemaining, 1);
     return padding.top + (1 - (value - minRemaining) / range) * plotHeight;
   };
-  const barWidth = Math.max(6, Math.min(22, plotWidth / points.length / 2));
+  const barWidth = Math.max(8, Math.min(24, plotWidth / points.length / 2));
   const line = points.map((item, index) => `${x(index)},${y(Number(item.remaining))}`).join(" ");
   const area = `${padding.left},${height - padding.bottom} ${line} ${width - padding.right},${height - padding.bottom}`;
+  const selectedIndex = points.length - 1;
+
+  const usageClass = (value) => {
+    if (value >= usageLevels.high) {
+      return "high";
+    }
+    if (value >= usageLevels.medium) {
+      return "medium";
+    }
+    return "low";
+  };
 
   const bars = points.map((item, index) => {
-    const barHeight = (Number(item.daily_used_kwh || 0) / maxUsed) * (plotHeight * 0.42);
+    const used = Number(item.daily_used_kwh || 0);
+    const barHeight = (used / maxUsed) * (plotHeight * 0.42);
     const bx = x(index) - barWidth / 2;
     const by = height - padding.bottom - barHeight;
-    return `<rect class="chart-bar" x="${bx}" y="${by}" width="${barWidth}" height="${barHeight}" rx="3"></rect>`;
+    return `<rect class="chart-bar ${usageClass(used)}" x="${bx}" y="${by}" width="${barWidth}" height="${barHeight}" rx="4"></rect>`;
   }).join("");
 
   const dots = points.map((item, index) => (
     `<circle class="chart-dot" cx="${x(index)}" cy="${y(Number(item.remaining))}" r="4"></circle>`
+  )).join("");
+
+  const targets = points.map((item, index) => (
+    `<button class="chart-target${index === selectedIndex ? " active" : ""}" type="button" data-chart-index="${index}" style="left: ${(x(index) / width) * 100}%; width: ${Math.max(28, barWidth + 18)}px;" aria-label="${escapeHtml(chartPointLabel(item))}"></button>`
   )).join("");
 
   const firstDate = shortDate(points[0].date);
@@ -662,21 +704,177 @@ function renderTrend(trend) {
   });
 
   view.trendChart.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${t("chart.svgLabel")}">
-      <line class="chart-axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
-      <line class="chart-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
-      <line class="chart-grid" x1="${padding.left}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top}"></line>
-      <line class="chart-grid" x1="${padding.left}" y1="${padding.top + plotHeight / 2}" x2="${width - padding.right}" y2="${padding.top + plotHeight / 2}"></line>
-      ${bars}
-      <polygon class="chart-area" points="${area}"></polygon>
-      <polyline class="chart-line" points="${line}"></polyline>
-      ${dots}
-      <text class="chart-label" x="${padding.left}" y="${height - 14}">${firstDate}</text>
-      <text class="chart-label" x="${width - padding.right - 52}" y="${height - 14}">${lastDate}</text>
-      <text class="chart-label" x="${padding.left}" y="14">${t("chart.balanceLabel")}</text>
-      <text class="chart-label" x="${width - padding.right - 96}" y="14">${t("chart.dailyUseLabel")}</text>
-    </svg>
+    <div class="chart-canvas">
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${t("chart.svgLabel")}">
+        <line class="chart-axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
+        <line class="chart-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
+        <line class="chart-grid" x1="${padding.left}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top}"></line>
+        <line class="chart-grid" x1="${padding.left}" y1="${padding.top + plotHeight / 2}" x2="${width - padding.right}" y2="${padding.top + plotHeight / 2}"></line>
+        ${bars}
+        <polygon class="chart-area" points="${area}"></polygon>
+        <polyline class="chart-line" points="${line}"></polyline>
+        ${dots}
+        <text class="chart-label" x="${padding.left}" y="${height - 14}">${firstDate}</text>
+        <text class="chart-label" x="${width - padding.right - 52}" y="${height - 14}">${lastDate}</text>
+        <text class="chart-label" x="${padding.left}" y="14">${t("chart.balanceLabel")}</text>
+        <text class="chart-label" x="${width - padding.right - 96}" y="14">${t("chart.dailyUseLabel")}</text>
+      </svg>
+      <div class="chart-hit-layer" aria-label="${t("chart.tooltipHint")}">
+        ${targets}
+      </div>
+      <div class="chart-tooltip" role="status" aria-live="polite"></div>
+    </div>
   `;
+
+  attachTrendInteractions(points, { width, height, padding, x, y, barWidth, selectedIndex });
+}
+
+function attachTrendInteractions(points, geometry) {
+  const targets = Array.from(view.trendChart.querySelectorAll(".chart-target"));
+  const tooltip = view.trendChart.querySelector(".chart-tooltip");
+  if (!targets.length || !tooltip) {
+    return;
+  }
+
+  const showPoint = (index) => {
+    const item = points[index];
+    if (!item) {
+      return;
+    }
+    const left = Math.max(12, Math.min(88, (geometry.x(index) / geometry.width) * 100));
+    const top = (geometry.y(Number(item.remaining)) / geometry.height) * 100;
+    tooltip.innerHTML = chartTooltipMarkup(item);
+    tooltip.style.left = `${left}%`;
+    tooltip.style.top = `${top}%`;
+    tooltip.classList.add("visible");
+    targets.forEach((target, targetIndex) => {
+      target.classList.toggle("active", targetIndex === index);
+    });
+  };
+
+  const hidePoint = () => {
+    tooltip.classList.remove("visible");
+    targets.forEach((target) => target.classList.remove("active"));
+  };
+
+  showPoint(geometry.selectedIndex);
+
+  targets.forEach((target, index) => {
+    target.addEventListener("pointerenter", () => showPoint(index));
+    target.addEventListener("focus", () => showPoint(index));
+    target.addEventListener("click", () => showPoint(index));
+    target.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+        return;
+      }
+      event.preventDefault();
+      const direction = event.key === "ArrowLeft" ? -1 : 1;
+      const nextIndex = Math.max(0, Math.min(points.length - 1, index + direction));
+      targets[nextIndex].focus();
+    });
+  });
+
+  const canvas = view.trendChart.querySelector(".chart-canvas");
+  canvas.onpointerleave = (event) => {
+    if (event.pointerType === "mouse") {
+      hidePoint();
+    }
+  };
+}
+
+function chartTooltipMarkup(item) {
+  return `
+    <strong>${escapeHtml(item.date || "--")}</strong>
+    <span>${escapeHtml(t("chart.tooltipBalance"))}: ${formatNumber(item.remaining)} kWh</span>
+    <span>${escapeHtml(t("chart.tooltipUsage"))}: ${formatNumber(item.daily_used_kwh || 0)} kWh</span>
+  `;
+}
+
+function chartPointLabel(item) {
+  return `${item.date || "--"}, ${t("chart.tooltipBalance")} ${formatNumber(item.remaining)} kWh, ${t("chart.tooltipUsage")} ${formatNumber(item.daily_used_kwh || 0)} kWh`;
+}
+
+function resolveUsageLevels(usedValues) {
+  const maxUsed = Math.max(...usedValues, 1);
+  const automatic = {
+    medium: roundUsageThreshold(maxUsed * 0.42),
+    high: roundUsageThreshold(maxUsed * 0.72),
+  };
+  const medium = customUsageLevels.medium ?? automatic.medium;
+  const high = customUsageLevels.high ?? automatic.high;
+  return normalizeUsageLevels(medium, high);
+}
+
+function syncUsageLevelInputs(usedValues) {
+  const levels = resolveUsageLevels(usedValues.length ? usedValues : [1]);
+  fields.mediumUseThreshold.value = formatThresholdInput(levels.medium);
+  fields.highUseThreshold.value = formatThresholdInput(levels.high);
+  fields.mediumUseThreshold.classList.toggle("auto", customUsageLevels.medium == null);
+  fields.highUseThreshold.classList.toggle("auto", customUsageLevels.high == null);
+}
+
+function readUsageLevelInputs() {
+  const medium = numberOrNull(fields.mediumUseThreshold.value);
+  const high = numberOrNull(fields.highUseThreshold.value);
+  if (medium == null && high == null) {
+    return { medium: null, high: null };
+  }
+  const normalized = normalizeUsageLevels(medium ?? 0, high ?? medium ?? 0);
+  return {
+    medium: normalized.medium,
+    high: normalized.high,
+  };
+}
+
+function normalizeUsageLevels(medium, high) {
+  const normalizedMedium = Math.max(0, numberOrNull(medium) ?? 0);
+  const normalizedHigh = Math.max(normalizedMedium, numberOrNull(high) ?? normalizedMedium);
+  return {
+    medium: roundUsageThreshold(normalizedMedium),
+    high: roundUsageThreshold(normalizedHigh),
+  };
+}
+
+function roundUsageThreshold(value) {
+  return Math.round(Math.max(0, Number(value) || 0) * 10) / 10;
+}
+
+function formatThresholdInput(value) {
+  return roundUsageThreshold(value).toFixed(1);
+}
+
+function loadUsageLevelSettings() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(USAGE_LEVEL_STORAGE_KEY) || "{}");
+    const medium = numberOrNull(parsed.medium);
+    const high = numberOrNull(parsed.high);
+    if (medium == null && high == null) {
+      return { medium: null, high: null };
+    }
+    return normalizeUsageLevels(medium ?? 0, high ?? medium ?? 0);
+  } catch {
+    return { medium: null, high: null };
+  }
+}
+
+function saveUsageLevelSettings(levels) {
+  try {
+    if (levels.medium == null && levels.high == null) {
+      localStorage.removeItem(USAGE_LEVEL_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(USAGE_LEVEL_STORAGE_KEY, JSON.stringify(levels));
+  } catch {
+    // The chart still updates for the current session.
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function chooseDefaultBuildingForCampus() {
