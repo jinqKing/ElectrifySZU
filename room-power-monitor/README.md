@@ -1,6 +1,8 @@
 # 宿舍不断电
 
-> 普通的电费查询
+> ElectrifySZU 的宿舍电费查询模块。
+
+本目录保留查询校园电费系统所需的 Python 代码、配置模板和楼栋数据。它面向命令行、本地 API 代理和部署在校园内网的服务器使用；公开的 GitHub Pages 页面只展示静态仪表盘，不直接运行这里的 Python 代码。
 
 ## 工作原理
 
@@ -53,3 +55,5 @@ python -m src.cli status         # 当前状态
 python -m src.cli status 714     # 换房间
 python -m src.cli json           # JSON 输出
 ```
+
+在仓库根目录运行 `uv run electrifyszu` 可以启动网页服务和 API 代理。完整查询要求运行环境能够访问深圳大学电费系统。
