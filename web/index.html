@@ -12,7 +12,7 @@
         <div>
           <p class="eyebrow">SZU Dorm Power Monitor</p>
           <h1 id="page-title">电费余额仪表盘</h1>
-          <p class="subtitle">输入房间参数后查询当前余额、近期用电和预计可用天数。</p>
+          <p class="subtitle">选择校区、宿舍楼栋并输入房间号，系统会自动完成查询并展示余额。</p>
         </div>
         <div class="hero-status" id="heroStatus">
           <span class="pulse"></span>
@@ -23,12 +23,22 @@
       <section class="query-panel" aria-label="查询条件">
         <form id="queryForm" class="query-form">
           <label>
-            <span>roomId</span>
-            <input id="roomId" name="roomId" placeholder="例如 7322" autocomplete="off" />
+            <span>校区</span>
+            <select id="client" name="client">
+              <option value="192.168.84.87" selected>深大新斋区</option>
+            </select>
+            <input id="campusName" name="campusName" type="hidden" value="深大新斋区" />
+          </label>
+          <label>
+            <span>宿舍楼栋</span>
+            <select id="buildingId" name="buildingId">
+              <option value="7126" selected>风槐斋</option>
+            </select>
+            <input id="buildingName" name="buildingName" type="hidden" value="风槐斋" />
           </label>
           <label>
             <span>房间号</span>
-            <input id="roomName" name="roomName" placeholder="例如 713" autocomplete="off" />
+            <input id="roomName" name="roomName" value="713" placeholder="例如 713" autocomplete="off" />
           </label>
           <label>
             <span>统计天数</span>

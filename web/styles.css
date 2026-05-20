@@ -29,7 +29,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -119,7 +120,7 @@ h2 {
 
 .query-form {
   display: grid;
-  grid-template-columns: 1.1fr 1.1fr 0.7fr auto;
+  grid-template-columns: 1fr 1fr 0.9fr 0.55fr auto;
   gap: 14px;
   align-items: end;
 }
@@ -132,7 +133,8 @@ label {
   font-weight: 700;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 46px;
   border: 1px solid var(--line);
@@ -143,7 +145,8 @@ input {
   outline: none;
 }
 
-input:focus {
+input:focus,
+select:focus {
   border-color: var(--blue);
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }

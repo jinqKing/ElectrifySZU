@@ -4,7 +4,10 @@ const message = document.querySelector("#message");
 const heroStatus = document.querySelector("#heroStatus");
 
 const fields = {
-  roomId: document.querySelector("#roomId"),
+  client: document.querySelector("#client"),
+  campusName: document.querySelector("#campusName"),
+  buildingId: document.querySelector("#buildingId"),
+  buildingName: document.querySelector("#buildingName"),
   roomName: document.querySelector("#roomName"),
   days: document.querySelector("#days"),
 };
@@ -24,18 +27,92 @@ const view = {
   rechargeCount: document.querySelector("#rechargeCount"),
 };
 
+let campuses = [];
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  syncNames();
   await loadStatus("/api/status?" + new URLSearchParams(new FormData(form)));
 });
+
+fields.client.addEventListener("change", () => {
+  renderBuildingOptions();
+  syncNames();
+});
+
+fields.buildingId.addEventListener("change", syncNames);
 
 demoButton.addEventListener("click", async () => {
   await loadStatus("/api/demo-status");
 });
 
+loadBuildings();
+
+async function loadBuildings() {
+  try {
+    const response = await fetch("/api/buildings");
+    const payload = await response.json();
+    if (Array.isArray(payload.data) && payload.data.length > 0) {
+      campuses = normalizeCampuses(payload.data);
+      renderCampusOptions();
+      renderBuildingOptions();
+      syncNames();
+    }
+  } catch {
+    setMessage("暂时无法加载校区楼栋列表，已使用默认选项。", true);
+  }
+}
+
+function normalizeCampuses(data) {
+  if (data[0]?.client && Array.isArray(data[0]?.buildings)) {
+    return data;
+  }
+  return [
+    {
+      client: "192.168.84.87",
+      name: "深大新斋区",
+      buildings: data.map((building) => ({
+        id: building.id,
+        name: building.name,
+      })),
+    },
+  ];
+}
+
+function renderCampusOptions() {
+  const preferredClient = fields.client.value || "192.168.84.87";
+  fields.client.innerHTML = "";
+  for (const campus of campuses) {
+    const option = document.createElement("option");
+    option.value = campus.client;
+    option.textContent = campus.name;
+    option.dataset.name = campus.name;
+    if (campus.client === preferredClient) {
+      option.selected = true;
+    }
+    fields.client.append(option);
+  }
+}
+
+function renderBuildingOptions() {
+  const campus = selectedCampus();
+  const preferredBuilding = campus?.client === "192.168.84.87" ? "7126" : "";
+  fields.buildingId.innerHTML = "";
+  for (const building of campus?.buildings || []) {
+    const option = document.createElement("option");
+    option.value = building.id;
+    option.textContent = building.name;
+    option.dataset.name = building.name;
+    if (building.id === preferredBuilding) {
+      option.selected = true;
+    }
+    fields.buildingId.append(option);
+  }
+}
+
 async function loadStatus(url) {
   setBusy(true);
-  setMessage("正在查询电费系统...");
+  setMessage("正在查询电费余额...");
   try {
     const response = await fetch(url);
     const payload = await response.json();
@@ -58,7 +135,7 @@ function renderStatus(data) {
   view.dailyAvg.textContent = formatNumber(data.daily_avg_kwh);
   view.daysLeft.textContent = data.est_days_left == null ? "--" : formatNumber(data.est_days_left);
   view.totalUsed.textContent = formatNumber(data.total_used_kwh);
-  view.roomLabel.textContent = `${data.room_name || "--"} (${data.room_id || "--"})`;
+  view.roomLabel.textContent = `${data.campus_name || "--"} ${data.building_name || "--"} ${data.room_name || "--"}`;
   view.lastRecord.textContent = data.last_record || "--";
   view.records.textContent = `${data.records ?? 0} 条`;
 
@@ -106,8 +183,19 @@ function renderRecharges(recharges) {
   }
 }
 
+function selectedCampus() {
+  return campuses.find((campus) => campus.client === fields.client.value) || campuses[0];
+}
+
+function syncNames() {
+  const campusOption = fields.client.options[fields.client.selectedIndex];
+  const buildingOption = fields.buildingId.options[fields.buildingId.selectedIndex];
+  fields.campusName.value = campusOption?.dataset.name || campusOption?.textContent || "";
+  fields.buildingName.value = buildingOption?.dataset.name || buildingOption?.textContent || "";
+}
+
 function setBusy(isBusy) {
-  form.querySelectorAll("button, input").forEach((element) => {
+  form.querySelectorAll("button, input, select").forEach((element) => {
     element.disabled = isBusy;
   });
 }

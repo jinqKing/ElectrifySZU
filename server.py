@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import re
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -11,10 +12,12 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent
 MONITOR_DIR = ROOT / "room-power-monitor"
 WEB_DIR = ROOT / "web"
+BUILDINGS_FILE = MONITOR_DIR / "data" / "buildings.txt"
 sys.path.insert(0, str(MONITOR_DIR))
 
 from src.api import DormApi  # noqa: E402
 from src.config import Config  # noqa: E402
+from src.discover import discover_room_id  # noqa: E402
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -24,6 +27,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/status":
             self._handle_status(parse_qs(parsed.query))
+            return
+        if parsed.path == "/api/buildings":
+            self._handle_buildings()
             return
         if parsed.path == "/api/demo-status":
             self._send_json(demo_status())
@@ -36,26 +42,51 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _handle_status(self, query: dict[str, list[str]]) -> None:
         try:
             config = Config.from_env(str(MONITOR_DIR / ".env"))
+            client = _query_value(query, "client") or config.client
+            campus_name = _query_value(query, "campusName") or config.campus_name
+            config.client = client
             api = DormApi(config)
-            room_id = _query_value(query, "roomId") or config.room_id
+            building_id = _query_value(query, "buildingId") or config.building_id
+            building_name = _query_value(query, "buildingName") or config.building_name
             room_name = _query_value(query, "roomName") or config.room_name
             days = int(_query_value(query, "days") or "30")
+
+            room_id = discover_room_id(
+                building_id=building_id,
+                room_name=room_name,
+                client_ip=client,
+            )
+            if not room_id:
+                raise LookupError(f"未找到 {campus_name} {building_name} {room_name} 房间。")
+
             result = api.get_status(
                 room_id=room_id,
                 room_name=room_name,
                 days=days,
                 threshold=config.low_power_threshold,
             )
+            result["client"] = client
+            result["campus_name"] = campus_name
+            result["building_id"] = building_id
+            result["building_name"] = building_name
             self._send_json({"ok": True, "data": result})
         except Exception as exc:
             self._send_json(
                 {
                     "ok": False,
                     "error": str(exc),
-                    "hint": "请确认已连接校园网，并正确填写 room-power-monitor/.env。",
+                    "hint": "请确认已连接校园网，并检查楼栋与房间号是否正确。",
                 },
                 status=502,
             )
+
+    def _handle_buildings(self) -> None:
+        config = Config.from_env(str(MONITOR_DIR / ".env"))
+        data = merge_campuses(
+            default_campuses(config),
+            load_buildings_file(),
+        )
+        self._send_json({"ok": True, "data": data})
 
     def _serve_static(self, path: str) -> None:
         if path in {"", "/"}:
@@ -87,10 +118,83 @@ def _query_value(query: dict[str, list[str]], key: str) -> str:
     return values[0].strip() if values else ""
 
 
+def load_buildings_file() -> list[dict[str, object]]:
+    campuses: list[dict[str, object]] = []
+    if not BUILDINGS_FILE.is_file():
+        return campuses
+
+    campus_pattern = re.compile(r"^##\s+(.+?)\s+client=([^\s]+)")
+    building_pattern = re.compile(r"buildingId=\s*(\d+)\s+(.+?)\s*$")
+    current: dict[str, object] | None = None
+    for line in BUILDINGS_FILE.read_text(encoding="utf-8").splitlines():
+        campus_match = campus_pattern.search(line)
+        if campus_match:
+            current = {
+                "client": campus_match.group(2).strip(),
+                "name": campus_match.group(1).strip(),
+                "buildings": [],
+            }
+            campuses.append(current)
+            continue
+
+        building_match = building_pattern.search(line)
+        if building_match and current is not None:
+            current["buildings"].append(
+                {
+                    "id": building_match.group(1),
+                    "name": building_match.group(2).strip(),
+                }
+            )
+    return campuses
+
+
+def default_campuses(config: Config) -> list[dict[str, object]]:
+    return [
+        {
+            "client": config.client,
+            "name": config.campus_name,
+            "buildings": [{"id": config.building_id, "name": config.building_name}],
+        }
+    ]
+
+
+def merge_campuses(*groups: list[dict[str, object]]) -> list[dict[str, object]]:
+    merged: list[dict[str, object]] = []
+    campuses_by_client: dict[str, dict[str, object]] = {}
+
+    for group in groups:
+        for campus in group:
+            client = str(campus.get("client", "")).strip()
+            name = str(campus.get("name", "")).strip()
+            if not client:
+                continue
+
+            target = campuses_by_client.get(client)
+            if target is None:
+                target = {"client": client, "name": name, "buildings": []}
+                campuses_by_client[client] = target
+                merged.append(target)
+
+            seen_buildings = {
+                building["id"] for building in target["buildings"]
+            }
+            for building in campus.get("buildings", []):
+                building_id = str(building.get("id", "")).strip()
+                building_name = str(building.get("name", "")).strip()
+                if building_id and building_id not in seen_buildings:
+                    target["buildings"].append({"id": building_id, "name": building_name})
+                    seen_buildings.add(building_id)
+    return merged
+
+
 def demo_status() -> dict[str, object]:
     return {
         "ok": True,
         "data": {
+            "building_id": "7126",
+            "client": "192.168.84.87",
+            "campus_name": "深大新斋区",
+            "building_name": "风槐斋",
             "room_id": "7322",
             "room_name": "713",
             "period": {"begin": "2026-04-20", "end": "2026-05-20", "days": 30},
