@@ -452,6 +452,7 @@ button:disabled {
   align-items: baseline;
   gap: 9px;
   min-width: 0;
+  transform-origin: left center;
 }
 
 .metric strong {
@@ -485,6 +486,52 @@ button:disabled {
   margin-top: 10px;
   min-height: 18px;
   font-size: 12px;
+}
+
+.metric.is-switching .metric-main {
+  animation: metric-value-switch 340ms ease both;
+}
+
+.metric.is-switching .metric-alt,
+.metric.is-switching .metric-subtext {
+  animation: metric-support-switch 340ms ease both;
+}
+
+@keyframes metric-value-switch {
+  0% {
+    opacity: 0.58;
+    transform: translateY(7px) scale(0.985);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes metric-support-switch {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metric,
+  .metric.is-switching .metric-main,
+  .metric.is-switching .metric-alt,
+  .metric.is-switching .metric-subtext {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
 }
 
 .balance {
