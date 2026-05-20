@@ -5,6 +5,8 @@ import json
 import mimetypes
 import re
 import sys
+from email import policy
+from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -18,6 +20,11 @@ sys.path.insert(0, str(MONITOR_DIR))
 from src.api import DormApi  # noqa: E402
 from src.config import Config  # noqa: E402
 from src.discover import discover_room_id  # noqa: E402
+from subscription_alerts.subscriptions import (  # noqa: E402
+    AlertSettings,
+    SubscriptionStore,
+    start_alert_worker,
+)
 from src.version import __version__  # noqa: E402
 
 
@@ -35,7 +42,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/demo-status":
             self._send_json(demo_status())
             return
+        if parsed.path == "/api/unsubscribe":
+            self._handle_unsubscribe(parse_qs(parsed.query))
+            return
         self._serve_static(parsed.path)
+
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/subscriptions":
+            self._handle_subscription()
+            return
+        self._send_json({"ok": False, "error": "Not found"}, status=404)
 
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"{self.address_string()} - {fmt % args}")
@@ -89,6 +106,62 @@ class DashboardHandler(BaseHTTPRequestHandler):
         )
         self._send_json({"ok": True, "data": data})
 
+    def _handle_subscription(self) -> None:
+        try:
+            config = Config.from_env(str(MONITOR_DIR / ".env"))
+            settings = AlertSettings.from_env(MONITOR_DIR)
+            store = SubscriptionStore(settings.csv_path)
+            data = self._read_request_data()
+            subscription = store.upsert(
+                {
+                    "email": data.get("email", ""),
+                    "client": data.get("client", "") or config.client,
+                    "campus_name": data.get("campusName", "") or config.campus_name,
+                    "building_id": data.get("buildingId", "") or config.building_id,
+                    "building_name": data.get("buildingName", "") or config.building_name,
+                    "room_name": data.get("roomName", "") or config.room_name,
+                    "threshold_kwh": data.get(
+                        "thresholdKwh",
+                        str(config.low_power_threshold),
+                    ),
+                },
+                default_threshold=config.low_power_threshold,
+            )
+            self._send_json(
+                {
+                    "ok": True,
+                    "data": {
+                        "email": subscription.email,
+                        "campus_name": subscription.campus_name,
+                        "building_name": subscription.building_name,
+                        "room_name": subscription.room_name,
+                        "threshold_kwh": subscription.threshold_kwh,
+                    },
+                    "message": "订阅已保存。余额低于阈值时，系统每天最多发送一次预警邮件。",
+                },
+                status=201,
+            )
+        except ValueError as exc:
+            self._send_json({"ok": False, "error": str(exc)}, status=400)
+        except Exception as exc:
+            self._send_json(
+                {
+                    "ok": False,
+                    "error": str(exc),
+                    "hint": "订阅保存失败，请稍后重试或联系管理员。",
+                },
+                status=500,
+            )
+
+    def _handle_unsubscribe(self, query: dict[str, list[str]]) -> None:
+        settings = AlertSettings.from_env(MONITOR_DIR)
+        token = _query_value(query, "token")
+        ok = SubscriptionStore(settings.csv_path).unsubscribe(token)
+        if ok:
+            self._send_plain("已取消电费预警订阅。")
+        else:
+            self._send_plain("退订链接无效或订阅已取消。", status=404)
+
     def _serve_static(self, path: str) -> None:
         if path in {"", "/"}:
             path = "/index.html"
@@ -112,6 +185,34 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def _send_plain(self, text: str, status: int = 200) -> None:
+        data = text.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _read_request_data(self) -> dict[str, str]:
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        body = self.rfile.read(length)
+        content_type = self.headers.get("Content-Type", "")
+        if "application/json" in content_type:
+            payload = json.loads(body.decode("utf-8") or "{}")
+            return {str(key): str(value).strip() for key, value in payload.items()}
+        if "multipart/form-data" in content_type:
+            headers = f"Content-Type: {content_type}\n\n".encode("utf-8")
+            message = BytesParser(policy=policy.default).parsebytes(headers + body)
+            return {
+                str(part.get_param("name", header="content-disposition")): part.get_payload(
+                    decode=True
+                ).decode(part.get_content_charset("utf-8")).strip()
+                for part in message.iter_parts()
+                if part.get_param("name", header="content-disposition")
+            }
+        parsed = parse_qs(body.decode("utf-8"), keep_blank_values=True)
+        return {key: values[0].strip() if values else "" for key, values in parsed.items()}
 
 
 def _query_value(query: dict[str, list[str]], key: str) -> str:
@@ -232,6 +333,7 @@ def main() -> None:
 
     server = ThreadingHTTPServer((args.host, args.port), DashboardHandler)
     print(f"ElectrifySZU dashboard: http://{args.host}:{args.port}")
+    start_alert_worker(MONITOR_DIR)
     server.serve_forever()
 
 
