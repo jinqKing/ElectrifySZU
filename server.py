@@ -18,10 +18,11 @@ sys.path.insert(0, str(MONITOR_DIR))
 from src.api import DormApi  # noqa: E402
 from src.config import Config  # noqa: E402
 from src.discover import discover_room_id  # noqa: E402
+from src.version import __version__  # noqa: E402
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
-    server_version = "ElectrifySZU/2.7"
+    server_version = f"ElectrifySZU/{__version__}"
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)

@@ -9,6 +9,8 @@ The format follows the spirit of Keep a Changelog, and this project uses an Eule
 ### Changed
 
 - Switched the project version from the initial MVP version to an Euler-number-inspired sequence that converges toward `e`.
+- Centralized runtime version labels so server and API headers read from the project version metadata.
+- Clarified documentation for static GitHub Pages previews and internal-network full queries.
 
 ## [0.1.0] - 2026-05-20
 
