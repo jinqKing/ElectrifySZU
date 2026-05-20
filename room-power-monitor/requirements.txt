@@ -1,0 +1,3 @@
+# Dependencies for the legacy room-power-monitor module.
+httpx>=0.28.1
+xlrd>=2.0

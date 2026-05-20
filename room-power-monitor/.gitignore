@@ -1,0 +1,20 @@
+# room-power-monitor local ignores
+
+# Local environment, contains room configuration.
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Local data stores and captured responses
+data/*.db
+data/*.html
+
+# IDE
+.idea/
+.vscode/
+
+# Temporary files
+*.tmp
+.DS_Store
