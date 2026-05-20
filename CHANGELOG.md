@@ -2,7 +2,13 @@
 
 All notable changes to ElectrifySZU will be documented in this file.
 
-The format follows the spirit of Keep a Changelog, and this project uses a lightweight `0.x` versioning phase while the MVP is being built.
+The format follows the spirit of Keep a Changelog, and this project uses an Euler-number-inspired version sequence that converges toward `e`.
+
+## [2.7] - 2026-05-20
+
+### Changed
+
+- Switched the project version from the initial MVP version to an Euler-number-inspired sequence that converges toward `e`.
 
 ## [0.1.0] - 2026-05-20
 

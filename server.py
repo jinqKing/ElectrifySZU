@@ -21,7 +21,7 @@ from src.discover import discover_room_id  # noqa: E402
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
-    server_version = "ElectrifySZU/0.1"
+    server_version = "ElectrifySZU/2.7"
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)

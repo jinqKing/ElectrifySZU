@@ -37,7 +37,7 @@ class DormApi:
         return f"{self.base_url}/selectList.do?{params}"
 
     def _fetch(self, url: str) -> bytes:
-        req = urllib.request.Request(url, headers={"User-Agent": "ElectrifySZU/0.1"})
+        req = urllib.request.Request(url, headers={"User-Agent": "ElectrifySZU/2.7"})
         proxy = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
         if proxy:
             handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
