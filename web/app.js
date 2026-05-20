@@ -561,19 +561,39 @@ function estimateAvailableUntilDate(lastRecord, daysLeft) {
 }
 
 function parseIsoDate(value) {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  if (value == null || value === "") {
     return null;
   }
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const excelEpoch = new Date(1899, 11, 30);
+    const date = new Date(excelEpoch);
+    date.setDate(date.getDate() + Math.floor(value));
+    return date;
+  }
+
+  const text = String(value).trim();
+  const matchedDate = text.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (matchedDate) {
+    const [, yearText, monthText, dayText] = matchedDate;
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    const date = new Date(year, month - 1, day);
+    if (
+      date.getFullYear() === year &&
+      date.getMonth() === month - 1 &&
+      date.getDate() === day
+    ) {
+      return date;
+    }
+  }
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) {
     return null;
   }
-  return date;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
 }
 
 function formatDisplayDate(date) {
