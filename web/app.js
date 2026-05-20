@@ -4,6 +4,8 @@ const demoButton = document.querySelector("#demoButton");
 const message = document.querySelector("#message");
 const heroStatus = document.querySelector("#heroStatus");
 const languageButtons = document.querySelectorAll("[data-lang]");
+const emailInputGroup = document.querySelector(".email-input-group");
+const emailDomainHint = document.querySelector("#subscriberEmailDomainHint");
 
 const fields = {
   campusGroup: document.querySelector("#campusGroup"),
@@ -48,7 +50,19 @@ const IS_STATIC_PAGE =
   location.hostname.endsWith(".github.io") ||
   location.hostname === "github.io";
 const DEFAULT_LOCALE = "zh-CN";
+const DEFAULT_EMAIL_DOMAIN = "@email.szu.edu.cn";
 const translations = window.ElectrifySZUI18n?.translations || {};
+translations["zh-CN"] ||= {};
+translations["en-US"] ||= {};
+translations["zh-CN"]["subscribe.emailPlaceholder"] ||= "学号或邮箱前缀";
+translations["zh-CN"]["subscribe.emailHint"] ||=
+  "可只填写邮箱前缀，默认补全 @email.szu.edu.cn；也支持输入其他完整邮箱。";
+translations["zh-CN"]["subscribe.invalidEmail"] ||= "请输入有效邮箱，或仅填写默认邮箱前缀。";
+translations["en-US"]["subscribe.emailPlaceholder"] ||= "NetID or email prefix";
+translations["en-US"]["subscribe.emailHint"] ||=
+  "You can enter only the prefix and we will append @email.szu.edu.cn, or enter any full email address.";
+translations["en-US"]["subscribe.invalidEmail"] ||=
+  "Enter a valid email address, or only the default mailbox prefix.";
 const LOCALE_QUERY = {
   zh: "zh-CN",
   "zh-CN": "zh-CN",
@@ -146,6 +160,7 @@ fields.buildingSearch.addEventListener("input", () => {
 fields.buildingSearch.addEventListener("focus", () => {
   renderBuildingOptions("");
 });
+fields.subscriberEmail.addEventListener("input", syncEmailInputState);
 
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".combo")) {
@@ -166,6 +181,7 @@ languageButtons.forEach((button) => {
 
 setLanguage(currentLocale, { persist: false });
 loadBuildings();
+syncEmailInputState();
 
 async function loadBuildings() {
   if (!canUseBackend()) {
@@ -235,11 +251,18 @@ async function postJson(url, data) {
 }
 
 async function saveSubscription() {
+  const normalizedEmail = normalizeSubscriberEmail(fields.subscriberEmail.value);
+  if (!normalizedEmail) {
+    setMessageKey("subscribe.invalidEmail", {}, true);
+    fields.subscriberEmail.focus();
+    return;
+  }
+
   setSubscriptionBusy(true);
   setMessageKey("subscribe.saving");
   try {
     const payload = await postJson(apiUrl("/api/subscriptions"), {
-      email: fields.subscriberEmail.value,
+      email: normalizedEmail,
       client: fields.client.value,
       campusName: fields.campusName.value,
       buildingId: fields.buildingId.value,
@@ -251,6 +274,38 @@ async function saveSubscription() {
     setMessageRaw(error.message, true);
   } finally {
     setSubscriptionBusy(false);
+  }
+}
+
+function normalizeSubscriberEmail(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (!trimmed.includes("@")) {
+    return `${trimmed}${DEFAULT_EMAIL_DOMAIN}`.toLowerCase();
+  }
+
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  return "";
+}
+
+function syncEmailInputState() {
+  if (!emailInputGroup) {
+    return;
+  }
+
+  const value = fields.subscriberEmail.value.trim();
+  const hasCustomDomain = value.includes("@");
+  emailInputGroup.classList.toggle("has-custom-domain", hasCustomDomain);
+  fields.subscriberEmail.placeholder = hasCustomDomain ? "you@example.com" : t("subscribe.emailPlaceholder");
+  fields.subscriberEmail.setCustomValidity("");
+  if (emailDomainHint) {
+    emailDomainHint.textContent = DEFAULT_EMAIL_DOMAIN;
   }
 }
 
@@ -795,6 +850,9 @@ function setLanguage(locale, options = {}) {
   document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
   });
+  document.querySelectorAll(".field-hint[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n);
+  });
 
   if (buildingChoices.length > 0) {
     renderCampusOptions();
@@ -818,6 +876,8 @@ function setLanguage(locale, options = {}) {
   } else {
     setHeroStatus(t(lastHeroStatus.key, lastHeroStatus.values), lastHeroStatus.status);
   }
+
+  syncEmailInputState();
 }
 
 function t(key, values = {}) {
