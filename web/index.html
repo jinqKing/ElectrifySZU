@@ -33,8 +33,10 @@
           </label>
           <label>
             <span>宿舍楼栋</span>
-            <input id="buildingSearch" list="buildingOptions" value="风槐斋" placeholder="搜索宿舍楼栋" autocomplete="off" />
-            <datalist id="buildingOptions"></datalist>
+            <div class="combo">
+              <input id="buildingSearch" value="风槐斋" placeholder="搜索宿舍楼栋" autocomplete="off" />
+              <div id="buildingOptions" class="combo-list" role="listbox"></div>
+            </div>
             <input id="buildingId" name="buildingId" type="hidden" value="7126" />
             <input id="buildingName" name="buildingName" type="hidden" value="风槐斋" />
           </label>
