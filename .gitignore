@@ -21,6 +21,8 @@ room-power-monitor/data/*.html
 *.db
 *.sqlite
 *.tmp
+room-power-monitor/data/subscriptions.csv
+room-power-monitor/data/subscriptions.tmp
 .DS_Store
 
 # IDE
