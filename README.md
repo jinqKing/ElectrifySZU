@@ -1,6 +1,6 @@
 # ElectrifySZU
 
-ElectrifySZU 是一个面向深圳大学宿舍电费余额查询与订阅预警的开源项目。当前仓库已包含可用的电费查询 Python 子模块，下一步会在其外层搭建一个便于比赛演示和同学协作的仪表盘与提醒能力。
+ElectrifySZU 是一个面向深圳大学宿舍电费余额查询与订阅预警的开源项目。当前仓库已包含可用的电费查询 Python 模块，下一步会在其外层搭建一个便于比赛演示和同学协作的仪表盘与提醒能力。
 
 ## 当前能力
 
@@ -44,7 +44,7 @@ uv run python -m src.discover <building_id> <room_name>
 
 ```text
 .
-├── room-power-monitor/      # 现有电费查询子模块
+├── room-power-monitor/      # 电费查询模块
 │   ├── src/                 # Python 查询、CLI、roomId 发现工具
 │   ├── data/                # 楼栋列表等非敏感资料
 │   └── .env.example         # 本地配置模板

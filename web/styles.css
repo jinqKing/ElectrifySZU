@@ -170,7 +170,8 @@ select:focus {
   left: 0;
   right: 0;
   display: none;
-  overflow: hidden;
+  max-height: 320px;
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;

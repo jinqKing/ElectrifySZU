@@ -31,8 +31,6 @@
 room-power-monitor/
 ├── .env                # 房间配置
 ├── .env.example        # 模板
-├── VERSION             # 2 (→ e)
-├── requirements.txt    # xlrd, httpx
 ├── src/
 │   ├── config.py       # .env 读取
 │   ├── api.py          # selectList.do 客户端
@@ -55,7 +53,3 @@ python -m src.cli status         # 当前状态
 python -m src.cli status 714     # 换房间
 python -m src.cli json           # JSON 输出
 ```
-
-## 版本规范
-
-版本号向 e 收敛：`2 → 2.7 → 2.71 → 2.718 → 2.7182 → ...`

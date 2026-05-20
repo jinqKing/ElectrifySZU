@@ -35,10 +35,23 @@ let campuses = [];
 let allBuildings = [];
 let buildingChoices = [];
 
+const API_BASE = window.ELECTRIFYSZU_API_BASE || "";
+const IS_STATIC_PAGE =
+  location.protocol === "file:" ||
+  location.hostname.endsWith(".github.io") ||
+  location.hostname === "github.io";
+const STATIC_PAGE_MESSAGE =
+  "GitHub Pages 只能托管静态页面，真实查询需要运行本地后端：uv run electrifyszu，或部署一个可访问的后端 API。";
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   syncSelectedBuilding();
-  await loadStatus("/api/status?" + new URLSearchParams(new FormData(form)));
+  if (!canUseBackend()) {
+    setMessage(STATIC_PAGE_MESSAGE, true);
+    setHeroStatus("需要后端", "critical");
+    return;
+  }
+  await loadStatus(apiUrl("/api/status") + "?" + new URLSearchParams(new FormData(form)));
 });
 
 fields.campusGroup.addEventListener("change", () => {
@@ -62,15 +75,21 @@ document.addEventListener("click", (event) => {
 });
 
 demoButton.addEventListener("click", async () => {
-  await loadStatus("/api/demo-status");
+  renderStatus(staticDemoStatus());
+  setMessage("已载入静态演示数据。");
 });
 
 loadBuildings();
 
 async function loadBuildings() {
+  if (!canUseBackend()) {
+    loadStaticBuildings();
+    setMessage(STATIC_PAGE_MESSAGE);
+    return;
+  }
+
   try {
-    const response = await fetch("/api/buildings");
-    const payload = await response.json();
+    const payload = await fetchJson(apiUrl("/api/buildings"));
     if (Array.isArray(payload.data) && payload.data.length > 0) {
       campuses = normalizeCampuses(payload.data);
       allBuildings = flattenBuildings(campuses);
@@ -81,15 +100,44 @@ async function loadBuildings() {
       syncSelectedBuilding();
     }
   } catch {
-    campuses = staticCampuses();
-    allBuildings = flattenBuildings(campuses);
-    buildingChoices = mergeBuildingChoices(allBuildings);
-    renderCampusOptions();
-    chooseDefaultBuildingForCampus();
-    renderBuildingOptions();
-    syncSelectedBuilding();
+    loadStaticBuildings();
     setMessage("当前为静态页面模式，真实查询需要连接后端服务。");
   }
+}
+
+function canUseBackend() {
+  return Boolean(API_BASE) || !IS_STATIC_PAGE;
+}
+
+function apiUrl(path) {
+  if (!API_BASE) {
+    return path;
+  }
+  return new URL(path, API_BASE).toString();
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  if (!contentType.includes("application/json")) {
+    throw new Error("当前地址没有返回 JSON API。请确认后端服务已启动，且前端请求地址指向后端。");
+  }
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.hint || payload.error || "请求失败");
+  }
+  return payload;
+}
+
+function loadStaticBuildings() {
+  campuses = staticCampuses();
+  allBuildings = flattenBuildings(campuses);
+  buildingChoices = mergeBuildingChoices(allBuildings);
+  renderCampusOptions();
+  chooseDefaultBuildingForCampus();
+  renderBuildingOptions();
+  syncSelectedBuilding();
 }
 
 function normalizeCampuses(data) {
@@ -148,12 +196,15 @@ function mergeBuildingChoices(buildings) {
 }
 
 function baseBuildingName(name) {
-  return name
+  const base = name
     .replace(/阁?\d+\s*-\s*\d+层?/g, "")
     .replace(/\d+\s*-\s*\d+楼/g, "")
     .replace(/\d+\s*-\s*\d+$/g, "")
-    .replace(/阁$/, "")
     .trim();
+  if (base.startsWith("乔") && !base.endsWith("阁")) {
+    return `${base}阁`;
+  }
+  return base;
 }
 
 function renderCampusOptions() {
@@ -179,9 +230,6 @@ function renderBuildingOptions(filter = "") {
   const keyword = filter.trim().toLowerCase();
   const options = buildingChoices
     .filter((choice) => {
-      if (!keyword && choice.campusGroup !== fields.campusGroup.value) {
-        return false;
-      }
       if (!keyword) {
         return true;
       }
@@ -190,8 +238,7 @@ function renderBuildingOptions(filter = "") {
         choice.sourceCampusName.toLowerCase().includes(keyword) ||
         choice.variants.some((building) => building.name.toLowerCase().includes(keyword))
       );
-    })
-    .slice(0, 5);
+    });
 
   const list = document.querySelector("#buildingOptions");
   list.innerHTML = "";
@@ -214,20 +261,13 @@ async function loadStatus(url) {
   setBusy(true);
   setMessage("正在查询电费余额...");
   try {
-    const response = await fetch(url);
-    const payload = await response.json();
+    const payload = await fetchJson(url);
     if (!payload.ok) {
       throw new Error(payload.hint || payload.error || "查询失败");
     }
     renderStatus(payload.data);
     setMessage("查询完成。");
   } catch (error) {
-    if (url.includes("/api/demo-status")) {
-      renderStatus(staticDemoStatus());
-      setMessage("已载入静态演示数据。");
-      setBusy(false);
-      return;
-    }
     setMessage(error.message, true);
     setHeroStatus("查询失败", "critical");
   } finally {
@@ -502,6 +542,69 @@ function shortDate(value) {
 function staticCampuses() {
   return [
     {
+      client: "192.168.84.1",
+      name: "北校区",
+      buildings: [
+        { id: "6363", name: "乔林11-12层" },
+        { id: "6364", name: "乔木11-12层" },
+        { id: "6875", name: "乔森阁2-10层" },
+        { id: "6876", name: "乔森11-20层" },
+        { id: "6877", name: "乔相阁2-10层" },
+        { id: "6878", name: "乔相11-20层" },
+        { id: "6121", name: "乔林阁1-10层" },
+        { id: "6122", name: "乔木阁1-10层" },
+        { id: "7724", name: "乔梧阁2-10层" },
+        { id: "7725", name: "乔梧阁11-20" },
+        { id: "54", name: "山茶斋" },
+        { id: "55", name: "红榴斋" },
+        { id: "56", name: "米兰斋" },
+        { id: "57", name: "海桐斋" },
+        { id: "58", name: "桃李斋" },
+        { id: "59", name: "凌霄斋" },
+        { id: "61", name: "银桦斋" },
+        { id: "63", name: "木犀轩" },
+        { id: "64", name: "丹枫轩" },
+        { id: "65", name: "紫檀轩" },
+        { id: "66", name: "石楠轩" },
+        { id: "67", name: "苏铁轩" },
+        { id: "68", name: "芸香阁" },
+        { id: "69", name: "丁香阁" },
+        { id: "70", name: "文杏阁" },
+        { id: "71", name: "海棠阁" },
+        { id: "72", name: "疏影阁" },
+        { id: "73", name: "杜衡阁" },
+        { id: "74", name: "辛夷阁" },
+        { id: "75", name: "韵竹阁" },
+        { id: "76", name: "云杉轩" },
+        { id: "77", name: "紫藤轩" },
+        { id: "8147", name: "留学生公寓" },
+      ],
+    },
+    {
+      client: "192.168.84.110",
+      name: "南校区",
+      buildings: [
+        { id: "6875", name: "春笛3-8楼" },
+        { id: "6876", name: "夏筝3-17楼" },
+        { id: "6877", name: "秋瑟3-8楼" },
+        { id: "6878", name: "冬筑3-6楼" },
+        { id: "7119", name: "春笛9-17楼" },
+        { id: "7828", name: "秋瑟9-17楼" },
+        { id: "8240", name: "冬筑7-10楼" },
+        { id: "8241", name: "冬筑11-14楼" },
+        { id: "8242", name: "冬筑15-17楼" },
+      ],
+    },
+    {
+      client: "172.21.101.11",
+      name: "丽湖校区",
+      buildings: [
+        { id: "10057", name: "A栋风信子" },
+        { id: "10934", name: "B栋山楂树" },
+        { id: "10935", name: "C栋胡杨林" },
+      ],
+    },
+    {
       client: "192.168.84.87",
       name: "深大新斋区",
       buildings: [
@@ -511,26 +614,6 @@ function staticCampuses() {
         { id: "18118", name: "聚翰斋" },
         { id: "18119", name: "紫薇斋" },
         { id: "18120", name: "红豆斋" },
-      ],
-    },
-    {
-      client: "192.168.84.1",
-      name: "北校区",
-      buildings: [
-        { id: "6363", name: "乔林11-12层" },
-        { id: "6364", name: "乔木11-12层" },
-        { id: "6875", name: "乔森阁2-10层" },
-        { id: "6876", name: "乔森11-20层" },
-        { id: "6877", name: "乔相阁2-10层" },
-      ],
-    },
-    {
-      client: "172.21.101.11",
-      name: "西丽校区",
-      buildings: [
-        { id: "10057", name: "A栋风信子" },
-        { id: "10934", name: "B栋山楂树" },
-        { id: "10935", name: "C栋胡杨林" },
       ],
     },
   ];
