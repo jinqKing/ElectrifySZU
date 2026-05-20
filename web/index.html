@@ -153,8 +153,29 @@
             <h2 data-i18n="chart.title">余额与用电趋势</h2>
             <p class="section-note" data-i18n="chart.note">余额走势和每日用电量会在查询后自动更新。</p>
           </div>
-          <span id="chartRange" data-i18n="empty.noData">暂无数据</span>
+          <div class="chart-meta">
+            <div class="chart-legend" aria-label="图例" data-i18n-aria-label="chart.legendLabel">
+              <span><i class="legend-line"></i><span data-i18n="chart.balanceLegend">余额</span></span>
+              <span><i class="legend-bar low"></i><span data-i18n="chart.lowUseLegend">低用电</span></span>
+              <span><i class="legend-bar medium"></i><span data-i18n="chart.mediumUseLegend">中用电</span></span>
+              <span><i class="legend-bar high"></i><span data-i18n="chart.highUseLegend">高用电</span></span>
+            </div>
+            <span id="chartRange" data-i18n="empty.noData">暂无数据</span>
+          </div>
         </div>
+        <form id="usageLevelForm" class="usage-level-form" aria-label="用电等级配置" data-i18n-aria-label="chart.levelConfigLabel">
+          <label>
+            <span data-i18n="chart.mediumThreshold">中用电起点</span>
+            <input id="mediumUseThreshold" type="number" min="0" step="0.1" />
+            <small>kWh</small>
+          </label>
+          <label>
+            <span data-i18n="chart.highThreshold">高用电起点</span>
+            <input id="highUseThreshold" type="number" min="0" step="0.1" />
+            <small>kWh</small>
+          </label>
+          <button class="secondary compact" type="button" id="resetUsageLevels" data-i18n="chart.resetLevels">自动分档</button>
+        </form>
         <div id="trendChart" class="trend-chart empty" data-i18n="empty.noTrend">暂无趋势数据</div>
       </section>
 
