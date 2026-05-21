@@ -71,11 +71,11 @@ translations["zh-CN"] ||= {};
 translations["en-US"] ||= {};
 translations["zh-CN"]["subscribe.emailPlaceholder"] ||= "学号或邮箱前缀";
 translations["zh-CN"]["subscribe.emailHint"] ||=
-  "可只填写邮箱前缀，默认补全 @email.szu.edu.cn；也支持输入其他完整邮箱。";
+  "自动补全 @email.szu.edu.cn；支持输入其他完整邮箱。";
 translations["zh-CN"]["subscribe.invalidEmail"] ||= "请输入有效邮箱，或仅填写默认邮箱前缀。";
 translations["en-US"]["subscribe.emailPlaceholder"] ||= "NetID or email prefix";
 translations["en-US"]["subscribe.emailHint"] ||=
-  "You can enter only the prefix and we will append @email.szu.edu.cn, or enter any full email address.";
+  "Auto append @email.szu.edu.cn, support other emails";
 translations["en-US"]["subscribe.invalidEmail"] ||=
   "Enter a valid email address, or only the default mailbox prefix.";
 const LOCALE_QUERY = {
