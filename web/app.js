@@ -319,6 +319,9 @@ async function saveSubscription() {
       roomName: fields.roomName.value,
     });
     setMessageRaw(payload.message || t("subscribe.saved"));
+    if (payload.verification_required) {
+      fields.subscriberEmail.value = normalizedEmail;
+    }
   } catch (error) {
     setMessageRaw(error.message, true);
   } finally {

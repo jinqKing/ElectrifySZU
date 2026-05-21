@@ -21,13 +21,14 @@ sys.path.insert(0, str(MONITOR_DIR))
 from src.api import DormApi  # noqa: E402
 from src.config import Config  # noqa: E402
 from src.discover import discover_room_id  # noqa: E402
-from subscription_alerts.subscriptions import (  # noqa: E402
-    AlertSettings,
-    AlertRunner,
-    SubscriptionStore,
-    start_alert_worker,
-)
 from src.version import __version__  # noqa: E402
+from subscription_alerts.alerts import AlertRunner, AlertSettings, start_alert_worker  # noqa: E402
+from subscription_alerts.store import SubscriptionStore  # noqa: E402
+from subscription_alerts.unsubscribe import unsubscribe_subscription  # noqa: E402
+from subscription_alerts.verification import (  # noqa: E402
+    create_pending_subscription,
+    verify_subscription,
+)
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -35,8 +36,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
+        query = parse_qs(parsed.query)
         if parsed.path == "/api/status":
-            self._handle_status(parse_qs(parsed.query))
+            self._handle_status(query)
             return
         if parsed.path == "/api/buildings":
             self._handle_buildings()
@@ -45,10 +47,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(demo_status())
             return
         if parsed.path == "/api/unsubscribe":
-            self._handle_unsubscribe(parse_qs(parsed.query))
+            self._handle_unsubscribe(query)
+            return
+        if parsed.path == "/api/subscriptions/verify":
+            self._handle_verify_subscription(query)
             return
         if parsed.path == "/api/alerts/check":
-            self._handle_alert_check(parse_qs(parsed.query))
+            self._handle_alert_check(query)
             return
         self._serve_static(parsed.path)
 
@@ -67,13 +72,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             config = Config.from_env(str(ENV_FILE))
             client = _query_value(query, "client") or config.client
             campus_name = _query_value(query, "campusName") or config.campus_name
-            config.client = client
-            api = DormApi(config)
             building_id = _query_value(query, "buildingId") or config.building_id
             building_name = _query_value(query, "buildingName") or config.building_name
             room_name = _query_value(query, "roomName") or config.room_name
             days = int(_query_value(query, "days") or "30")
 
+            config.client = client
             room_id = discover_room_id(
                 building_id=building_id,
                 room_name=room_name,
@@ -82,7 +86,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if not room_id:
                 raise LookupError(f"未找到 {campus_name} {building_name} {room_name} 房间。")
 
-            result = api.get_status(
+            result = DormApi(config).get_status(
                 room_id=room_id,
                 room_name=room_name,
                 days=days,
@@ -105,10 +109,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _handle_buildings(self) -> None:
         config = Config.from_env(str(ENV_FILE))
-        data = merge_campuses(
-            default_campuses(config),
-            load_buildings_file(),
-        )
+        data = merge_campuses(default_campuses(config), load_buildings_file())
         self._send_json({"ok": True, "data": data})
 
     def _handle_subscription(self) -> None:
@@ -117,8 +118,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             settings = AlertSettings.from_env(ROOT)
             store = SubscriptionStore(settings.csv_path)
             data = self._read_request_data()
-            subscription = store.upsert(
-                {
+            result = create_pending_subscription(
+                store=store,
+                values={
                     "email": data.get("email", ""),
                     "client": data.get("client", "") or config.client,
                     "campus_name": data.get("campusName", "") or config.campus_name,
@@ -131,7 +133,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     ),
                 },
                 default_threshold=config.low_power_threshold,
+                base_url=settings.base_url,
+                env_path=settings.env_path,
+                request_base_url=self._request_base_url(),
             )
+            subscription = result.subscription
+
             self._send_json(
                 {
                     "ok": True,
@@ -141,8 +148,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "building_name": subscription.building_name,
                         "room_name": subscription.room_name,
                         "threshold_kwh": subscription.threshold_kwh,
+                        "verified": subscription.verified,
                     },
-                    "message": "订阅已保存。余额低于阈值时，系统每天最多发送一次预警邮件。",
+                    "message": (
+                        "验证邮件已发送，请点击邮件中的确认链接后启用低电量预警。"
+                        if result.verification_required
+                        else "该邮箱订阅已生效，后续低电量会按规则发送提醒。"
+                    ),
+                    "verification_required": result.verification_required,
                 },
                 status=201,
             )
@@ -158,14 +171,37 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 status=500,
             )
 
+    def _handle_verify_subscription(self, query: dict[str, list[str]]) -> None:
+        settings = AlertSettings.from_env(ROOT)
+        token = _query_value(query, "token")
+        status, subscription = verify_subscription(SubscriptionStore(settings.csv_path), token)
+        if status == "verified" and subscription is not None:
+            self._send_plain(
+                f"邮箱验证成功：{subscription.campus_name} "
+                f"{subscription.building_name} {subscription.room_name} 的低电量提醒已启用。"
+            )
+            return
+        if status == "already_verified" and subscription is not None:
+            self._send_plain(
+                f"该邮箱已完成验证：{subscription.campus_name} "
+                f"{subscription.building_name} {subscription.room_name} 的提醒已处于启用状态。"
+            )
+            return
+        self._send_plain("验证链接无效或已过期。", status=404)
+
     def _handle_unsubscribe(self, query: dict[str, list[str]]) -> None:
         settings = AlertSettings.from_env(ROOT)
         token = _query_value(query, "token")
-        ok = SubscriptionStore(settings.csv_path).unsubscribe(token)
+        ok = unsubscribe_subscription(SubscriptionStore(settings.csv_path), token)
         if ok:
             self._send_plain("已取消电费预警订阅。")
         else:
             self._send_plain("退订链接无效或订阅已取消。", status=404)
+
+    def _handle_alert_check(self, query: dict[str, list[str]]) -> None:
+        skip_recent = _query_value(query, "skipRecent").lower() not in {"0", "false", "no"}
+        stats = AlertRunner(ROOT).run_once(skip_recent=skip_recent)
+        self._send_json({"ok": True, "data": stats})
 
     def _serve_static(self, path: str) -> None:
         if path in {"", "/"}:
@@ -218,6 +254,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             }
         parsed = parse_qs(body.decode("utf-8"), keep_blank_values=True)
         return {key: values[0].strip() if values else "" for key, values in parsed.items()}
+
+    def _request_base_url(self) -> str:
+        host = self.headers.get("Host", "127.0.0.1:8000").strip() or "127.0.0.1:8000"
+        scheme = "https" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else "http"
+        return f"{scheme}://{host}"
 
 
 def _query_value(query: dict[str, list[str]], key: str) -> str:
@@ -282,9 +323,7 @@ def merge_campuses(*groups: list[dict[str, object]]) -> list[dict[str, object]]:
                 campuses_by_client[client] = target
                 merged.append(target)
 
-            seen_buildings = {
-                building["id"] for building in target["buildings"]
-            }
+            seen_buildings = {building["id"] for building in target["buildings"]}
             for building in campus.get("buildings", []):
                 building_id = str(building.get("id", "")).strip()
                 building_name = str(building.get("name", "")).strip()
