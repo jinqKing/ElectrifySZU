@@ -9,7 +9,7 @@ from email import policy
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 ROOT = Path(__file__).resolve().parent
 MONITOR_DIR = ROOT / "room-power-monitor"
@@ -176,27 +176,56 @@ class DashboardHandler(BaseHTTPRequestHandler):
         token = _query_value(query, "token")
         status, subscription = verify_subscription(SubscriptionStore(settings.csv_path), token)
         if status == "verified" and subscription is not None:
-            self._send_plain(
-                f"邮箱验证成功：{subscription.campus_name} "
-                f"{subscription.building_name} {subscription.room_name} 的低电量提醒已启用。"
+            self._redirect_to_dashboard(
+                {
+                    "notice": "verified",
+                    "email": subscription.email,
+                    "campus": subscription.campus_name,
+                    "building": subscription.building_name,
+                    "room": subscription.room_name,
+                }
             )
             return
         if status == "already_verified" and subscription is not None:
-            self._send_plain(
-                f"该邮箱已完成验证：{subscription.campus_name} "
-                f"{subscription.building_name} {subscription.room_name} 的提醒已处于启用状态。"
+            self._redirect_to_dashboard(
+                {
+                    "notice": "already_verified",
+                    "email": subscription.email,
+                    "campus": subscription.campus_name,
+                    "building": subscription.building_name,
+                    "room": subscription.room_name,
+                }
             )
             return
-        self._send_plain("验证链接无效或已过期。", status=404)
+        self._redirect_to_dashboard({"notice": "verify_invalid"})
 
     def _handle_unsubscribe(self, query: dict[str, list[str]]) -> None:
         settings = AlertSettings.from_env(ROOT)
         token = _query_value(query, "token")
-        ok = unsubscribe_subscription(SubscriptionStore(settings.csv_path), token)
-        if ok:
-            self._send_plain("已取消电费预警订阅。")
-        else:
-            self._send_plain("退订链接无效或订阅已取消。", status=404)
+        status, subscription = unsubscribe_subscription(SubscriptionStore(settings.csv_path), token)
+        if status == "unsubscribed" and subscription is not None:
+            self._redirect_to_dashboard(
+                {
+                    "notice": "unsubscribed",
+                    "email": subscription.email,
+                    "campus": subscription.campus_name,
+                    "building": subscription.building_name,
+                    "room": subscription.room_name,
+                }
+            )
+            return
+        if status == "already_unsubscribed" and subscription is not None:
+            self._redirect_to_dashboard(
+                {
+                    "notice": "already_unsubscribed",
+                    "email": subscription.email,
+                    "campus": subscription.campus_name,
+                    "building": subscription.building_name,
+                    "room": subscription.room_name,
+                }
+            )
+            return
+        self._redirect_to_dashboard({"notice": "unsubscribe_invalid"})
 
     def _handle_alert_check(self, query: dict[str, list[str]]) -> None:
         skip_recent = _query_value(query, "skipRecent").lower() not in {"0", "false", "no"}
@@ -259,6 +288,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         host = self.headers.get("Host", "127.0.0.1:8000").strip() or "127.0.0.1:8000"
         scheme = "https" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else "http"
         return f"{scheme}://{host}"
+
+    def _redirect_to_dashboard(self, params: dict[str, str]) -> None:
+        location = f"/?{urlencode(params)}"
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
 
 def _query_value(query: dict[str, list[str]], key: str) -> str:
