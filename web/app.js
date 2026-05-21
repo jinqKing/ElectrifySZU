@@ -605,12 +605,24 @@ function toggleMetricMode(key) {
   if (!key || !metricMode[key]) {
     return;
   }
+  const card = document.querySelector(`[data-metric-key="${key}"]`);
+  animateMetricSwitch(card);
   metricMode[key] = metricMode[key] === "yuan" || metricMode[key] === "date"
     ? (key === "daysLeft" ? "days" : "kwh")
     : (key === "daysLeft" ? "date" : "yuan");
   if (currentStatusData) {
     renderMetricCards(currentStatusData);
   }
+}
+
+function animateMetricSwitch(card) {
+  if (!card) {
+    return;
+  }
+  card.classList.remove("is-switching");
+  void card.offsetWidth;
+  card.classList.add("is-switching");
+  window.setTimeout(() => card.classList.remove("is-switching"), 360);
 }
 
 function renderRecharges(recharges) {
