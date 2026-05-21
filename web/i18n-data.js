@@ -102,7 +102,7 @@ window.ElectrifySZUI18n = {
       "form.days": "Days",
       "form.submit": "Check balance",
       "form.demo": "Load demo",
-      "brand.version": "Version 2.7",
+      "brand.version": "Version 2.71",
       "brand.repo": "GitHub Repository",
       "brand.sponsor": "Support us",
       "brand.footer": "Completed by Matrix Team",
