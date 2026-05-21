@@ -18,6 +18,8 @@ CSV_FIELDS = [
     "building_name",
     "room_name",
     "threshold_kwh",
+    "alert_enabled",
+    "daily_report_enabled",
     "enabled",
     "verified",
     "created_at",
@@ -41,6 +43,8 @@ class Subscription:
     building_name: str
     room_name: str
     threshold_kwh: float
+    alert_enabled: bool
+    daily_report_enabled: bool
     enabled: bool
     verified: bool
     created_at: str
@@ -74,6 +78,8 @@ class Subscription:
             building_name=row.get("building_name", "").strip(),
             room_name=row.get("room_name", "").strip(),
             threshold_kwh=_to_float(row.get("threshold_kwh"), 20.0),
+            alert_enabled=_to_bool(row.get("alert_enabled"), True),
+            daily_report_enabled=_to_bool(row.get("daily_report_enabled"), False),
             enabled=_to_bool(row.get("enabled"), True),
             verified=_row_verified(row),
             created_at=row.get("created_at", "").strip(),
@@ -94,6 +100,8 @@ class Subscription:
             "building_name": self.building_name,
             "room_name": self.room_name,
             "threshold_kwh": f"{self.threshold_kwh:g}",
+            "alert_enabled": "true" if self.alert_enabled else "false",
+            "daily_report_enabled": "true" if self.daily_report_enabled else "false",
             "enabled": "true" if self.enabled else "false",
             "verified": "true" if self.verified else "false",
             "created_at": self.created_at,
@@ -156,7 +164,7 @@ class SubscriptionStore:
             ]
 
     def list_enabled(self) -> list[Subscription]:
-        return [item for item in self.list_all() if item.is_active]
+        return [item for item in self.list_all() if item.is_active and item.alert_enabled]
 
     def mark_alert_sent(self, subscription: Subscription, alert_date: str) -> None:
         with self._lock:
@@ -255,6 +263,8 @@ def build_subscription(values: dict[str, Any], default_threshold: float) -> Subs
         building_name=cleaned["building_name"],
         room_name=cleaned["room_name"],
         threshold_kwh=threshold,
+        alert_enabled=_to_bool(values.get("alert_enabled"), True),
+        daily_report_enabled=_to_bool(values.get("daily_report_enabled"), False),
         enabled=True,
         verified=False,
         created_at=now,
@@ -276,6 +286,8 @@ def merge_active_subscription(existing: Subscription, submitted: Subscription) -
         building_name=submitted.building_name,
         room_name=submitted.room_name,
         threshold_kwh=submitted.threshold_kwh,
+        alert_enabled=submitted.alert_enabled,
+        daily_report_enabled=submitted.daily_report_enabled,
         enabled=True,
         verified=True,
         created_at=existing.created_at or submitted.created_at,
@@ -301,6 +313,8 @@ def merge_pending_subscription(
         building_name=submitted.building_name,
         room_name=submitted.room_name,
         threshold_kwh=submitted.threshold_kwh,
+        alert_enabled=submitted.alert_enabled,
+        daily_report_enabled=submitted.daily_report_enabled,
         enabled=True,
         verified=False,
         created_at=existing.created_at if existing else submitted.created_at,

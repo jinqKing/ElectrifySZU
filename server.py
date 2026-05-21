@@ -131,6 +131,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "thresholdKwh",
                         str(config.low_power_threshold),
                     ),
+                    "alert_enabled": data.get("alertEnabled", True),
+                    "daily_report_enabled": data.get("dailyReportEnabled", False),
                 },
                 default_threshold=config.low_power_threshold,
                 base_url=settings.base_url,
@@ -148,12 +150,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "building_name": subscription.building_name,
                         "room_name": subscription.room_name,
                         "threshold_kwh": subscription.threshold_kwh,
+                        "alert_enabled": subscription.alert_enabled,
+                        "daily_report_enabled": subscription.daily_report_enabled,
                         "verified": subscription.verified,
                     },
                     "message": (
-                        "验证邮件已发送，请点击邮件中的确认链接后启用低电量预警。"
+                        "验证邮件已发送，请点击邮件中的确认链接后启用订阅。"
                         if result.verification_required
-                        else "该邮箱订阅已生效，后续低电量会按规则发送提醒。"
+                        else "该邮箱订阅已生效。余额低于阈值时，系统每天最多发送一次预警邮件。"
                     ),
                     "verification_required": result.verification_required,
                 },
