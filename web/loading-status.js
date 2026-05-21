@@ -24,6 +24,7 @@
     let timeoutIndex = 0;
     let dotsTimer = null;
     let phraseTimer = null;
+    let detailFrameId = null;
     let mainTextNode = null;
     let dotsNode = null;
     let detailNode = null;
@@ -41,7 +42,7 @@
     }
 
     function ensureMarkup() {
-      if (mainTextNode && dotsNode && detailNode) {
+      if (mainTextNode && dotsNode && detailNode && element.contains(mainTextNode)) {
         return;
       }
 
@@ -76,7 +77,11 @@
         return;
       }
       detailNode.classList.remove("is-visible");
-      requestAnimationFrame(() => {
+      if (detailFrameId != null) {
+        window.cancelAnimationFrame(detailFrameId);
+      }
+      detailFrameId = window.requestAnimationFrame(() => {
+        detailFrameId = null;
         detailNode.textContent = nextText;
         detailNode.classList.add("is-visible");
       });
@@ -100,6 +105,10 @@
     function clearTimers() {
       window.clearInterval(dotsTimer);
       window.clearInterval(phraseTimer);
+      if (detailFrameId != null) {
+        window.cancelAnimationFrame(detailFrameId);
+        detailFrameId = null;
+      }
       dotsTimer = null;
       phraseTimer = null;
     }
@@ -127,6 +136,9 @@
         active = false;
         clearTimers();
         element.classList.remove("loading");
+        mainTextNode = null;
+        dotsNode = null;
+        detailNode = null;
       },
 
       isActive() {
