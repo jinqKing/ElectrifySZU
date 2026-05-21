@@ -15,35 +15,41 @@ roomId 发现工具
   3. 解析返回的 selectList 页面 → 提取 <input name="roomId" value="XXXX">
 """
 
-import sys
-import re
 import os
+import re
+import sys
 from urllib.parse import urljoin, quote
 
 import httpx
 
 from .config import Config
 
-CONFIG = Config.from_env()
-BASE_URL = CONFIG.base_url.rstrip("/")
+DEFAULT_BASE_URL = "http://192.168.84.3:9090/cgcSims"
 
 
 def get_proxy() -> str:
-    Config.from_env()
     return os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy") or ""
 
 
-def list_buildings(client_ip: str = "") -> dict:
+def _base_url(value: str = "") -> str:
+    if value:
+        return value.rstrip("/")
+    return Config.from_env().base_url.rstrip("/") or DEFAULT_BASE_URL
+
+
+def list_buildings(client_ip: str = "", base_url: str = "") -> dict:
     """获取楼栋列表，返回 {buildingId: buildingName}"""
-    client_ip = client_ip or CONFIG.client
+    config = Config.from_env()
+    client_ip = client_ip or config.client
     client = httpx.Client(proxy=get_proxy() or None)
-    r = client.get(f"{BASE_URL}/login.do?task=station&client={client_ip}")
+    r = client.get(f"{_base_url(base_url)}/login.do?task=station&client={client_ip}")
     opts = re.findall(rb'<option value="(\d+)">([^<]*)</option>', r.content)
     return {bid.decode(): name.decode("gb2312").strip() for bid, name in opts}
 
 
 def discover_room_id(building_id: str, room_name: str,
-                     client_ip: str = "") -> str | None:
+                     client_ip: str = "",
+                     base_url: str = "") -> str | None:
     """
     通过登录表单获取 roomId。
 
@@ -55,11 +61,13 @@ def discover_room_id(building_id: str, room_name: str,
     Returns:
         roomId 字符串，找不到返回 None
     """
-    client_ip = client_ip or CONFIG.client
+    config = Config.from_env()
+    client_ip = client_ip or config.client
     client = httpx.Client(proxy=get_proxy() or None)
+    api_base = _base_url(base_url)
 
     # Step 1: GET login page
-    r = client.get(f"{BASE_URL}/login.do?task=station&client={client_ip}",
+    r = client.get(f"{api_base}/login.do?task=station&client={client_ip}",
                    headers={"User-Agent": "Mozilla/5.0"})
 
     # 提取 form action 和 building option 文本
@@ -87,11 +95,11 @@ def discover_room_id(building_id: str, room_name: str,
     ]).encode("ascii")
 
     resp = client.post(
-        urljoin(BASE_URL, action),
+        urljoin(api_base + "/", action),
         content=body,
         headers={
             "Content-Type": "application/x-www-form-urlencoded",
-            "Referer": f"{BASE_URL}/login.do?task=station&client={client_ip}",
+            "Referer": f"{api_base}/login.do?task=station&client={client_ip}",
             "User-Agent": "Mozilla/5.0",
         }
     )
@@ -110,8 +118,10 @@ def main():
         print(__doc__)
         return
 
+    config = Config.from_env()
+
     if sys.argv[1] == "--list":
-        print(f"楼栋列表 (client={CONFIG.client}):\n")
+        print(f"楼栋列表 (client={config.client}):\n")
         buildings = list_buildings()
         for bid, name in buildings.items():
             print(f"  buildingId={bid:>6}    {name}")
@@ -133,7 +143,7 @@ def main():
         print(f"\n  将以下配置加入 .env:")
         print(f"  DORM_ROOM_ID={room_id}")
         print(f"  DORM_ROOM_NAME={room_name}")
-        print(f"  DORM_CLIENT={CONFIG.client}")
+        print(f"  DORM_CLIENT={config.client}")
     else:
         print(f"\n  [!] 未找到。请确认:")
         print(f"      - buildingId 正确 (用 --list 查看)")

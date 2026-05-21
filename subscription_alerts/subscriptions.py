@@ -318,6 +318,7 @@ class AlertRunner:
             building_id=subscription.building_id,
             room_name=subscription.room_name,
             client_ip=subscription.client,
+            base_url=config.base_url,
         )
         if not room_id:
             raise LookupError(
