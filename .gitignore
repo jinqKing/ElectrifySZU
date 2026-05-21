@@ -28,3 +28,5 @@ data/subscriptions.tmp
 # IDE
 .idea/
 .vscode/
+
+*.log
