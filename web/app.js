@@ -204,6 +204,24 @@ demoButton.addEventListener("click", async () => {
   setMessageKey("message.demoLoaded");
 });
 
+window.addEventListener("keydown", (event) => {
+  const key = String(event.key || "").toLowerCase();
+  const isRefreshShortcut =
+    event.key === "F5" ||
+    ((event.ctrlKey || event.metaKey) && key === "r");
+  if (!isRefreshShortcut) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+});
+
+window.addEventListener("beforeunload", (event) => {
+  event.preventDefault();
+  event.returnValue = "";
+});
+
 languageButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setLanguage(button.dataset.lang);
