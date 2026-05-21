@@ -8,6 +8,11 @@ const emailInputGroup = document.querySelector(".email-input-group");
 const emailDomainHint = document.querySelector("#subscriberEmailDomainHint");
 const usageLevelForm = document.querySelector("#usageLevelForm");
 const resetUsageLevelsButton = document.querySelector("#resetUsageLevels");
+const sponsorButton = document.querySelector("#sponsorButton");
+const supportModal = document.querySelector("#supportModal");
+const supportDialog = document.querySelector("#supportDialog");
+const supportCloseButton = document.querySelector("#supportClose");
+const supportBackdrop = document.querySelector("[data-support-close]");
 
 const fields = {
   campusGroup: document.querySelector("#campusGroup"),
@@ -54,6 +59,7 @@ let buildingChoices = [];
 let currentStatusData = null;
 let lastMessage = { key: "message.initial", values: {}, isError: false, raw: null };
 let lastHeroStatus = { key: "status.waiting", values: {}, status: "unknown", raw: null };
+let lastFocusedElement = null;
 
 const API_BASE = window.ELECTRIFYSZU_API_BASE || "";
 const IS_STATIC_PAGE =
@@ -222,6 +228,12 @@ window.addEventListener("beforeunload", (event) => {
   event.returnValue = "";
 });
 
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && supportModal && !supportModal.hidden) {
+    closeSupportModal();
+  }
+});
+
 languageButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setLanguage(button.dataset.lang);
@@ -244,6 +256,14 @@ resetUsageLevelsButton.addEventListener("click", () => {
   } else {
     syncUsageLevelInputs([]);
   }
+});
+
+sponsorButton?.addEventListener("click", openSupportModal);
+supportCloseButton?.addEventListener("click", closeSupportModal);
+supportBackdrop?.addEventListener("click", closeSupportModal);
+
+supportDialog?.addEventListener("click", (event) => {
+  event.stopPropagation();
 });
 
 setLanguage(currentLocale, { persist: false });
@@ -373,6 +393,33 @@ function syncEmailInputState() {
   fields.subscriberEmail.setCustomValidity("");
   if (emailDomainHint) {
     emailDomainHint.textContent = DEFAULT_EMAIL_DOMAIN;
+  }
+}
+
+function openSupportModal() {
+  if (!supportModal || !supportDialog || !sponsorButton) {
+    return;
+  }
+
+  lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : sponsorButton;
+  supportModal.hidden = false;
+  sponsorButton.setAttribute("aria-expanded", "true");
+  document.body.classList.add("modal-open");
+  supportDialog.focus();
+}
+
+function closeSupportModal() {
+  if (!supportModal || !sponsorButton) {
+    return;
+  }
+
+  supportModal.hidden = true;
+  sponsorButton.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("modal-open");
+  if (lastFocusedElement instanceof HTMLElement) {
+    lastFocusedElement.focus();
+  } else {
+    sponsorButton.focus();
   }
 }
 
@@ -1197,6 +1244,9 @@ function setLanguage(locale, options = {}) {
   });
   document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  });
+  document.querySelectorAll("[data-i18n-alt]").forEach((element) => {
+    element.setAttribute("alt", t(element.dataset.i18nAlt));
   });
   document.querySelectorAll(".field-hint[data-i18n]").forEach((element) => {
     element.textContent = t(element.dataset.i18n);
