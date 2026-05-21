@@ -98,6 +98,7 @@ const LOCALE_QUERY = {
   en: "en-US",
   "en-US": "en-US",
 };
+const pageQuery = new URLSearchParams(location.search);
 const campusLabels = {
   粤海: "粤海 / Yuehai",
   丽湖: "丽湖 / Lihu",
@@ -286,6 +287,7 @@ supportDialog?.addEventListener("click", (event) => {
 setLanguage(currentLocale, { persist: false });
 loadBuildings();
 syncEmailInputState();
+showPageNotice();
 
 async function loadBuildings() {
   if (!canUseBackend()) {
@@ -320,6 +322,46 @@ function apiUrl(path) {
     return path;
   }
   return new URL(path, API_BASE).toString();
+}
+
+function showPageNotice() {
+  const notice = pageQuery.get("notice");
+  if (!notice) {
+    return;
+  }
+
+  const values = {
+    email: pageQuery.get("email") || "",
+    campus: pageQuery.get("campus") || "",
+    building: pageQuery.get("building") || "",
+    room: pageQuery.get("room") || "",
+  };
+  const mapping = {
+    verified: "notice.verified",
+    already_verified: "notice.alreadyVerified",
+    verify_invalid: "notice.verifyInvalid",
+    unsubscribed: "notice.unsubscribed",
+    already_unsubscribed: "notice.alreadyUnsubscribed",
+    unsubscribe_invalid: "notice.unsubscribeInvalid",
+  };
+  const key = mapping[notice];
+  if (!key) {
+    return;
+  }
+
+  setMessageKey(key, values, notice.endsWith("invalid"));
+  if (notice.includes("unsubscribed")) {
+    setHeroStatusKey("status.waiting", {}, "unknown");
+  }
+
+  pageQuery.delete("notice");
+  pageQuery.delete("email");
+  pageQuery.delete("campus");
+  pageQuery.delete("building");
+  pageQuery.delete("room");
+  const nextQuery = pageQuery.toString();
+  const nextUrl = `${location.pathname}${nextQuery ? `?${nextQuery}` : ""}${location.hash}`;
+  history.replaceState({}, "", nextUrl);
 }
 
 async function fetchJson(url) {
@@ -374,6 +416,9 @@ async function saveSubscription() {
       roomName: fields.roomName.value,
     });
     setMessageRaw(payload.message || t("subscribe.saved"));
+    if (payload.verification_required) {
+      fields.subscriberEmail.value = normalizedEmail;
+    }
   } catch (error) {
     setMessageRaw(error.message, true);
   } finally {
