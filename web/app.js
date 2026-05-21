@@ -6,6 +6,10 @@ const heroStatus = document.querySelector("#heroStatus");
 const languageButtons = document.querySelectorAll("[data-lang]");
 const emailInputGroup = document.querySelector(".email-input-group");
 const emailDomainHint = document.querySelector("#subscriberEmailDomainHint");
+const subscriptionDialog = document.querySelector("#subscriptionDialog");
+const subscriptionDialogMessage = document.querySelector("#subscriptionDialogMessage");
+const subscriptionDialogCancel = document.querySelector("#subscriptionDialogCancel");
+const subscriptionDialogConfirm = document.querySelector("#subscriptionDialogConfirm");
 const usageLevelForm = document.querySelector("#usageLevelForm");
 const resetUsageLevelsButton = document.querySelector("#resetUsageLevels");
 const sponsorButton = document.querySelector("#sponsorButton");
@@ -32,6 +36,8 @@ const fields = {
   roomName: document.querySelector("#roomName"),
   days: document.querySelector("#days"),
   subscriberEmail: document.querySelector("#subscriberEmail"),
+  subscribeAlert: document.querySelector("#subscribeAlert"),
+  subscribeDailyReport: document.querySelector("#subscribeDailyReport"),
   mediumUseThreshold: document.querySelector("#mediumUseThreshold"),
   highUseThreshold: document.querySelector("#highUseThreshold"),
 };
@@ -87,11 +93,15 @@ translations["zh-CN"]["subscribe.emailPlaceholder"] ||= "学号或邮箱前缀";
 translations["zh-CN"]["subscribe.emailHint"] ||=
   "自动补全 @email.szu.edu.cn；支持输入其他完整邮箱。";
 translations["zh-CN"]["subscribe.invalidEmail"] ||= "请输入有效邮箱，或仅填写默认邮箱前缀。";
+translations["zh-CN"]["subscribe.chooseOne"] ||= "请至少选择一种订阅类型。";
+translations["zh-CN"]["subscribe.dialogResultTitle"] ||= "订阅已提交";
 translations["en-US"]["subscribe.emailPlaceholder"] ||= "NetID or email prefix";
 translations["en-US"]["subscribe.emailHint"] ||=
   "Auto append @email.szu.edu.cn, support other emails";
 translations["en-US"]["subscribe.invalidEmail"] ||=
   "Enter a valid email address, or only the default mailbox prefix.";
+translations["en-US"]["subscribe.chooseOne"] ||= "Choose at least one subscription type.";
+translations["en-US"]["subscribe.dialogResultTitle"] ||= "Subscription submitted";
 const LOCALE_QUERY = {
   zh: "zh-CN",
   "zh-CN": "zh-CN",
@@ -403,22 +413,39 @@ async function saveSubscription() {
     fields.subscriberEmail.focus();
     return;
   }
+  if (!fields.subscribeAlert.checked && !fields.subscribeDailyReport.checked) {
+    setMessageKey("subscribe.chooseOne", {}, true);
+    fields.subscribeAlert.focus();
+    return;
+  }
+
+  const subscriptionPayload = {
+    email: normalizedEmail,
+    client: fields.client.value,
+    campusName: fields.campusName.value,
+    buildingId: fields.buildingId.value,
+    buildingName: fields.buildingName.value,
+    roomName: fields.roomName.value,
+    alertEnabled: fields.subscribeAlert.checked,
+    dailyReportEnabled: fields.subscribeDailyReport.checked,
+  };
+
+  const confirmed = await confirmSubscription(subscriptionPayload);
+  if (!confirmed) {
+    return;
+  }
 
   setSubscriptionBusy(true);
   setMessageKey("subscribe.saving");
   try {
-    const payload = await postJson(apiUrl("/api/subscriptions"), {
-      email: normalizedEmail,
-      client: fields.client.value,
-      campusName: fields.campusName.value,
-      buildingId: fields.buildingId.value,
-      buildingName: fields.buildingName.value,
-      roomName: fields.roomName.value,
-    });
-    setMessageRaw(payload.message || t("subscribe.saved"));
+    const payload = await postJson(apiUrl("/api/subscriptions"), subscriptionPayload);
+    const confirmationMessage = payload.message || t("subscribe.saved");
     if (payload.verification_required) {
       fields.subscriberEmail.value = normalizedEmail;
+      syncEmailInputState();
     }
+    showSubscriptionResult(confirmationMessage);
+    setMessageRaw(confirmationMessage);
   } catch (error) {
     setMessageRaw(error.message, true);
   } finally {
@@ -456,6 +483,82 @@ function syncEmailInputState() {
   if (emailDomainHint) {
     emailDomainHint.textContent = DEFAULT_EMAIL_DOMAIN;
   }
+}
+
+function confirmSubscription(payload) {
+  const message = t("subscribe.dialogConfirmMessage", {
+    email: payload.email,
+    dorm: `${payload.campusName} ${payload.buildingName} ${payload.roomName}`,
+    types: selectedSubscriptionTypeLabels(payload).join("、"),
+  });
+  if (!subscriptionDialog || !subscriptionDialogMessage) {
+    return Promise.resolve(window.confirm(message));
+  }
+
+  prepareSubscriptionDialog({
+    title: t("subscribe.dialogTitle"),
+    message,
+    showCancel: true,
+    confirmText: t("subscribe.dialogConfirm"),
+  });
+
+  if (typeof subscriptionDialog.showModal !== "function") {
+    return Promise.resolve(window.confirm(message));
+  }
+
+  return new Promise((resolve) => {
+    subscriptionDialog.addEventListener(
+      "close",
+      () => {
+        resolve(subscriptionDialog.returnValue === "confirm");
+      },
+      { once: true }
+    );
+    subscriptionDialog.showModal();
+  });
+}
+
+function selectedSubscriptionTypeLabels(payload) {
+  const labels = [];
+  if (payload.alertEnabled) {
+    labels.push(t("subscribe.alertOption"));
+  }
+  if (payload.dailyReportEnabled) {
+    labels.push(t("subscribe.dailyReportOption"));
+  }
+  return labels;
+}
+
+function showSubscriptionResult(text) {
+  if (!subscriptionDialog || !subscriptionDialogMessage) {
+    window.alert(text);
+    return;
+  }
+
+  prepareSubscriptionDialog({
+    title: t("subscribe.dialogResultTitle"),
+    message: text,
+    showCancel: false,
+    confirmText: t("subscribe.dialogDone"),
+  });
+
+  if (typeof subscriptionDialog.showModal === "function") {
+    subscriptionDialog.showModal();
+    return;
+  }
+  window.alert(text);
+}
+
+function prepareSubscriptionDialog({ title, message, showCancel, confirmText }) {
+  const titleElement = document.querySelector("#subscriptionDialogTitle");
+  if (titleElement) {
+    titleElement.textContent = title;
+  }
+  subscriptionDialogMessage.textContent = message;
+  subscriptionDialog.returnValue = "";
+  subscriptionDialogCancel.hidden = !showCancel;
+  subscriptionDialogConfirm.value = showCancel ? "confirm" : "done";
+  subscriptionDialogConfirm.textContent = confirmText;
 }
 
 function openSupportModal() {

@@ -119,9 +119,30 @@
             </div>
             <small class="field-hint" data-i18n="subscribe.emailHint">可只填写邮箱前缀，默认补全 @email.szu.edu.cn；提交后需到邮箱点击确认链接。</small>
           </label>
+          <fieldset class="subscription-options" aria-label="订阅类型" data-i18n-aria-label="subscribe.optionsLabel">
+            <label class="checkbox-option">
+              <input id="subscribeAlert" name="alertEnabled" type="checkbox" checked />
+              <span data-i18n="subscribe.alertOption">订阅电费预警</span>
+            </label>
+            <label class="checkbox-option">
+              <input id="subscribeDailyReport" name="dailyReportEnabled" type="checkbox" />
+              <span data-i18n="subscribe.dailyReportOption">每日电费报告</span>
+            </label>
+          </fieldset>
           <button class="secondary" type="submit" data-i18n="subscribe.submit">订阅低电量预警</button>
         </form>
       </section>
+
+      <dialog class="subscription-dialog" id="subscriptionDialog" aria-labelledby="subscriptionDialogTitle">
+        <form method="dialog">
+          <h2 id="subscriptionDialogTitle" data-i18n="subscribe.dialogTitle">订阅确认</h2>
+          <p id="subscriptionDialogMessage"></p>
+          <div class="dialog-actions">
+            <button class="secondary" id="subscriptionDialogCancel" type="submit" value="cancel" data-i18n="subscribe.dialogCancel">取消</button>
+            <button class="primary" id="subscriptionDialogConfirm" type="submit" value="confirm" data-i18n="subscribe.dialogConfirm">确认</button>
+          </div>
+        </form>
+      </dialog>
 
       <section class="metrics" aria-live="polite">
         <article class="metric balance" data-metric-card data-metric-key="remaining" role="button" tabindex="0" aria-label="Toggle current balance unit">

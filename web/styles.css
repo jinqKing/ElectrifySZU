@@ -249,7 +249,7 @@ h2 {
 
 .subscription-form {
   display: grid;
-  grid-template-columns: minmax(240px, 360px) auto;
+  grid-template-columns: minmax(240px, 360px) minmax(210px, 1fr) auto;
   gap: 12px;
   align-items: end;
   margin-top: 14px;
@@ -318,6 +318,71 @@ label {
   font-size: 12px;
   font-weight: 600;
   line-height: 1.5;
+}
+
+.subscription-options {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 19px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.checkbox-option input {
+  width: 18px;
+  min-height: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--blue);
+}
+
+.subscription-dialog {
+  width: min(420px, calc(100% - 32px));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.24);
+}
+
+.subscription-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.subscription-dialog form {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.subscription-dialog p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dialog-actions button {
+  justify-self: end;
 }
 
 input,
