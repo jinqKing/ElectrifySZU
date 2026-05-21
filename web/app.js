@@ -1348,8 +1348,15 @@ function setLanguage(locale, options = {}) {
 
 function t(key, values = {}) {
   const dictionary = translations[currentLocale] || translations[DEFAULT_LOCALE];
-  const fallback = translations[DEFAULT_LOCALE][key] || key;
-  return (dictionary[key] || fallback).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
+  const fallback =
+    Object.prototype.hasOwnProperty.call(translations[DEFAULT_LOCALE], key)
+      ? translations[DEFAULT_LOCALE][key]
+      : key;
+  const copy =
+    Object.prototype.hasOwnProperty.call(dictionary, key)
+      ? dictionary[key]
+      : fallback;
+  return copy.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
 }
 
 function loadingStatusOptions() {

@@ -1,0 +1,977 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Matrix 团队 | ElectrifySZU 工作介绍</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fa;
+        --ink: #16212d;
+        --muted: #617083;
+        --line: #dce3ea;
+        --surface: #ffffff;
+        --dark: #10202f;
+        --blue: #2563eb;
+        --green: #0f9f6e;
+        --yellow: #d98616;
+        --red: #d73939;
+        --shadow: 0 20px 48px rgba(24, 39, 75, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(37, 99, 235, 0.09), transparent 340px),
+          linear-gradient(90deg, rgba(15, 159, 110, 0.06), transparent 48%),
+          var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .deck {
+        position: relative;
+        height: 100vh;
+      }
+
+      .slides {
+        display: flex;
+        height: 100%;
+        transition: transform 360ms ease;
+      }
+
+      .slide {
+        flex: 0 0 100vw;
+        min-width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .slide-inner {
+        width: min(1160px, calc(100vw - 48px));
+        height: calc(100vh - 110px);
+        margin: 0 auto;
+        padding-top: 52px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 430px);
+        align-items: center;
+        gap: 54px;
+      }
+
+      .slide-title {
+        display: grid;
+        gap: 18px;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--blue);
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      p {
+        margin-top: 0;
+      }
+
+      h1,
+      h2 {
+        margin-bottom: 0;
+        letter-spacing: 0;
+        text-wrap: balance;
+      }
+
+      h1 {
+        max-width: 760px;
+        font-size: clamp(38px, 6vw, 64px);
+        line-height: 1.04;
+      }
+
+      h2 {
+        max-width: 700px;
+        font-size: clamp(34px, 5vw, 58px);
+        line-height: 1.05;
+      }
+
+      .lead {
+        max-width: 680px;
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: clamp(17px, 2vw, 22px);
+        line-height: 1.72;
+      }
+
+      .title-line {
+        display: block;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 8px;
+      }
+
+      .link-button {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        padding: 0 16px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--ink);
+        font-size: 14px;
+        font-weight: 900;
+        text-decoration: none;
+        box-shadow: var(--shadow);
+        transition:
+          transform 160ms ease,
+          border-color 160ms ease,
+          color 160ms ease;
+      }
+
+      .link-button.primary {
+        border-color: transparent;
+        background: var(--dark);
+        color: #fff;
+      }
+
+      .link-button:hover,
+      .link-button:focus-visible {
+        border-color: rgba(37, 99, 235, 0.38);
+        color: var(--blue);
+        transform: translateY(-1px);
+      }
+
+      .link-button.primary:hover,
+      .link-button.primary:focus-visible {
+        color: #fff;
+      }
+
+      .dashboard-visual,
+      .flow-visual,
+      .signal-visual,
+      .timeline-visual,
+      .support-visual {
+        border: 1px solid rgba(220, 227, 234, 0.94);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: var(--shadow);
+      }
+
+      .dashboard-visual {
+        display: grid;
+        gap: 14px;
+        padding: 18px;
+      }
+
+      .mock-toolbar,
+      .mock-metrics {
+        display: grid;
+        gap: 10px;
+      }
+
+      .mock-toolbar {
+        grid-template-columns: 1fr 0.68fr auto;
+      }
+
+      .mock-input,
+      .mock-button,
+      .mock-card,
+      .mock-chart,
+      .mock-row {
+        border-radius: 8px;
+      }
+
+      .mock-input {
+        height: 42px;
+        border: 1px solid var(--line);
+        background: #fbfcfe;
+      }
+
+      .mock-button {
+        width: 78px;
+        background: var(--dark);
+      }
+
+      .mock-metrics {
+        grid-template-columns: 1.1fr 1fr;
+      }
+
+      .mock-card {
+        min-height: 98px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        background: #fff;
+      }
+
+      .mock-card.dark {
+        background: var(--dark);
+        color: #fff;
+      }
+
+      .mock-label {
+        display: block;
+        width: 74px;
+        height: 9px;
+        border-radius: 999px;
+        background: rgba(101, 112, 131, 0.28);
+      }
+
+      .mock-value {
+        display: block;
+        width: 120px;
+        height: 28px;
+        margin-top: 18px;
+        border-radius: 999px;
+        background: currentColor;
+        opacity: 0.82;
+      }
+
+      .mock-card.dark .mock-value {
+        background: #fff;
+      }
+
+      .mock-chart {
+        height: 190px;
+        padding: 22px 18px 16px;
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(to top, rgba(220, 227, 234, 0.55) 1px, transparent 1px) 0 0 / 100% 25%,
+          #fff;
+      }
+
+      .bars {
+        display: flex;
+        height: 100%;
+        align-items: end;
+        gap: 11px;
+      }
+
+      .bar {
+        flex: 1;
+        min-width: 12px;
+        border-radius: 6px 6px 3px 3px;
+        background: var(--green);
+      }
+
+      .bar:nth-child(2),
+      .bar:nth-child(5) {
+        background: #f2b15d;
+      }
+
+      .bar:nth-child(6) {
+        background: #e46f6f;
+      }
+
+      .points {
+        position: relative;
+        height: 0;
+      }
+
+      .points::before {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 108px;
+        height: 3px;
+        border-radius: 999px;
+        background: var(--blue);
+        content: "";
+        transform: rotate(-8deg);
+      }
+
+      .fact-list,
+      .capability-list,
+      .timeline-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .fact {
+        display: grid;
+        grid-template-columns: 44px 1fr;
+        gap: 14px;
+        align-items: start;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .fact strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 16px;
+      }
+
+      .fact p {
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .icon {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 22px;
+        font-weight: 900;
+      }
+
+      .icon.blue {
+        background: var(--blue);
+      }
+
+      .icon.green {
+        background: var(--green);
+      }
+
+      .icon.yellow {
+        background: var(--yellow);
+      }
+
+      .icon.red {
+        background: var(--red);
+      }
+
+      .flow-visual {
+        display: grid;
+        gap: 12px;
+        padding: 18px;
+      }
+
+      .flow-step {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        gap: 12px;
+        align-items: center;
+        min-height: 64px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .step-number {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        background: var(--dark);
+        color: #fff;
+        font-weight: 900;
+      }
+
+      .flow-step strong {
+        display: block;
+        margin-bottom: 3px;
+      }
+
+      .flow-step span {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .signal-visual {
+        padding: 20px;
+      }
+
+      .signal-meter {
+        display: grid;
+        gap: 14px;
+      }
+
+      .signal-row {
+        display: grid;
+        grid-template-columns: 100px 1fr 50px;
+        gap: 12px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .signal-track {
+        height: 14px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #edf1f5;
+      }
+
+      .signal-fill {
+        height: 100%;
+        border-radius: inherit;
+      }
+
+      .fill-green {
+        width: 82%;
+        background: var(--green);
+      }
+
+      .fill-yellow {
+        width: 48%;
+        background: var(--yellow);
+      }
+
+      .fill-red {
+        width: 18%;
+        background: var(--red);
+      }
+
+      .mail-preview {
+        margin-top: 22px;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .mock-row {
+        height: 10px;
+        margin-bottom: 10px;
+        background: #dbe4ef;
+      }
+
+      .mock-row.short {
+        width: 62%;
+      }
+
+      .mock-row.blue {
+        width: 82%;
+        background: rgba(37, 99, 235, 0.42);
+      }
+
+      .timeline-visual {
+        padding: 18px;
+      }
+
+      .timeline-item {
+        position: relative;
+        display: grid;
+        grid-template-columns: 92px 1fr;
+        gap: 16px;
+        padding: 15px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .timeline-item:last-child {
+        border-bottom: 0;
+      }
+
+      .timeline-item time {
+        color: var(--blue);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .timeline-item strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .timeline-item span {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .support-visual {
+        display: grid;
+        gap: 15px;
+        padding: 18px;
+      }
+
+      .wiki-box {
+        display: grid;
+        gap: 12px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .wiki-box strong {
+        font-size: 18px;
+      }
+
+      .wiki-box p {
+        margin-bottom: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .mini-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      .mini-stat {
+        min-height: 82px;
+        padding: 12px;
+        border-radius: 8px;
+        background: var(--dark);
+        color: #fff;
+      }
+
+      .mini-stat:nth-child(2) {
+        background: var(--green);
+      }
+
+      .mini-stat:nth-child(3) {
+        background: var(--blue);
+      }
+
+      .mini-stat strong {
+        display: block;
+        font-size: 24px;
+      }
+
+      .mini-stat span {
+        font-size: 12px;
+        font-weight: 800;
+        opacity: 0.82;
+      }
+
+      .nav {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px;
+        border: 1px solid rgba(220, 227, 234, 0.92);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: var(--shadow);
+        transform: translateX(-50%);
+        backdrop-filter: blur(12px);
+      }
+
+      .nav button {
+        min-width: 42px;
+        min-height: 38px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--dark);
+        color: #fff;
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .nav button:disabled {
+        cursor: default;
+        opacity: 0.35;
+      }
+
+      .dots {
+        display: flex;
+        gap: 8px;
+      }
+
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #b8c4d2;
+      }
+
+      .dot.active {
+        width: 24px;
+        background: var(--blue);
+      }
+
+      .counter {
+        min-width: 44px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 900;
+        text-align: center;
+      }
+
+      .top-link {
+        position: fixed;
+        top: 20px;
+        right: 24px;
+        z-index: 11;
+      }
+
+      @media (max-width: 860px) {
+        body {
+          overflow: auto;
+        }
+
+        .deck,
+        .slide,
+        .slide-inner {
+          height: auto;
+          min-height: 100vh;
+        }
+
+        .slides {
+          display: block;
+          height: auto;
+          transform: none !important;
+        }
+
+        .slide {
+          min-width: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .slide-inner {
+          width: min(100% - 28px, 680px);
+          padding: 74px 0 96px;
+          grid-template-columns: 1fr;
+          gap: 26px;
+        }
+
+        .top-link {
+          top: 12px;
+          right: 14px;
+        }
+
+        .top-link .link-button {
+          min-height: 38px;
+          padding: 0 12px;
+        }
+
+        h1 {
+          font-size: 38px;
+        }
+
+        h2 {
+          font-size: 34px;
+        }
+
+        .mock-toolbar,
+        .mock-metrics,
+        .mini-stat-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .mock-button {
+          width: 100%;
+          height: 42px;
+        }
+
+        .nav {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="top-link link-button" href="index.html">返回主页</a>
+    <main class="deck" aria-label="ElectrifySZU 工作介绍幻灯片">
+      <div class="slides" id="slides">
+        <section class="slide" aria-labelledby="slide-1-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Matrix Team · ElectrifySZU</p>
+              <h1 id="slide-1-title"><span class="title-line">把宿舍电费查询做成</span><span class="title-line">一个可用的仪表盘</span></h1>
+              <p class="lead">我们把校园电费查询、余额趋势、低电量预警和静态展示整合到一个开源项目里，让同学不用在断电前才想起查余额。</p>
+              <div class="actions">
+                <a class="link-button primary" href="https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb" target="_blank" rel="noreferrer">飞书项目 Wiki</a>
+                <a class="link-button" href="https://github.com/jinqKing/ElectrifySZU" target="_blank" rel="noreferrer">GitHub 仓库</a>
+              </div>
+            </div>
+            <div class="dashboard-visual" aria-hidden="true">
+              <div class="mock-toolbar">
+                <span class="mock-input"></span>
+                <span class="mock-input"></span>
+                <span class="mock-button"></span>
+              </div>
+              <div class="mock-metrics">
+                <div class="mock-card dark">
+                  <span class="mock-label"></span>
+                  <span class="mock-value"></span>
+                </div>
+                <div class="mock-card">
+                  <span class="mock-label"></span>
+                  <span class="mock-value"></span>
+                </div>
+              </div>
+              <div class="mock-chart">
+                <div class="points"></div>
+                <div class="bars">
+                  <span class="bar" style="height: 36%"></span>
+                  <span class="bar" style="height: 55%"></span>
+                  <span class="bar" style="height: 42%"></span>
+                  <span class="bar" style="height: 68%"></span>
+                  <span class="bar" style="height: 58%"></span>
+                  <span class="bar" style="height: 76%"></span>
+                  <span class="bar" style="height: 48%"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-2-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Problem</p>
+              <h2 id="slide-2-title">同学真正需要的不是一个接口，而是少一点电量焦虑</h2>
+              <p class="lead">查询入口分散、校园网环境有限、房间参数难找、余额变化不直观，这些小麻烦叠在一起，就会变成宿舍生活里的高频打扰。</p>
+            </div>
+            <div class="fact-list">
+              <div class="fact">
+                <span class="icon blue">1</span>
+                <div>
+                  <strong>查询要快</strong>
+                  <p>选择校区、楼栋和房间号后，直接展示当前余额、周期用电和预计可用天数。</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon green">2</span>
+                <div>
+                  <strong>趋势要清楚</strong>
+                  <p>用折线和柱状把余额走势、每日消耗和用电等级放在同一个视图里。</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon yellow">3</span>
+                <div>
+                  <strong>提醒要可靠</strong>
+                  <p>低电量订阅支持学校邮箱自动补全，减少遗漏和输入成本。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-3-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Architecture</p>
+              <h2 id="slide-3-title">静态页面负责体验，本地后端负责校园网查询</h2>
+              <p class="lead">公开页面可部署到 GitHub Pages 做演示；真实查询时运行本地服务，由后端代理访问校园电费系统，前端只消费统一的 JSON API。</p>
+            </div>
+            <div class="flow-visual" aria-label="系统流程">
+              <div class="flow-step">
+                <span class="step-number">01</span>
+                <div><strong>输入宿舍信息</strong><span>校区、楼栋、房间号、统计天数</span></div>
+              </div>
+              <div class="flow-step">
+                <span class="step-number">02</span>
+                <div><strong>发现 roomId</strong><span>把可读房间号转换为电费系统参数</span></div>
+              </div>
+              <div class="flow-step">
+                <span class="step-number">03</span>
+                <div><strong>API 代理查询</strong><span>由校园网环境中的服务请求内网接口</span></div>
+              </div>
+              <div class="flow-step">
+                <span class="step-number">04</span>
+                <div><strong>仪表盘渲染</strong><span>余额、趋势、充值记录和预警状态同步更新</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-4-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Features</p>
+              <h2 id="slide-4-title">我们把核心体验做成了完整闭环</h2>
+              <p class="lead">从首页查询到单位切换、趋势探索、订阅保存和静态演示，每个环节都尽量让项目在展示和真实使用时都站得住。</p>
+            </div>
+            <div class="capability-list">
+              <div class="fact">
+                <span class="icon blue">✓</span>
+                <div>
+                  <strong>双语静态仪表盘</strong>
+                  <p>中英文文案统一管理，GitHub Pages 可直接展示演示数据。</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon green">✓</span>
+                <div>
+                  <strong>可交互趋势图</strong>
+                  <p>点击柱状图或折线点查看每日余额和用电详情，可自定义用电等级。</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon yellow">✓</span>
+                <div>
+                  <strong>低电量邮件预警</strong>
+                  <p>订阅记录可保存，系统按阈值发送提醒，避免频繁打扰。</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon red">✓</span>
+                <div>
+                  <strong>CLI 与 API 并存</strong>
+                  <p>既能命令行输出 JSON，也能启动本地网页服务和 API 代理。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-5-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Alerting</p>
+              <h2 id="slide-5-title">预警系统让查询从“想起来”变成“被照看”</h2>
+              <p class="lead">余额低于阈值时，系统每天最多发送一次提醒。对同学来说，重要的是在快没电前知道，而不是每天主动检查。</p>
+            </div>
+            <div class="signal-visual" aria-hidden="true">
+              <div class="signal-meter">
+                <div class="signal-row">
+                  <span>电量充足</span>
+                  <span class="signal-track"><span class="signal-fill fill-green"></span></span>
+                  <span>82%</span>
+                </div>
+                <div class="signal-row">
+                  <span>低电量</span>
+                  <span class="signal-track"><span class="signal-fill fill-yellow"></span></span>
+                  <span>48%</span>
+                </div>
+                <div class="signal-row">
+                  <span>即将耗尽</span>
+                  <span class="signal-track"><span class="signal-fill fill-red"></span></span>
+                  <span>18%</span>
+                </div>
+              </div>
+              <div class="mail-preview">
+                <div class="mock-row blue"></div>
+                <div class="mock-row"></div>
+                <div class="mock-row"></div>
+                <div class="mock-row short"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-6-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Milestones</p>
+              <h2 id="slide-6-title">从 MVP 到可展示版本，我们持续补齐细节</h2>
+              <p class="lead">项目版本沿用向 e 收敛的编号节奏。近期工作重点是稳定查询链路、完善展示体验、整理文案和团队说明。</p>
+            </div>
+            <div class="timeline-visual">
+              <div class="timeline-item">
+                <time>0.1.0</time>
+                <div><strong>项目初始化</strong><span>整理 Python 查询模块、静态页面、API 代理和演示数据。</span></div>
+              </div>
+              <div class="timeline-item">
+                <time>2.7</time>
+                <div><strong>版本体系与部署说明</strong><span>统一运行时版本标签，明确 GitHub Pages 与本地后端的边界。</span></div>
+              </div>
+              <div class="timeline-item">
+                <time>2.71</time>
+                <div><strong>体验打磨</strong><span>加入仓库入口、可点击指标卡、加载反馈、双语文案组织和订阅输入优化。</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-7-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Support</p>
+              <h2 id="slide-7-title">你的支持会变成更稳定的服务和更少的断电焦虑</h2>
+              <p class="lead">我们会继续维护宿舍楼栋数据、优化查询体验、完善预警链路，并把项目过程沉淀到飞书文档中，方便协作和展示。</p>
+              <div class="actions">
+                <a class="link-button primary" href="https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb" target="_blank" rel="noreferrer">打开飞书 Wiki</a>
+                <a class="link-button" href="index.html">回到电费仪表盘</a>
+              </div>
+            </div>
+            <div class="support-visual">
+              <div class="wiki-box">
+                <strong>项目资料入口</strong>
+                <p>飞书 Wiki 记录项目背景、实现方案、协作资料和后续计划，适合比赛介绍或团队交接。</p>
+              </div>
+              <div class="mini-stat-grid" aria-hidden="true">
+                <div class="mini-stat"><strong>Web</strong><span>静态仪表盘</span></div>
+                <div class="mini-stat"><strong>API</strong><span>本地代理服务</span></div>
+                <div class="mini-stat"><strong>Mail</strong><span>低电量预警</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <nav class="nav" aria-label="幻灯片导航">
+        <button id="prevSlide" type="button" aria-label="上一页">‹</button>
+        <div class="dots" id="dots" aria-hidden="true"></div>
+        <span class="counter" id="counter">1 / 7</span>
+        <button id="nextSlide" type="button" aria-label="下一页">›</button>
+      </nav>
+    </main>
+
+    <script>
+      const slides = document.querySelector("#slides");
+      const slideCount = document.querySelectorAll(".slide").length;
+      const prevButton = document.querySelector("#prevSlide");
+      const nextButton = document.querySelector("#nextSlide");
+      const counter = document.querySelector("#counter");
+      const dots = document.querySelector("#dots");
+      let currentSlide = 0;
+
+      for (let index = 0; index < slideCount; index += 1) {
+        const dot = document.createElement("span");
+        dot.className = "dot";
+        dots.append(dot);
+      }
+
+      function setSlide(index) {
+        currentSlide = Math.max(0, Math.min(slideCount - 1, index));
+        slides.style.transform = `translateX(-${currentSlide * 100}vw)`;
+        prevButton.disabled = currentSlide === 0;
+        nextButton.disabled = currentSlide === slideCount - 1;
+        counter.textContent = `${currentSlide + 1} / ${slideCount}`;
+        document.querySelectorAll(".dot").forEach((dot, dotIndex) => {
+          dot.classList.toggle("active", dotIndex === currentSlide);
+        });
+      }
+
+      prevButton.addEventListener("click", () => setSlide(currentSlide - 1));
+      nextButton.addEventListener("click", () => setSlide(currentSlide + 1));
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowLeft") {
+          setSlide(currentSlide - 1);
+        }
+        if (event.key === "ArrowRight" || event.key === " ") {
+          event.preventDefault();
+          setSlide(currentSlide + 1);
+        }
+      });
+
+      setSlide(0);
+    </script>
+  </body>
+</html>
