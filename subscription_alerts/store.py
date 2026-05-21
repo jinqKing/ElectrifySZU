@@ -192,25 +192,25 @@ class SubscriptionStore:
 
         return "invalid", None
 
-    def unsubscribe(self, token: str) -> bool:
+    def unsubscribe(self, token: str) -> tuple[str, Subscription | None]:
         token = token.strip()
         if not token:
-            return False
+            return "invalid", None
 
-        changed = False
         with self._lock:
             rows = self.list_all()
             for row in rows:
                 if not row.unsubscribe_token:
                     continue
                 if secrets.compare_digest(row.unsubscribe_token, token):
+                    already_disabled = not row.enabled
                     row.enabled = False
                     row.updated_at = now_iso()
-                    changed = True
-                    break
-            if changed:
-                self._write(rows)
-        return changed
+                    self._write(rows)
+                    if already_disabled:
+                        return "already_unsubscribed", row
+                    return "unsubscribed", row
+        return "invalid", None
 
     def _write(self, rows: list[Subscription]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
