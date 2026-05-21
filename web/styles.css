@@ -683,7 +683,7 @@ button:disabled {
 }
 
 .trend-chart {
-  min-height: 280px;
+  min-height: 320px;
   border-radius: 8px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -709,7 +709,7 @@ button:disabled {
 .trend-chart svg {
   display: block;
   width: 100%;
-  height: 300px;
+  height: 320px;
 }
 
 .chart-hit-layer {
@@ -719,8 +719,8 @@ button:disabled {
 
 .chart-target {
   position: absolute;
-  top: 32px;
-  bottom: 48px;
+  top: 36px;
+  bottom: 52px;
   min-width: 28px;
   min-height: 44px;
   padding: 0;
@@ -798,6 +798,15 @@ button:disabled {
   stroke-width: 1;
 }
 
+.chart-grid.baseline {
+  stroke: #d8e0ea;
+}
+
+.chart-tick-mark {
+  stroke: #cfd8e3;
+  stroke-width: 1;
+}
+
 .chart-line {
   fill: none;
   stroke: var(--blue);
@@ -834,6 +843,27 @@ button:disabled {
   fill: var(--muted);
   font-size: 12px;
   font-weight: 700;
+}
+
+.chart-title-label {
+  fill: #4f5f72;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chart-axis-label {
+  fill: #6b7888;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.chart-axis-label.left {
+  text-anchor: end;
+}
+
+.chart-axis-label.right {
+  text-anchor: start;
 }
 
 .badge {

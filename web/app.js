@@ -839,21 +839,28 @@ function renderTrend(trend) {
   }
 
   const width = 920;
-  const height = 300;
-  const padding = { top: 28, right: 34, bottom: 48, left: 58 };
+  const height = 320;
+  const padding = { top: 36, right: 72, bottom: 52, left: 70 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const remainingValues = points.map((item) => Number(item.remaining));
-  const usedValues = points.map((item) => Number(item.daily_used_kwh || 0));
+  const usedValues = points.map((item) => Math.max(0, Number(item.daily_used_kwh || 0)));
   const maxRemaining = Math.max(...remainingValues, 1);
-  const minRemaining = Math.min(...remainingValues, 0);
-  const maxUsed = Math.max(...usedValues, 1);
+  const minRemaining = Math.min(...remainingValues);
+  const maxUsed = Math.max(...usedValues, 0);
+  const balanceAxis = chartAxisRange(minRemaining, maxRemaining, 5);
+  const usageAxis = chartAxis(maxUsed, 5, 1.12);
   const usageLevels = resolveUsageLevels(usedValues);
   syncUsageLevelInputs(usedValues);
   const x = (index) => padding.left + (index / (points.length - 1)) * plotWidth;
   const y = (value) => {
-    const range = Math.max(maxRemaining - minRemaining, 1);
-    return padding.top + (1 - (value - minRemaining) / range) * plotHeight;
+    const range = Math.max(balanceAxis.max - balanceAxis.min, 1);
+    const ratio = Math.max(0, Math.min(1, (value - balanceAxis.min) / range));
+    return height - padding.bottom - ratio * plotHeight;
+  };
+  const usageY = (value) => {
+    const ratio = Math.max(0, Math.min(1, value / usageAxis.max));
+    return height - padding.bottom - ratio * plotHeight;
   };
   const barWidth = Math.max(8, Math.min(24, plotWidth / points.length / 2));
   const line = points.map((item, index) => `${x(index)},${y(Number(item.remaining))}`).join(" ");
@@ -871,8 +878,8 @@ function renderTrend(trend) {
   };
 
   const bars = points.map((item, index) => {
-    const used = Number(item.daily_used_kwh || 0);
-    const barHeight = (used / maxUsed) * (plotHeight * 0.42);
+    const used = Math.max(0, Number(item.daily_used_kwh || 0));
+    const barHeight = used > 0 ? Math.max(4, height - padding.bottom - usageY(used)) : 0;
     const bx = x(index) - barWidth / 2;
     const by = height - padding.bottom - barHeight;
     return `<rect class="chart-bar ${usageClass(used)}" x="${bx}" y="${by}" width="${barWidth}" height="${barHeight}" rx="4"></rect>`;
@@ -893,21 +900,37 @@ function renderTrend(trend) {
     end: lastDate,
   });
 
+  const ticks = balanceAxis.ticks.map((balanceValue, index) => {
+    const fraction = index / balanceAxis.intervals;
+    const tickY = height - padding.bottom - fraction * plotHeight;
+    const usageValue = usageAxis.max * fraction;
+    const gridClass = index === 0 ? "chart-grid baseline" : "chart-grid";
+    return `
+      <g class="chart-tick">
+        <line class="${gridClass}" x1="${padding.left}" y1="${tickY}" x2="${width - padding.right}" y2="${tickY}"></line>
+        <line class="chart-tick-mark" x1="${padding.left - 5}" y1="${tickY}" x2="${padding.left}" y2="${tickY}"></line>
+        <line class="chart-tick-mark" x1="${width - padding.right}" y1="${tickY}" x2="${width - padding.right + 5}" y2="${tickY}"></line>
+        <text class="chart-axis-label left" x="${padding.left - 10}" y="${tickY + 4}">${formatAxisTick(balanceValue, balanceAxis.step)}</text>
+        <text class="chart-axis-label right" x="${width - padding.right + 10}" y="${tickY + 4}">${formatAxisTick(usageValue, usageAxis.step)}</text>
+      </g>
+    `;
+  }).join("");
+
   view.trendChart.innerHTML = `
     <div class="chart-canvas">
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${t("chart.svgLabel")}">
         <line class="chart-axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
         <line class="chart-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
-        <line class="chart-grid" x1="${padding.left}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top}"></line>
-        <line class="chart-grid" x1="${padding.left}" y1="${padding.top + plotHeight / 2}" x2="${width - padding.right}" y2="${padding.top + plotHeight / 2}"></line>
+        <line class="chart-axis" x1="${width - padding.right}" y1="${padding.top}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
+        ${ticks}
         ${bars}
         <polygon class="chart-area" points="${area}"></polygon>
         <polyline class="chart-line" points="${line}"></polyline>
         ${dots}
-        <text class="chart-label" x="${padding.left}" y="${height - 14}">${firstDate}</text>
-        <text class="chart-label" x="${width - padding.right - 52}" y="${height - 14}">${lastDate}</text>
-        <text class="chart-label" x="${padding.left}" y="14">${t("chart.balanceLabel")}</text>
-        <text class="chart-label" x="${width - padding.right - 96}" y="14">${t("chart.dailyUseLabel")}</text>
+        <text class="chart-label" x="${padding.left}" y="${height - 16}">${escapeHtml(firstDate)}</text>
+        <text class="chart-label" x="${width - padding.right}" y="${height - 16}" text-anchor="end">${escapeHtml(lastDate)}</text>
+        <text class="chart-label chart-title-label" x="${padding.left}" y="20">${t("chart.balanceLabel")}</text>
+        <text class="chart-label chart-title-label" x="${width - padding.right}" y="20" text-anchor="end">${t("chart.dailyUseLabel")}</text>
       </svg>
       <div class="chart-hit-layer" aria-label="${t("chart.tooltipHint")}">
         ${targets}
@@ -917,6 +940,80 @@ function renderTrend(trend) {
   `;
 
   attachTrendInteractions(points, { width, height, padding, x, y, barWidth, selectedIndex });
+}
+
+function chartAxis(maxValue, intervals = 5, headroom = 1) {
+  const safeMax = Math.max(0, numberOrNull(maxValue) ?? 0);
+  const target = safeMax > 0 ? safeMax * headroom : 1;
+  const step = niceAxisStep(target / intervals);
+  const max = step * intervals;
+  const ticks = Array.from({ length: intervals + 1 }, (_, index) => step * index);
+  return { intervals, min: 0, max, step, ticks };
+}
+
+function chartAxisRange(minValue, maxValue, intervals = 5) {
+  const safeMin = Math.max(0, numberOrNull(minValue) ?? 0);
+  const safeMax = Math.max(safeMin, numberOrNull(maxValue) ?? safeMin);
+  if (safeMax === safeMin) {
+    let step = niceAxisStep(Math.max(Math.abs(safeMax), 1) / 10);
+    let min = 0;
+    let max = 0;
+    do {
+      min = Math.max(0, Math.floor((safeMin - step * 2) / step) * step);
+      max = min + step * intervals;
+      if (max <= safeMax) {
+        step = niceAxisStep(step * 1.01);
+      }
+    } while (max <= safeMax);
+    const ticks = Array.from({ length: intervals + 1 }, (_, index) => min + step * index);
+    return { intervals, min, max, step, ticks };
+  }
+
+  let step = niceAxisStep((safeMax - safeMin) / intervals);
+  let min = Math.floor(safeMin / step) * step;
+  let max = min + step * intervals;
+  while (max < safeMax) {
+    step = niceAxisStep(step * 1.01);
+    min = Math.floor(safeMin / step) * step;
+    max = min + step * intervals;
+  }
+  if (min < 0) {
+    min = 0;
+    max = step * intervals;
+    while (max < safeMax) {
+      step = niceAxisStep(step * 1.01);
+      max = step * intervals;
+    }
+  }
+  const ticks = Array.from({ length: intervals + 1 }, (_, index) => min + step * index);
+  return { intervals, min, max, step, ticks };
+}
+
+function niceAxisStep(value) {
+  const number = Math.max(Number(value) || 0, 0);
+  if (number <= 0) {
+    return 1;
+  }
+
+  const magnitude = 10 ** Math.floor(Math.log10(number));
+  const normalized = number / magnitude;
+  const steps = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+  const matched = steps.find((step) => normalized <= step) ?? 10;
+  return matched * magnitude;
+}
+
+function formatAxisTick(value, step) {
+  const absStep = Math.abs(step);
+  let maximumFractionDigits = 0;
+  if (absStep < 1) {
+    maximumFractionDigits = absStep < 0.1 ? 2 : 1;
+  } else if (!Number.isInteger(absStep)) {
+    maximumFractionDigits = 1;
+  }
+
+  return Number(value).toLocaleString(currentLocale, {
+    maximumFractionDigits,
+  });
 }
 
 function attachTrendInteractions(points, geometry) {
