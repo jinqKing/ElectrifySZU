@@ -43,6 +43,17 @@
             </svg>
             <span class="sr-only" data-i18n="brand.repo">GitHub Repository</span>
           </a>
+          <button
+            class="secondary sponsor-trigger"
+            id="sponsorButton"
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="supportDialog"
+            data-i18n="brand.sponsor"
+          >
+            赞助我们
+          </button>
           <div class="language-switcher" role="group" aria-label="Language">
             <button type="button" data-lang="zh-CN" aria-pressed="true">中文</button>
             <button type="button" data-lang="en-US" aria-pressed="false">English</button>
@@ -220,6 +231,49 @@
         <p id="footerCredit" data-i18n="brand.footer">Completed by Matrix Team</p>
       </footer>
     </main>
+
+    <div class="support-modal" id="supportModal" hidden>
+      <div class="support-backdrop" data-support-close></div>
+      <section
+        class="support-dialog"
+        id="supportDialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="supportTitle"
+        aria-describedby="supportDescription"
+        tabindex="-1"
+      >
+        <button
+          class="support-close"
+          id="supportClose"
+          type="button"
+          aria-label="Close sponsor dialog"
+          data-i18n-aria-label="sponsor.close"
+        >
+          ×
+        </button>
+        <div class="support-copy">
+          <p class="support-eyebrow" data-i18n="brand.sponsor">赞助我们</p>
+          <h2 id="supportTitle" data-i18n="sponsor.title">请我们喝杯咖啡</h2>
+          <p id="supportDescription" data-i18n="sponsor.description">
+            感谢每一份支持，它会帮助我们持续维护服务、补充功能和优化体验。
+          </p>
+        </div>
+        <div class="support-qrcodes">
+          <figure class="support-card">
+            <img src="/pic/qrcode/wxvu.png" alt="微信赞赏码" data-i18n-alt="sponsor.wechatAlt" loading="lazy" />
+            <figcaption data-i18n="sponsor.wechat">微信支付</figcaption>
+          </figure>
+          <figure class="support-card">
+            <img src="/pic/qrcode/alipayvu.png" alt="支付宝收款码" data-i18n-alt="sponsor.alipayAlt" loading="lazy" />
+            <figcaption data-i18n="sponsor.alipay">支付宝</figcaption>
+          </figure>
+        </div>
+        <p class="support-thanks" data-i18n="sponsor.thanks">
+          谢谢你愿意支持这个小项目，愿它继续帮更多同学少一点断电焦虑。
+        </p>
+      </section>
+    </div>
 
     <script src="i18n-data.js" defer></script>
     <script src="loading-status.js" defer></script>
