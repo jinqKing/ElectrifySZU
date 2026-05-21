@@ -13,6 +13,14 @@ const supportModal = document.querySelector("#supportModal");
 const supportDialog = document.querySelector("#supportDialog");
 const supportCloseButton = document.querySelector("#supportClose");
 const supportBackdrop = document.querySelector("[data-support-close]");
+const supportFocusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
 
 const fields = {
   campusGroup: document.querySelector("#campusGroup"),
@@ -229,8 +237,17 @@ window.addEventListener("beforeunload", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && supportModal && !supportModal.hidden) {
+  if (!supportModal || supportModal.hidden) {
+    return;
+  }
+
+  if (event.key === "Escape") {
     closeSupportModal();
+    return;
+  }
+
+  if (event.key === "Tab") {
+    trapSupportFocus(event);
   }
 });
 
@@ -416,10 +433,61 @@ function closeSupportModal() {
   supportModal.hidden = true;
   sponsorButton.setAttribute("aria-expanded", "false");
   document.body.classList.remove("modal-open");
-  if (lastFocusedElement instanceof HTMLElement) {
+  if (lastFocusedElement instanceof HTMLElement && document.contains(lastFocusedElement)) {
     lastFocusedElement.focus();
   } else {
     sponsorButton.focus();
+  }
+  lastFocusedElement = null;
+}
+
+function getSupportFocusableElements() {
+  if (!supportDialog) {
+    return [];
+  }
+
+  return Array.from(supportDialog.querySelectorAll(supportFocusableSelector)).filter(
+    (element) => element instanceof HTMLElement && element.offsetParent !== null,
+  );
+}
+
+function trapSupportFocus(event) {
+  if (!supportDialog) {
+    return;
+  }
+
+  const focusableElements = getSupportFocusableElements();
+  if (!focusableElements.length) {
+    event.preventDefault();
+    supportDialog.focus();
+    return;
+  }
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+  const activeElement = document.activeElement;
+
+  if (activeElement === supportDialog) {
+    event.preventDefault();
+    (event.shiftKey ? lastElement : firstElement).focus();
+    return;
+  }
+
+  if (!supportDialog.contains(activeElement)) {
+    event.preventDefault();
+    firstElement.focus();
+    return;
+  }
+
+  if (event.shiftKey && activeElement === firstElement) {
+    event.preventDefault();
+    lastElement.focus();
+    return;
+  }
+
+  if (!event.shiftKey && activeElement === lastElement) {
+    event.preventDefault();
+    firstElement.focus();
   }
 }
 

@@ -14,7 +14,6 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent
 MONITOR_DIR = ROOT / "room-power-monitor"
 WEB_DIR = ROOT / "web"
-PIC_DIR = ROOT / "pic"
 BUILDINGS_FILE = MONITOR_DIR / "data" / "buildings.txt"
 ENV_FILE = ROOT / ".env"
 sys.path.insert(0, str(MONITOR_DIR))
@@ -171,15 +170,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _serve_static(self, path: str) -> None:
         if path in {"", "/"}:
             path = "/index.html"
-        if path.startswith("/pic/"):
-            base_dir = PIC_DIR
-            relative_path = path.removeprefix("/pic/")
-        else:
-            base_dir = WEB_DIR
-            relative_path = path.lstrip("/")
+        base_dir = WEB_DIR.resolve()
+        target = (base_dir / path.lstrip("/")).resolve()
+        try:
+            target.relative_to(base_dir)
+        except ValueError:
+            self.send_error(404)
+            return
 
-        target = (base_dir / relative_path).resolve()
-        if not str(target).startswith(str(base_dir.resolve())) or not target.is_file():
+        if not target.is_file():
             self.send_error(404)
             return
 
