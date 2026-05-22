@@ -21,6 +21,7 @@ from .email_service import EmailConfig, EmailService
 from .email_templates import alert_content, alert_subject
 from .store import Subscription, SubscriptionStore
 
+_shutdown_event = threading.Event()
 
 @dataclass(frozen=True)
 class AlertSettings:
@@ -29,6 +30,7 @@ class AlertSettings:
     loop_interval_seconds: int
     base_url: str
     env_path: Path
+    mode: str  # "production" or "testing"
 
     @classmethod
     def from_env(cls, project_dir: Path) -> "AlertSettings":
@@ -38,12 +40,20 @@ class AlertSettings:
         csv_path = Path(_env("SUBSCRIPTIONS_CSV", str(default_csv)))
         if not csv_path.is_absolute():
             csv_path = project_dir / csv_path
+        mode = _env("ALERT_MODE", "production").strip().lower()
+        if mode not in ("production", "testing"):
+            mode = "production"
+        if mode == "testing":
+            interval = max(int(_env("ALERT_TEST_INTERVAL", "300")), 10)
+        else:
+            interval = max(int(_env("ALERT_LOOP_INTERVAL", "300")), 30)
         return cls(
             csv_path=csv_path,
             check_time=_env("ALERT_CHECK_TIME", "08:00"),
-            loop_interval_seconds=max(int(_env("ALERT_LOOP_INTERVAL", "300")), 30),
+            loop_interval_seconds=interval,
             base_url=_env("PUBLIC_BASE_URL", ""),
             env_path=env_path,
+            mode=mode,
         )
 
 
@@ -92,19 +102,25 @@ class AlertRunner:
         return stats
 
     def run_forever(self, skip_recent: bool = True) -> None:
-        print(
-            "[alert] daily subscription worker started; "
-            f"check_time={self.settings.check_time}, skip_recent={skip_recent}, csv={self.settings.csv_path}"
+        effective_skip = (
+            skip_recent
+            if self.settings.mode == "production"
+            else _env("SKIP_RECENT", "1").strip().lower() in {"1", "true", "yes", "on"}
         )
+        print(
+            "[alert] subscription worker started; "
+            f"mode={self.settings.mode}, check_time={self.settings.check_time}, "
+            f"interval={self.settings.loop_interval_seconds}s, "
+            f"effective_skip_recent={effective_skip}, csv={self.settings.csv_path}"
+        )
+        cycle = 0
         while True:
-            now = datetime.now()
-            next_run = _next_run_at(now, self.settings.check_time)
-            sleep_seconds = max((next_run - now).total_seconds(), 1)
-            time.sleep(min(sleep_seconds, self.settings.loop_interval_seconds))
-            if datetime.now() >= next_run:
-                stats = self.run_once(skip_recent=skip_recent)
-                print(f"[alert] daily check finished: {stats}")
-                time.sleep(60)
+            cycle += 1
+            stats = self.run_once(skip_recent=effective_skip)
+            print(f"[alert] cycle #{cycle} finished: {stats}")
+            if _shutdown_event.wait(timeout=self.settings.loop_interval_seconds):
+                break
+
 
     def _check_subscription(self, subscription: Subscription, today: str) -> bool:
         config = Config.from_env(str(self.settings.env_path))
@@ -137,6 +153,15 @@ class AlertRunner:
         )
         self.store.mark_alert_sent(subscription, today)
         return True
+
+
+def shutdown_alert_worker() -> None:
+    """Signal the alert worker to stop."""
+    _shutdown_event.set()
+
+
+def reset_shutdown_flag() -> None:
+    _shutdown_event.clear()
 
 
 def start_alert_worker(project_dir: Path, skip_recent: bool = True) -> threading.Thread:

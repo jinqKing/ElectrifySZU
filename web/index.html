@@ -81,6 +81,7 @@
             <div class="combo">
               <input id="buildingSearch" value="风槐斋" placeholder="搜索宿舍楼栋" data-i18n-placeholder="form.buildingPlaceholder" autocomplete="off" />
               <div id="buildingOptions" class="combo-list" role="listbox"></div>
+              <div class="combo-feedback" id="buildingFeedback" aria-live="polite"></div>
             </div>
             <input id="buildingId" name="buildingId" type="hidden" value="7126" />
             <input id="buildingName" name="buildingName" type="hidden" value="风槐斋" />
@@ -101,7 +102,10 @@
         <p class="message query-hint" id="message" data-i18n="message.initial" aria-live="polite">
           连接校园网后查询真实余额，可先载入演示数据预览效果。
         </p>
-        <form id="subscriptionForm" class="subscription-form">
+        <button type="button" class="subscription-toggle" id="subscriptionTrigger"
+            data-i18n="subscribe.triggerOpen">🔔 订阅电费预警邮件</button>
+        <div class="subscription-summary" id="subscriptionSummary" hidden></div>
+        <form id="subscriptionForm" class="subscription-form collapsed">
           <label>
             <span data-i18n="subscribe.email">预警邮箱</span>
             <div class="email-input-group" data-default-domain="@email.szu.edu.cn">
@@ -131,6 +135,8 @@
           </fieldset>
           <button class="secondary" type="submit" data-i18n="subscribe.submit">订阅低电量预警</button>
         </form>
+        <button type="button" class="subscription-cancel-btn" id="subscriptionCancelBtn" hidden
+          data-i18n="subscribe.cancelBack">✕ 返回</button>
       </section>
 
       <dialog class="subscription-dialog" id="subscriptionDialog" aria-labelledby="subscriptionDialogTitle">
