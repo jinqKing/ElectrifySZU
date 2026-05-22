@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import threading
@@ -12,6 +13,8 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 MONITOR_DIR = PROJECT_DIR / "room-power-monitor"
 if str(MONITOR_DIR) not in sys.path:
     sys.path.insert(0, str(MONITOR_DIR))
+
+logger = logging.getLogger("alerts")
 
 from src.api import DormApi
 from src.config import Config, _load_dotenv
@@ -152,10 +155,12 @@ class AlertRunner:
 
             except Exception as exc:
                 stats["failed"] += 1
-                print(
-                    "[alert] failed "
-                    f"{subscription.email} {subscription.building_name} "
-                    f"{subscription.room_name}: {exc}"
+                logger.error(
+                    "failed %s %s %s: %s",
+                    subscription.email,
+                    subscription.building_name,
+                    subscription.room_name,
+                    exc,
                 )
 
         # Backward compat: expose 'sent' as sum for callers expecting old shape
@@ -168,11 +173,14 @@ class AlertRunner:
             if self.settings.mode == "production"
             else _env("SKIP_RECENT", "1").strip().lower() in {"1", "true", "yes", "on"}
         )
-        print(
-            "[alert] subscription worker started; "
-            f"mode={self.settings.mode}, check_time={self.settings.check_time}, "
-            f"interval={self.settings.loop_interval_seconds}s, "
-            f"effective_skip_recent={effective_skip}, csv={self.settings.csv_path}"
+        logger.info(
+            "subscription worker started; mode=%s, check_time=%s, "
+            "interval=%ds, effective_skip_recent=%s, csv=%s",
+            self.settings.mode,
+            self.settings.check_time,
+            self.settings.loop_interval_seconds,
+            effective_skip,
+            self.settings.csv_path,
         )
         cycle = 0
         while True:
@@ -185,12 +193,12 @@ class AlertRunner:
                 if datetime.now() >= next_run:
                     cycle += 1
                     stats = self.run_once(skip_recent=effective_skip)
-                    print(f"[alert] daily check #{cycle} finished: {stats}")
+                    logger.info("daily check #%d finished: %s", cycle, stats)
                     time.sleep(60)
                 continue
             cycle += 1
             stats = self.run_once(skip_recent=effective_skip)
-            print(f"[alert] cycle #{cycle} finished: {stats}")
+            logger.info("cycle #%d finished: %s", cycle, stats)
             if _shutdown_event.wait(timeout=self.settings.loop_interval_seconds):
                 break
 
@@ -247,7 +255,7 @@ class AlertRunner:
             )
             self.store.mark_alert_sent(subscription, today)
         except EmailDeliveryError as exc:
-            print(f"[alert] 预警邮件发送失败 {subscription.email}: {exc}")
+            logger.error("预警邮件发送失败 %s: %s", subscription.email, exc)
             # 不标记已发送，下次循环会重试
             raise  # 由外层 run_once 统计 failed
 
@@ -262,7 +270,7 @@ class AlertRunner:
             )
             self.store.mark_daily_report_sent(subscription, today)
         except EmailDeliveryError as exc:
-            print(f"[alert] 日报邮件发送失败 {subscription.email}: {exc}")
+            logger.error("日报邮件发送失败 %s: %s", subscription.email, exc)
             raise
 
 

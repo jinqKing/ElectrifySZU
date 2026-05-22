@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import time
 from datetime import datetime
 from pathlib import Path
@@ -8,6 +9,8 @@ from pathlib import Path
 from .email_service import EmailConfig, EmailService
 from .email_templates import alert_content, alert_subject, verification_content, verification_subject
 from .store import Subscription, now_iso
+
+logger = logging.getLogger("test_delivery")
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_ENV_FILE = PROJECT_DIR / ".env"
@@ -105,11 +108,11 @@ def main() -> None:
 
     config = EmailConfig.from_env(args.env)
     if args.show_config:
-        print(f"sender_name={config.sender_name}")
-        print(f"sender_email={config.sender_email}")
-        print(f"smtp_host={config.smtp_host}:{config.smtp_port}")
-        print(f"smtp_ssl={config.smtp_ssl}")
-        print(f"smtp_starttls={config.smtp_starttls}")
+        logger.info("sender_name=%s", config.sender_name)
+        logger.info("sender_email=%s", config.sender_email)
+        logger.info("smtp_host=%s:%d", config.smtp_host, config.smtp_port)
+        logger.info("smtp_ssl=%s", config.smtp_ssl)
+        logger.info("smtp_starttls=%s", config.smtp_starttls)
 
     service = EmailService(config)
     run_count = 0
@@ -118,22 +121,22 @@ def main() -> None:
     while True:
         run_count += 1
         timestamp = now_iso()
-        print(f"[delivery-test] run={run_count} at {timestamp} kind={args.kind}")
+        logger.info("run=%d at %s kind=%s", run_count, timestamp, args.kind)
 
         if args.kind in {"verification", "both"}:
             send_verification_probe(service, args.to, args.base_url)
-            print(f"[delivery-test] verification email sent to {args.to}")
+            logger.info("verification email sent to %s", args.to)
 
         if args.kind in {"alert", "both"}:
             send_alert_probe(service, args.to, args.base_url)
-            print(f"[delivery-test] alert email sent to {args.to}")
+            logger.info("alert email sent to %s", args.to)
 
         if interval_seconds <= 0:
             break
         if args.max_runs > 0 and run_count >= args.max_runs:
             break
 
-        print(f"[delivery-test] sleeping {interval_seconds:g}s before next run")
+        logger.info("sleeping %gs before next run", interval_seconds)
         time.sleep(interval_seconds)
 
 
