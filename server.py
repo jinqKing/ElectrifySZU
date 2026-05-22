@@ -456,12 +456,25 @@ def main() -> None:
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        pass
+        print("\nShutdown requested (Ctrl+C)...")
     finally:
-        print("\nShutting down...")
+        print("Shutting down...")
+
+        # Step 1: Signal alert worker to stop
         shutdown_alert_worker()
-        alert_thread.join(timeout=5)
-        server.shutdown()
+
+        # Step 2: Stop accepting new connections and drain in-flight HTTP requests.
+        # ThreadingMixIn.block_on_close=True (default) makes server_close() wait
+        # for all non-daemon handler threads to finish before returning.
+        print("Closing server socket, draining in-flight requests...")
+        server.server_close()
+
+        # Step 3: Wait for alert worker thread to finish
+        alert_thread.join(timeout=10)
+        if alert_thread.is_alive():
+            print("[warn] Alert worker thread did not exit within timeout.")
+
+        print("Server stopped.")
 
 
 if __name__ == "__main__":
