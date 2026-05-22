@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import hmac
 import json
 import logging
 import mimetypes
+import os
 import re
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -29,7 +32,7 @@ sys.path.insert(0, str(MONITOR_DIR))
 logger = logging.getLogger("server")
 
 from src.api import DormApi  # noqa: E402
-from src.config import Config  # noqa: E402
+from src.config import Config, _load_dotenv  # noqa: E402
 from src.discover import discover_room_id  # noqa: E402
 from src.version import __version__  # noqa: E402
 from subscription_alerts.alerts import (
@@ -45,6 +48,15 @@ from subscription_alerts.verification import (  # noqa: E402
     create_pending_subscription,
     verify_subscription,
 )
+
+MAX_REQUEST_BODY_BYTES = 64 * 1024
+LIKE_ID_PATTERN = re.compile(r"^svr-[0-9a-f]{16}$")
+SENSITIVE_QUERY_KEYS = {"token", "email", "userId", "id"}
+ALLOWED_HOSTNAMES = {"127.0.0.1", "localhost", "::1"}
+
+
+class RequestError(Exception):
+    """Raised after an error response has already been sent."""
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -68,9 +80,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/subscriptions/verify":
             self._handle_verify_subscription(query)
-            return
-        if parsed.path == "/api/alerts/check":
-            self._handle_alert_check(query)
             return
         if parsed.path == "/api/version":
             self._send_json(
@@ -102,6 +111,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         self._request_start = time.time()
         parsed = urlparse(self.path)
+        if not self._validate_same_origin():
+            self._error("FORBIDDEN_ORIGIN", "Forbidden origin", status=403)
+            return
+        if parsed.path == "/api/alerts/check":
+            self._handle_alert_check()
+            return
         if parsed.path == "/api/subscriptions":
             self._handle_subscription()
             return
@@ -116,17 +131,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
     # ── Like endpoints ──────────────────────────────────────────────
 
     def _handle_like_count(self) -> None:
-        data = _load_likes()
+        with _likes_lock:
+            data = _load_likes()
         self._send_json({"ok": True, "count": data["count"]})
 
     def _handle_like_my(self, query: dict[str, list[str]]) -> None:
         user_id = _query_value(query, "userId")
-        data = _load_likes()
-        liked = user_id in data["likedIds"]
+        if user_id and not _is_valid_like_id(user_id):
+            self._error("INVALID_LIKE_ID", "Invalid like id", status=400)
+            return
+        with _likes_lock:
+            data = _load_likes()
+            liked = user_id in data["likedIds"]
         self._send_json({"ok": True, "data": {"liked": liked}})
 
     def _handle_stats(self) -> None:
-        data = _load_likes()
+        with _likes_lock:
+            data = _load_likes()
         self._send_json({
             "ok": True,
             "data": {
@@ -146,25 +167,27 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._send_json({"ok": True, "id": new_id})
 
     def _handle_like(self) -> None:
-        body = self._read_request_data()
+        try:
+            body = self._read_request_data()
+        except RequestError:
+            return
         user_id = body.get("id", "")
-        if not user_id or not user_id.startswith("svr-"):
-            self._error("INVALID_LIKE_ID", "无效的点赞者标识", status=400)
+        if not isinstance(user_id, str) or not _is_valid_like_id(user_id):
+            self._error("INVALID_LIKE_ID", "Invalid like id", status=400)
             return
         with _likes_lock:
             data = _load_likes()
             seen = data.setdefault("seenIds", [])
+            if user_id not in seen:
+                self._error("UNKNOWN_LIKE_ID", "Unknown like id", status=400)
+                return
             if user_id in data["likedIds"]:
                 self._send_json({"ok": True, "already_liked": True, "count": data["count"], "users": len(seen)})
                 return
-            # 追踪新用户：不在 seenIds 中的说明是以前 init 的遗留 ID
-            if user_id not in seen:
-                seen.append(user_id)
-                data["totalIssued"] = len(seen)
             data["likedIds"].append(user_id)
             data["count"] += 1
             _save_likes(data)
-        logger.info("Like #%d from %s", data["count"], user_id)
+        logger.info("Like #%d from %s", data["count"], _safe_like_id(user_id))
         self._send_json({"ok": True, "already_liked": False, "count": data["count"], "users": data.get("totalIssued", 0)})
 
     def log_message(self, fmt: str, *args: object) -> None:
@@ -173,10 +196,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if hasattr(self, "_request_start"):
             ms = (time.time() - self._request_start) * 1000
             elapsed = f" ({ms:.0f}ms)"
+        message = fmt % args if args else fmt
         logger.info(
             "%s - %s%s",
             self.address_string(),
-            fmt % args if args else fmt,
+            _redact_access_log(message),
             elapsed,
         )
 
@@ -235,7 +259,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             config = Config.from_env(str(ENV_FILE))
             settings = AlertSettings.from_env(ROOT)
             store = SubscriptionStore(settings.csv_path)
-            data = self._read_request_data()
+            try:
+                data = self._read_request_data()
+            except RequestError:
+                return
             result = create_pending_subscription(
                 store=store,
                 values={
@@ -361,8 +388,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         self._redirect_to_dashboard({"notice": "unsubscribe_invalid"})
 
-    def _handle_alert_check(self, query: dict[str, list[str]]) -> None:
-        skip_recent = _query_value(query, "skipRecent").lower() not in {"0", "false", "no"}
+    def _handle_alert_check(self) -> None:
+        if not self._validate_admin_token():
+            self._error("UNAUTHORIZED", "Invalid admin token", status=401)
+            return
+        try:
+            data = self._read_request_data()
+        except RequestError:
+            return
+        skip_recent = _truthy(data.get("skipRecent"), default=True)
         stats = AlertRunner(ROOT).run_once(skip_recent=skip_recent)
         self._send_json({"ok": True, "data": stats})
 
@@ -435,19 +469,50 @@ class DashboardHandler(BaseHTTPRequestHandler):
             status=status,
         )
 
-    def _validate_referer(self) -> bool:
-        """检查 Referer 头是否来自本域（轻量 CSRF 防护）。"""
-        referer = self.headers.get("Referer", "")
-        host = self.headers.get("Host", "")
-        return bool(referer and host in referer)
+    def _validate_same_origin(self) -> bool:
+        host = self.headers.get("Host", "").strip().lower()
+        if not host:
+            return False
+        allowed_origins = {f"http://{host}", f"https://{host}"}
+        origin = self.headers.get("Origin", "").strip().lower()
+        if origin:
+            return origin in allowed_origins
+        referer = self.headers.get("Referer", "").strip()
+        if referer:
+            parsed = urlparse(referer)
+            referer_origin = f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+            return referer_origin in allowed_origins
+        return True
 
-    def _read_request_data(self) -> dict[str, str]:
-        length = int(self.headers.get("Content-Length", "0") or "0")
+    def _validate_admin_token(self) -> bool:
+        _load_dotenv(str(ENV_FILE))
+        expected = os.getenv("ALERT_ADMIN_TOKEN", "").strip()
+        supplied = self.headers.get("X-Admin-Token", "").strip()
+        return bool(expected and supplied and hmac.compare_digest(supplied, expected))
+
+    def _read_request_data(self) -> dict[str, object]:
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+        except ValueError:
+            self._error("INVALID_CONTENT_LENGTH", "Invalid Content-Length", status=400)
+            raise RequestError()
+        if length > MAX_REQUEST_BODY_BYTES:
+            self._error("REQUEST_TOO_LARGE", "Request body too large", status=413)
+            raise RequestError()
         body = self.rfile.read(length)
         content_type = self.headers.get("Content-Type", "")
-        if "application/json" in content_type:
-            payload = json.loads(body.decode("utf-8") or "{}")
-            return {str(key): str(value).strip() for key, value in payload.items()}
+        if not content_type:
+            return {}
+        if _content_type_is(content_type, "application/json"):
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                self._error("INVALID_JSON", "Invalid JSON body", status=400)
+                raise RequestError()
+            if not isinstance(payload, dict):
+                self._error("INVALID_JSON", "JSON body must be an object", status=400)
+                raise RequestError()
+            return {str(key): _clean_request_value(value) for key, value in payload.items()}
         if "multipart/form-data" in content_type:
             headers = f"Content-Type: {content_type}\n\n".encode("utf-8")
             message = BytesParser(policy=policy.default).parsebytes(headers + body)
@@ -458,11 +523,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 for part in message.iter_parts()
                 if part.get_param("name", header="content-disposition")
             }
-        parsed = parse_qs(body.decode("utf-8"), keep_blank_values=True)
-        return {key: values[0].strip() if values else "" for key, values in parsed.items()}
+        if _content_type_is(content_type, "application/x-www-form-urlencoded"):
+            try:
+                decoded = body.decode("utf-8")
+            except UnicodeDecodeError:
+                self._error("INVALID_FORM_BODY", "Invalid form body", status=400)
+                raise RequestError()
+            parsed = parse_qs(decoded, keep_blank_values=True)
+            return {key: values[0].strip() if values else "" for key, values in parsed.items()}
+        self._error("UNSUPPORTED_MEDIA_TYPE", "Unsupported Content-Type", status=415)
+        raise RequestError()
 
     def _request_base_url(self) -> str:
+        _load_dotenv(str(ENV_FILE))
+        public_base_url = os.getenv("PUBLIC_BASE_URL", "").strip()
+        if _valid_public_base_url(public_base_url):
+            return public_base_url.rstrip("/")
         host = self.headers.get("Host", "127.0.0.1:8000").strip() or "127.0.0.1:8000"
+        if not _is_allowed_request_host(host):
+            host = "127.0.0.1:8000"
         scheme = "https" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else "http"
         return f"{scheme}://{host}"
 
@@ -478,6 +557,68 @@ class DashboardHandler(BaseHTTPRequestHandler):
 def _query_value(query: dict[str, list[str]], key: str) -> str:
     values = query.get(key, [])
     return values[0].strip() if values else ""
+
+
+def _is_valid_like_id(value: str) -> bool:
+    return bool(LIKE_ID_PATTERN.fullmatch(value))
+
+
+def _safe_like_id(value: str) -> str:
+    return value[:8] + "..." if len(value) > 8 else "***"
+
+
+def _content_type_is(content_type: str, expected: str) -> bool:
+    return content_type.split(";", 1)[0].strip().lower() == expected
+
+
+def _clean_request_value(value: object) -> object:
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _truthy(value: object, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _is_allowed_request_host(host: str) -> bool:
+    parsed = urlparse(f"//{host}")
+    hostname = (parsed.hostname or "").lower()
+    return hostname in ALLOWED_HOSTNAMES
+
+
+def _valid_public_base_url(value: str) -> bool:
+    if not value:
+        return False
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def _redact_access_log(message: str) -> str:
+    parts = message.split('"')
+    for index in range(1, len(parts), 2):
+        request_line = parts[index].split()
+        if len(request_line) < 2:
+            continue
+        request_line[1] = _redact_path_query(request_line[1])
+        parts[index] = " ".join(request_line)
+    return '"'.join(parts)
+
+
+def _redact_path_query(target: str) -> str:
+    parsed = urlparse(target)
+    if not parsed.query:
+        return target
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    redacted = {
+        key: ["***" if key in SENSITIVE_QUERY_KEYS else value for value in values]
+        for key, values in query.items()
+    }
+    return parsed._replace(query=urlencode(redacted, doseq=True)).geturl()
 
 
 _likes_lock = threading.Lock()
@@ -498,7 +639,25 @@ def _load_likes() -> dict[str, object]:
 
 def _save_likes(data: dict[str, object]) -> None:
     LIKES_FILE.parent.mkdir(parents=True, exist_ok=True)
-    LIKES_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    temp_name = ""
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=LIKES_FILE.parent,
+            prefix=f".{LIKES_FILE.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temp_name = file.name
+            json.dump(data, file, ensure_ascii=False)
+            file.flush()
+            os.fsync(file.fileno())
+        Path(temp_name).replace(LIKES_FILE)
+    except Exception:
+        if temp_name:
+            Path(temp_name).unlink(missing_ok=True)
+        raise
 
 
 def load_buildings_file() -> list[dict[str, object]]:
