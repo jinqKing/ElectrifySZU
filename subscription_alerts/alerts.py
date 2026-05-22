@@ -65,6 +65,10 @@ class AlertRunner:
 
     def run_once(self, skip_recent: bool = True) -> dict[str, int]:
         today = date.today().isoformat()
+        force_send = (
+            self.settings.mode == "testing"
+            and _env("FORCE_SEND_ALERT", "0").strip().lower() in {"1", "true", "yes", "on"}
+        )
         stats = {"checked": 0, "sent": 0, "skipped": 0, "failed": 0}
         for subscription in self.store.list_enabled():
             stats["checked"] += 1
@@ -77,7 +81,7 @@ class AlertRunner:
                         f"{subscription.room_name} {subscription.last_alert_date}"
                     )
                     continue
-                sent = self._check_subscription(subscription, today)
+                sent = self._check_subscription(subscription, today, force_send=force_send)
                 if sent:
                     stats["sent"] += 1
                     print(
@@ -122,29 +126,44 @@ class AlertRunner:
                 break
 
 
-    def _check_subscription(self, subscription: Subscription, today: str) -> bool:
-        config = Config.from_env(str(self.settings.env_path))
-        config.client = subscription.client
-        room_id = discover_room_id(
-            building_id=subscription.building_id,
-            room_name=subscription.room_name,
-            client_ip=subscription.client,
-        )
-        if not room_id:
-            raise LookupError(
-                f"未找到 {subscription.campus_name} "
-                f"{subscription.building_name} {subscription.room_name} 房间。"
+    def _check_subscription(self, subscription: Subscription, today: str, *, force_send: bool = False) -> bool:
+        if force_send:
+            # Testing shortcut: bypass live API, fabricate low-balance data
+            result = {
+                "room_name": subscription.room_name,
+                "remaining": round(subscription.threshold_kwh * 0.5, 1),
+                "last_record": today,
+                "status": "critical",
+                "total_used_kwh": 50.0,
+                "daily_avg_kwh": 1.7,
+                "est_days_left": 3.0,
+                "threshold_kwh": subscription.threshold_kwh,
+                "trend": [],
+                "recharges": [],
+            }
+        else:
+            config = Config.from_env(str(self.settings.env_path))
+            config.client = subscription.client
+            room_id = discover_room_id(
+                building_id=subscription.building_id,
+                room_name=subscription.room_name,
+                client_ip=subscription.client,
             )
+            if not room_id:
+                raise LookupError(
+                    f"未找到 {subscription.campus_name} "
+                    f"{subscription.building_name} {subscription.room_name} 房间。"
+                )
 
-        result = DormApi(config).get_status(
-            room_id=room_id,
-            room_name=subscription.room_name,
-            days=30,
-            threshold=subscription.threshold_kwh,
-        )
-        remaining = result.get("remaining")
-        if remaining is None or float(remaining) > subscription.threshold_kwh:
-            return False
+            result = DormApi(config).get_status(
+                room_id=room_id,
+                room_name=subscription.room_name,
+                days=30,
+                threshold=subscription.threshold_kwh,
+            )
+            remaining = result.get("remaining")
+            if remaining is None or float(remaining) > subscription.threshold_kwh:
+                return False
 
         EmailService(EmailConfig.from_env(str(self.settings.env_path))).send_text(
             subscription.email,
