@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Matrix 团队 | ElectrifySZU 工作介绍</title>
+    <link rel="stylesheet" href="work-intro.css" />
+  </head>
+  <body>
+    <a class="top-link link-button" href="index.html">返回主页</a>
+    <main class="deck" aria-label="ElectrifySZU 工作介绍幻灯片">
+      <div class="slides" id="slides">
+        <section class="slide" aria-labelledby="slide-1-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Matrix Team · ElectrifySZU</p>
+              <h1 id="slide-1-title"><span class="title-line">把宿舍电费查询做成</span><span class="title-line">一个可用的仪表盘</span></h1>
+              <p class="lead">我们把校园电费查询、余额趋势、低电量预警和静态展示整合到一个开源项目里，让同学不用在断电前才想起查余额。</p>
+              <div class="actions">
+                <a class="link-button primary" href="https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb" target="_blank" rel="noreferrer">飞书项目 Wiki</a>
+                <a class="link-button" href="https://github.com/jinqKing/ElectrifySZU" target="_blank" rel="noreferrer">GitHub 仓库</a>
+              </div>
+            </div>
+            <div class="dashboard-visual" aria-hidden="true">
+              <div class="mock-toolbar">
+                <span class="mock-input"></span>
+                <span class="mock-input"></span>
+                <span class="mock-button"></span>
+              </div>
+              <div class="mock-metrics">
+                <div class="mock-card dark">
+                  <span class="mock-label"></span>
+                  <span class="mock-value"></span>
+                </div>
+                <div class="mock-card">
+                  <span class="mock-label"></span>
+                  <span class="mock-value"></span>
+                </div>
+              </div>
+              <div class="mock-chart">
+                <div class="points"></div>
+                <div class="bars">
+                  <span class="bar" style="height: 36%"></span>
+                  <span class="bar" style="height: 55%"></span>
+                  <span class="bar" style="height: 42%"></span>
+                  <span class="bar" style="height: 68%"></span>
+                  <span class="bar" style="height: 58%"></span>
+                  <span class="bar" style="height: 76%"></span>
+                  <span class="bar" style="height: 48%"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-2-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Problem</p>
+              <h2 id="slide-2-title">同学真正需要的不是一个接口，而是少一点电量焦虑</h2>
+              <p class="lead">查询入口分散、校园网环境有限、房间参数难找、余额变化不直观，这些小麻烦叠在一起，就会变成宿舍生活里的高频打扰。</p>
+            </div>
+            <div class="fact-list">
+              <div class="fact">
+                <span class="icon blue">1</span>
+                <div>
+                  <strong>查询要快</strong>
+                  <p>选择校区、楼栋和房间号后，直接展示当前余额、周期用电和预计可用天数。</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon green">2</span>
+                <div>
+                  <strong>趋势要清楚</strong>
+                  <p>用折线和柱状把余额走势、每日消耗和用电等级放在同一个视图里。</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon yellow">3</span>
+                <div>
+                  <strong>提醒要可靠</strong>
+                  <p>低电量订阅支持学校邮箱自动补全，减少遗漏和输入成本。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-3-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Architecture</p>
+              <h2 id="slide-3-title">静态页面负责体验，本地后端负责校园网查询</h2>
+              <p class="lead">公开页面可部署到 GitHub Pages 做演示；真实查询时运行本地服务，由后端代理访问校园电费系统，前端只消费统一的 JSON API。</p>
+            </div>
+            <div class="flow-visual" aria-label="系统流程">
+              <div class="flow-step">
+                <span class="step-number">01</span>
+                <div><strong>输入宿舍信息</strong><span>校区、楼栋、房间号、统计天数</span></div>
+              </div>
+              <div class="flow-step">
+                <span class="step-number">02</span>
+                <div><strong>发现 roomId</strong><span>把可读房间号转换为电费系统参数</span></div>
+              </div>
+              <div class="flow-step">
+                <span class="step-number">03</span>
+                <div><strong>API 代理查询</strong><span>由校园网环境中的服务请求内网接口</span></div>
+              </div>
+              <div class="flow-step">
+                <span class="step-number">04</span>
+                <div><strong>仪表盘渲染</strong><span>余额、趋势、充值记录和预警状态同步更新</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-4-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Features</p>
+              <h2 id="slide-4-title">我们把核心体验做成了完整闭环</h2>
+              <p class="lead">从首页查询到单位切换、趋势探索、订阅保存和静态演示，每个环节都尽量让项目在展示和真实使用时都站得住。</p>
+            </div>
+            <div class="capability-list">
+              <div class="fact">
+                <span class="icon blue">✓</span>
+                <div>
+                  <strong>双语静态仪表盘</strong>
+                  <p>中英文文案统一管理，GitHub Pages 可直接展示演示数据。</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon green">✓</span>
+                <div>
+                  <strong>可交互趋势图</strong>
+                  <p>点击柱状图或折线点查看每日余额和用电详情，可自定义用电等级。</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon yellow">✓</span>
+                <div>
+                  <strong>低电量邮件预警</strong>
+                  <p>订阅记录可保存，系统按阈值发送提醒，避免频繁打扰。</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon red">✓</span>
+                <div>
+                  <strong>CLI 与 API 并存</strong>
+                  <p>既能命令行输出 JSON，也能启动本地网页服务和 API 代理。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-5-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Alerting</p>
+              <h2 id="slide-5-title">预警系统让查询从“想起来”变成“被照看”</h2>
+              <p class="lead">余额低于阈值时，系统每天最多发送一次提醒。对同学来说，重要的是在快没电前知道，而不是每天主动检查。</p>
+            </div>
+            <div class="signal-visual" aria-hidden="true">
+              <div class="signal-meter">
+                <div class="signal-row">
+                  <span>电量充足</span>
+                  <span class="signal-track"><span class="signal-fill fill-green"></span></span>
+                  <span>82%</span>
+                </div>
+                <div class="signal-row">
+                  <span>低电量</span>
+                  <span class="signal-track"><span class="signal-fill fill-yellow"></span></span>
+                  <span>48%</span>
+                </div>
+                <div class="signal-row">
+                  <span>即将耗尽</span>
+                  <span class="signal-track"><span class="signal-fill fill-red"></span></span>
+                  <span>18%</span>
+                </div>
+              </div>
+              <div class="mail-preview">
+                <div class="mock-row blue"></div>
+                <div class="mock-row"></div>
+                <div class="mock-row"></div>
+                <div class="mock-row short"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-6-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Milestones</p>
+              <h2 id="slide-6-title">从 MVP 到可展示版本，我们持续补齐细节</h2>
+              <p class="lead">项目版本沿用向 e 收敛的编号节奏。近期工作重点是稳定查询链路、完善展示体验、整理文案和团队说明。</p>
+            </div>
+            <div class="timeline-visual">
+              <div class="timeline-item">
+                <time>0.1.0</time>
+                <div><strong>项目初始化</strong><span>整理 Python 查询模块、静态页面、API 代理和演示数据。</span></div>
+              </div>
+              <div class="timeline-item">
+                <time>2.7</time>
+                <div><strong>版本体系与部署说明</strong><span>统一运行时版本标签，明确 GitHub Pages 与本地后端的边界。</span></div>
+              </div>
+              <div class="timeline-item">
+                <time>2.71</time>
+                <div><strong>体验打磨</strong><span>加入仓库入口、可点击指标卡、加载反馈、双语文案组织和订阅输入优化。</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-7-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Support</p>
+              <h2 id="slide-7-title">你的支持会变成更稳定的服务和更少的断电焦虑</h2>
+              <p class="lead">我们会继续维护宿舍楼栋数据、优化查询体验、完善预警链路，并把项目过程沉淀到飞书文档中，方便协作和展示。</p>
+              <div class="actions">
+                <a class="link-button primary" href="https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb" target="_blank" rel="noreferrer">打开飞书 Wiki</a>
+                <a class="link-button" href="index.html">回到电费仪表盘</a>
+              </div>
+            </div>
+            <div class="support-visual">
+              <div class="wiki-box">
+                <strong>项目资料入口</strong>
+                <p>飞书 Wiki 记录项目背景、实现方案、协作资料和后续计划，适合比赛介绍或团队交接。</p>
+              </div>
+              <div class="mini-stat-grid" aria-hidden="true">
+                <div class="mini-stat"><strong>Web</strong><span>静态仪表盘</span></div>
+                <div class="mini-stat"><strong>API</strong><span>本地代理服务</span></div>
+                <div class="mini-stat"><strong>Mail</strong><span>低电量预警</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <nav class="nav" aria-label="幻灯片导航">
+        <button id="prevSlide" type="button" aria-label="上一页">‹</button>
+        <div class="dots" id="dots" aria-hidden="true"></div>
+        <span class="counter" id="counter">1 / 7</span>
+        <button id="nextSlide" type="button" aria-label="下一页">›</button>
+      </nav>
+    </main>
+
+    <script src="work-intro.js" defer></script>
+  </body>
+</html>

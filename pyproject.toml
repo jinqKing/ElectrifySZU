@@ -9,5 +9,12 @@ dependencies = [
     "xlrd>=2.0.1",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [project.scripts]
 electrifyszu = "server:main"
+electrifyszu-delivery-test = "subscription_alerts.test_delivery:main"
