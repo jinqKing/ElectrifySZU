@@ -108,9 +108,9 @@ class AlertRunner:
 
         # --- Phase B: group subs by room key, fetch once per room ---
         # room_map: room_key -> (representative_sub, [alert_subs], [report_subs])
-        room_key = lambda s: (s.building_id, s.room_name)
+        room_key = lambda s: (s.client, s.campus_name, s.building_id, s.room_name)
         room_map: dict[
-            tuple[str, str],
+            tuple[str, str, str, str],
             tuple[Subscription, list[Subscription], list[Subscription]],
         ] = {}
         for sub in alert_subs:
@@ -158,9 +158,11 @@ class AlertRunner:
             except Exception as exc:
                 stats["failed"] += 1
                 logger.error(
-                    "failed room %s %s: %s",
+                    "failed room %s %s %s %s: %s",
                     rk[0],
                     rk[1],
+                    rk[2],
+                    rk[3],
                     exc,
                 )
 
