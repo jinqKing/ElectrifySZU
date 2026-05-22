@@ -330,6 +330,18 @@ h2 {
   display: none;
 }
 
+/* Pending verification — warm amber tone instead of green */
+.subscription-summary.pending-verification {
+  border-color: rgba(217, 134, 22, 0.32);
+  background: rgba(217, 134, 22, 0.08);
+  color: var(--yellow);
+}
+
+.subscription-summary.pending-verification:hover,
+.subscription-summary.pending-verification:focus-visible {
+  background: rgba(217, 134, 22, 0.14);
+}
+
 .query-hint {
   margin: 12px 0 0;
   color: #7a8797;
