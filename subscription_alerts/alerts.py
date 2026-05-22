@@ -106,60 +106,61 @@ class AlertRunner:
                 continue
             report_subs.append(sub)
 
-        # Deduplicate rooms across both lists (each room queried once)
-        room_keys_seen: set[tuple[str, str]] = set()
-        ordered_checks: list[tuple[bool, Subscription]] = []
+        # --- Phase B: group subs by room key, fetch once per room ---
+        # room_map: room_key -> (representative_sub, [alert_subs], [report_subs])
+        room_key = lambda s: (s.building_id, s.room_name)
+        room_map: dict[
+            tuple[str, str],
+            tuple[Subscription, list[Subscription], list[Subscription]],
+        ] = {}
         for sub in alert_subs:
-            rk = (sub.building_id, sub.room_name)
-            if rk not in room_keys_seen:
-                room_keys_seen.add(rk)
-                ordered_checks.append((True, sub))
+            rk = room_key(sub)
+            if rk not in room_map:
+                room_map[rk] = (sub, [], [])
+            room_map[rk][1].append(sub)
         for sub in report_subs:
-            rk = (sub.building_id, sub.room_name)
-            if rk not in room_keys_seen:
-                room_keys_seen.add(rk)
-                ordered_checks.append((False, sub))
+            rk = room_key(sub)
+            if rk not in room_map:
+                room_map[rk] = (sub, [], [])
+            room_map[rk][2].append(sub)
 
         # Track which (email, building, room) combos got an alert mail this run
         # so we don't also send a duplicate report to the same place
         alerted_keys: set[tuple[str, str, str, str]] = set()
 
-        # --- Phase B: fetch data per-room, dispatch per-sub ---
-        for want_alert, subscription in ordered_checks:
+        for rk, (rep_sub, alert_subs_for_room, report_subs_for_room) in room_map.items():
             stats["checked"] += 1
             try:
-                result = self._fetch_room_data(
-                    subscription,
-                    force=((want_alert and force_alert)
-                           or (not want_alert and force_report)),
+                need_force = (bool(alert_subs_for_room) and force_alert) or (
+                    bool(report_subs_for_room) and force_report
                 )
+                result = self._fetch_room_data(rep_sub, force=need_force)
                 if result is None:
                     stats["skipped"] += 1
                     continue
 
-                sub_key = subscription.key
-
-                if want_alert:
+                # Dispatch alerts
+                for sub in alert_subs_for_room:
                     remaining = result.get("remaining")
-                    if remaining is not None and float(remaining) <= subscription.threshold_kwh:
-                        self._dispatch_alert(subscription, result, today)
+                    if remaining is not None and float(remaining) <= sub.threshold_kwh:
+                        self._dispatch_alert(sub, result, today)
                         stats["alerts_sent"] += 1
-                        alerted_keys.add(sub_key)
+                        alerted_keys.add(sub.key)
                     else:
                         stats["skipped"] += 1
 
-                # Report branch: fire unless this exact sub already got an alert
-                if subscription.daily_report_enabled and sub_key not in alerted_keys:
-                    self._dispatch_report(subscription, result, today)
-                    stats["reports_sent"] += 1
+                # Dispatch reports (skip if same sub already got an alert)
+                for sub in report_subs_for_room:
+                    if sub.key not in alerted_keys:
+                        self._dispatch_report(sub, result, today)
+                        stats["reports_sent"] += 1
 
             except Exception as exc:
                 stats["failed"] += 1
                 logger.error(
-                    "failed %s %s %s: %s",
-                    subscription.email,
-                    subscription.building_name,
-                    subscription.room_name,
+                    "failed room %s %s: %s",
+                    rk[0],
+                    rk[1],
                     exc,
                 )
 
