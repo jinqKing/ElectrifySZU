@@ -5,7 +5,7 @@ import re
 import secrets
 import threading
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +26,7 @@ CSV_FIELDS = [
     "updated_at",
     "verified_at",
     "verification_token",
+    "verification_token_expires_at",
     "verification_sent_at",
     "last_alert_date",
     "last_daily_report_date",
@@ -52,6 +53,7 @@ class Subscription:
     updated_at: str
     verified_at: str
     verification_token: str
+    verification_token_expires_at: str
     verification_sent_at: str
     last_alert_date: str
     last_daily_report_date: str
@@ -88,6 +90,7 @@ class Subscription:
             updated_at=row.get("updated_at", "").strip(),
             verified_at=row.get("verified_at", "").strip(),
             verification_token=row.get("verification_token", "").strip(),
+            verification_token_expires_at=row.get("verification_token_expires_at", "").strip(),
             verification_sent_at=row.get("verification_sent_at", "").strip(),
             last_alert_date=row.get("last_alert_date", "").strip(),
             last_daily_report_date=row.get("last_daily_report_date", "").strip(),
@@ -111,6 +114,7 @@ class Subscription:
             "updated_at": self.updated_at,
             "verified_at": self.verified_at,
             "verification_token": self.verification_token,
+            "verification_token_expires_at": self.verification_token_expires_at,
             "verification_sent_at": self.verification_sent_at,
             "last_alert_date": self.last_alert_date,
             "last_daily_report_date": self.last_daily_report_date,
@@ -212,11 +216,24 @@ class SubscriptionStore:
                 if not secrets.compare_digest(row.verification_token, token):
                     continue
 
+                # 检查 token 是否过期
+                if row.verification_token_expires_at:
+                    try:
+                        expires = datetime.fromisoformat(
+                            row.verification_token_expires_at
+                        )
+                        if datetime.now() > expires:
+                            return "expired", None
+                    except ValueError:
+                        pass
+
                 already_verified = row.is_active
                 now = now_iso()
                 row.enabled = True
                 row.verified = True
                 row.verified_at = row.verified_at or now
+                row.verification_token = ""
+                row.verification_token_expires_at = ""
                 row.updated_at = now
                 self._write(rows)
                 return ("already_verified" if already_verified else "verified"), row
@@ -236,6 +253,7 @@ class SubscriptionStore:
                 if secrets.compare_digest(row.unsubscribe_token, token):
                     already_disabled = not row.enabled
                     row.enabled = False
+                    row.unsubscribe_token = ""
                     row.updated_at = now_iso()
                     self._write(rows)
                     if already_disabled:
@@ -294,6 +312,9 @@ def build_subscription(values: dict[str, Any], default_threshold: float) -> Subs
         updated_at=now,
         verified_at="",
         verification_token=secrets.token_urlsafe(24),
+        verification_token_expires_at=(
+            datetime.now() + timedelta(hours=24)
+        ).isoformat(),
         verification_sent_at=now,
         last_alert_date="",
         last_daily_report_date="",
@@ -317,7 +338,14 @@ def merge_active_subscription(existing: Subscription, submitted: Subscription) -
         created_at=existing.created_at or submitted.created_at,
         updated_at=now_iso(),
         verified_at=existing.verified_at or existing.created_at or submitted.created_at,
-        verification_token=existing.verification_token or submitted.verification_token,
+        verification_token=(
+            existing.verification_token
+            if existing.verification_token
+            else ("" if existing.verified else submitted.verification_token)
+        ),
+        verification_token_expires_at=(
+            existing.verification_token_expires_at
+        ),
         verification_sent_at=existing.verification_sent_at,
         last_alert_date=existing.last_alert_date,
         last_daily_report_date=existing.last_daily_report_date,
@@ -346,6 +374,9 @@ def merge_pending_subscription(
         updated_at=now,
         verified_at="",
         verification_token=secrets.token_urlsafe(24),
+        verification_token_expires_at=(
+            datetime.now() + timedelta(hours=24)
+        ).isoformat(),
         verification_sent_at=now,
         last_alert_date=existing.last_alert_date if existing else "",
         last_daily_report_date=(
