@@ -1,5 +1,6 @@
 """测试 subscription_alerts/store.py 的订阅存储逻辑（离线，不依赖校园网）。"""
 
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -66,6 +67,8 @@ class TestBuildSubscription:
 
 class TestStoreSaveAndVerify:
     def test_save_creates_pending_subscription(self, temp_csv_path: Path) -> None:
+        fixed_temp_path = temp_csv_path.with_suffix(".tmp")
+        fixed_temp_path.write_text("sentinel", encoding="utf-8")
         store = SubscriptionStore(temp_csv_path)
         result = store.save(
             {
@@ -83,6 +86,7 @@ class TestStoreSaveAndVerify:
         assert result.subscription.email == "test@email.szu.edu.cn"
         # CSV 文件应已写入
         assert temp_csv_path.is_file()
+        assert fixed_temp_path.read_text(encoding="utf-8") == "sentinel"
 
     def test_verify_activates_subscription(self, temp_csv_path: Path) -> None:
         store = SubscriptionStore(temp_csv_path)
@@ -110,6 +114,37 @@ class TestStoreSaveAndVerify:
         status, sub = store.verify("bogus-token")
         assert status == "invalid"
         assert sub is None
+
+    def test_verify_expired_token_clears_token_and_saves(
+        self, temp_csv_path: Path
+    ) -> None:
+        store = SubscriptionStore(temp_csv_path)
+        saved = store.save(
+            {
+                "email": "expired@email.szu.edu.cn",
+                "client": "192.168.1.1",
+                "campus_name": "Campus A",
+                "building_id": "7126",
+                "building_name": "Building A",
+                "room_name": "713",
+            },
+            default_threshold=20,
+        )
+        token = saved.subscription.verification_token
+        rows = store.list_all()
+        rows[0].verification_token_expires_at = (
+            datetime.now() - timedelta(minutes=1)
+        ).isoformat()
+        store._write(rows)
+
+        status, sub = store.verify(token)
+
+        assert status == "expired"
+        assert sub is None
+        expired = store.list_all()[0]
+        assert expired.verification_token == ""
+        assert expired.verification_token_expires_at == ""
+        assert expired.verified is False
 
     def test_duplicate_save_keeps_existing_active(self, temp_csv_path: Path) -> None:
         store = SubscriptionStore(temp_csv_path)

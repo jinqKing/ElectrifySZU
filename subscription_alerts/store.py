@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import csv
+import os
 import re
 import secrets
+import tempfile
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -223,6 +225,10 @@ class SubscriptionStore:
                             row.verification_token_expires_at
                         )
                         if datetime.now() > expires:
+                            row.verification_token = ""
+                            row.verification_token_expires_at = ""
+                            row.updated_at = now_iso()
+                            self._write(rows)
                             return "expired", None
                     except ValueError:
                         pass
@@ -263,13 +269,29 @@ class SubscriptionStore:
 
     def _write(self, rows: list[Subscription]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path = self.path.with_suffix(".tmp")
-        with temp_path.open("w", encoding="utf-8", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=CSV_FIELDS)
-            writer.writeheader()
-            for row in rows:
-                writer.writerow(row.to_row())
-        temp_path.replace(self.path)
+        temp_name = ""
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                newline="",
+                dir=self.path.parent,
+                prefix=f".{self.path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as file:
+                temp_name = file.name
+                writer = csv.DictWriter(file, fieldnames=CSV_FIELDS)
+                writer.writeheader()
+                for row in rows:
+                    writer.writerow(row.to_row())
+                file.flush()
+                os.fsync(file.fileno())
+            Path(temp_name).replace(self.path)
+        except Exception:
+            if temp_name:
+                Path(temp_name).unlink(missing_ok=True)
+            raise
 
 
 def build_subscription(values: dict[str, Any], default_threshold: float) -> Subscription:
