@@ -14,12 +14,12 @@
 }
 
 .results-container {
-  opacity: 0;
-  visibility: hidden;
+  display: none;
 }
 .results-container.visible {
-  opacity: 1;
-  visibility: visible;
+  display: block;
+  opacity: 0;
+  transform: translateY(14px);
   animation: fadeUp 380ms ease forwards;
 }
 @keyframes fadeUp {
