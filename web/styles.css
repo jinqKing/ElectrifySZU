@@ -277,6 +277,59 @@ h2 {
   border-top: 1px solid var(--line);
 }
 
+.subscription-form.collapsed {
+  display: none;
+}
+
+.subscription-toggle,
+.subscription-cancel-btn {
+  min-height: unset;
+  border: 0;
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+  margin-top: 14px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.subscription-toggle:hover,
+.subscription-toggle:focus-visible,
+.subscription-cancel-btn:hover,
+.subscription-cancel-btn:focus-visible {
+  color: var(--blue);
+}
+
+.subscription-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(15, 159, 110, 0.24);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 8px 8px;
+  padding: 8px 14px;
+  margin-top: 14px;
+  background: rgba(15, 159, 110, 0.06);
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.subscription-summary:hover,
+.subscription-summary:focus-visible {
+  background: rgba(15, 159, 110, 0.12);
+}
+
+.subscription-summary[hidden] {
+  display: none;
+}
+
 .query-hint {
   margin: 12px 0 0;
   color: #7a8797;
@@ -468,6 +521,51 @@ select:focus {
   margin-top: 3px;
   color: var(--muted);
   font-weight: 700;
+}
+
+/* ── Building Input Feedback Indicators ─────────────── */
+
+.combo-feedback {
+  visibility: visible;
+  min-height: 0;
+  margin-top: 4px;
+  padding: 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  transition: opacity 180ms ease;
+  word-break: break-word;
+}
+
+.combo:not(.has-match-exact):not(.has-match-fuzzy):not(.has-no-match)
+  > .combo-feedback {
+  visibility: hidden;
+}
+
+/* Exact match — subtle green underline on the input */
+.combo.has-match-exact #buildingSearch {
+  border-bottom-color: var(--green);
+}
+
+/* Fuzzy match — amber underline */
+.combo.has-match-fuzzy #buildingSearch,
+.combo.has-match-fuzzy .combo-feedback {
+  color: var(--yellow);
+}
+
+.combo.has-match-fuzzy #buildingSearch {
+  border-bottom-color: var(--yellow);
+}
+
+/* No match — red underline + hint text */
+.combo.has-no-match #buildingSearch,
+.combo.has-no-match .combo-feedback {
+  color: var(--red);
+}
+
+.combo.has-no-match #buildingSearch {
+  border-bottom-color: var(--red);
 }
 
 .actions {

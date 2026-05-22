@@ -22,7 +22,13 @@ from src.api import DormApi  # noqa: E402
 from src.config import Config  # noqa: E402
 from src.discover import discover_room_id  # noqa: E402
 from src.version import __version__  # noqa: E402
-from subscription_alerts.alerts import AlertRunner, AlertSettings, start_alert_worker  # noqa: E402
+from subscription_alerts.alerts import (
+    AlertRunner,
+    AlertSettings,
+    shutdown_alert_worker,
+    start_alert_worker,
+)
+  # noqa: E402
 from subscription_alerts.store import SubscriptionStore  # noqa: E402
 from subscription_alerts.unsubscribe import unsubscribe_subscription  # noqa: E402
 from subscription_alerts.verification import (  # noqa: E402
@@ -437,8 +443,16 @@ def main() -> None:
     if args.check_now:
         stats = AlertRunner(ROOT).run_once(skip_recent=not args.no_skip)
         print(f"[alert] startup check finished: {stats}")
-    start_alert_worker(ROOT, skip_recent=not args.no_skip)
-    server.serve_forever()
+    alert_thread = start_alert_worker(ROOT, skip_recent=not args.no_skip)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        print("\nShutting down...")
+        shutdown_alert_worker()
+        alert_thread.join(timeout=5)
+        server.shutdown()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,8 @@
 const form = document.querySelector("#queryForm");
 const subscriptionForm = document.querySelector("#subscriptionForm");
+const subscriptionTrigger = document.querySelector("#subscriptionTrigger");
+const subscriptionSummary = document.querySelector("#subscriptionSummary");
+const subscriptionCancelBtn = document.querySelector("#subscriptionCancelBtn");
 const demoButton = document.querySelector("#demoButton");
 const message = document.querySelector("#message");
 const heroStatus = document.querySelector("#heroStatus");
@@ -31,6 +34,7 @@ const fields = {
   client: document.querySelector("#client"),
   campusName: document.querySelector("#campusName"),
   buildingSearch: document.querySelector("#buildingSearch"),
+  buildingFeedback: document.querySelector("#buildingFeedback"),
   buildingId: document.querySelector("#buildingId"),
   buildingName: document.querySelector("#buildingName"),
   roomName: document.querySelector("#roomName"),
@@ -95,6 +99,12 @@ translations["zh-CN"]["subscribe.emailHint"] ||=
 translations["zh-CN"]["subscribe.invalidEmail"] ||= "请输入有效邮箱，或仅填写默认邮箱前缀。";
 translations["zh-CN"]["subscribe.chooseOne"] ||= "请至少选择一种订阅类型。";
 translations["zh-CN"]["subscribe.dialogResultTitle"] ||= "订阅已提交";
+translations["zh-CN"]["subscribe.triggerOpen"] ||= "🔔 订阅电费预警邮件";
+translations["zh-CN"]["subscribe.cancelBack"] ||= "✕ 返回";
+translations["zh-CN"]["subscribe.summaryActive"] ||= "已订阅预警";
+translations["en-US"]["subscribe.triggerOpen"] ||= "🔔 Setup alerts";
+translations["en-US"]["subscribe.cancelBack"] ||= "✕ Back";
+translations["en-US"]["subscribe.summaryActive"] ||= "alerts subscribed";
 translations["en-US"]["subscribe.emailPlaceholder"] ||= "NetID or email prefix";
 translations["en-US"]["subscribe.emailHint"] ||=
   "Auto append @email.szu.edu.cn, support other emails";
@@ -202,9 +212,18 @@ fields.campusGroup.addEventListener("change", () => {
 fields.buildingSearch.addEventListener("change", syncSelectedBuilding);
 fields.buildingSearch.addEventListener("input", () => {
   renderBuildingOptions(fields.buildingSearch.value);
+  updateBuildingFeedback(fields.buildingSearch.value);
 });
 fields.buildingSearch.addEventListener("focus", () => {
+  fields.buildingSearch.select();
   renderBuildingOptions("");
+});
+fields.buildingSearch.addEventListener("blur", () => {
+  setTimeout(() => updateBuildingFeedback(fields.buildingSearch.value), 120);
+});
+
+fields.roomName.addEventListener("focus", () => {
+  fields.roomName.select();
 });
 fields.subscriberEmail.addEventListener("input", syncEmailInputState);
 
@@ -297,6 +316,7 @@ supportDialog?.addEventListener("click", (event) => {
 setLanguage(currentLocale, { persist: false });
 loadBuildings();
 syncEmailInputState();
+setupSubscriptionToggle();
 showPageNotice();
 
 async function loadBuildings() {
@@ -446,6 +466,7 @@ async function saveSubscription() {
     }
     showSubscriptionResult(confirmationMessage);
     setMessageRaw(confirmationMessage);
+    collapseToSubscribed(normalizedEmail);
   } catch (error) {
     setMessageRaw(error.message, true);
   } finally {
@@ -559,6 +580,52 @@ function prepareSubscriptionDialog({ title, message, showCancel, confirmText }) 
   subscriptionDialogCancel.hidden = !showCancel;
   subscriptionDialogConfirm.value = showCancel ? "confirm" : "done";
   subscriptionDialogConfirm.textContent = confirmText;
+}
+
+// ---- Subscription Toggle (expand/collapse) ----
+
+function setupSubscriptionToggle() {
+  if (!subscriptionTrigger || !subscriptionForm || !subscriptionCancelBtn) {
+    return;
+  }
+  subscriptionTrigger.addEventListener("click", expandSubscriptionForm);
+  subscriptionCancelBtn.addEventListener("click", collapseSubscriptionForm);
+  if (subscriptionSummary) {
+    subscriptionSummary.addEventListener("click", expandSubscriptionForm);
+  }
+}
+
+function expandSubscriptionForm() {
+  if (!subscriptionTrigger || !subscriptionForm || !subscriptionCancelBtn) {
+    return;
+  }
+  subscriptionTrigger.hidden = true;
+  subscriptionSummary.hidden = true;
+  subscriptionCancelBtn.hidden = false;
+  subscriptionForm.classList.remove("collapsed");
+}
+
+function collapseSubscriptionForm() {
+  if (!subscriptionTrigger || !subscriptionForm || !subscriptionCancelBtn) {
+    return;
+  }
+  subscriptionTrigger.hidden = false;
+  subscriptionCancelBtn.hidden = true;
+  subscriptionForm.classList.add("collapsed");
+  if (subscriptionSummary && !subscriptionSummary.hidden) {
+    subscriptionTrigger.hidden = true;
+  }
+}
+
+function collapseToSubscribed(email) {
+  if (!subscriptionSummary || !subscriptionTrigger || !subscriptionCancelBtn) {
+    return;
+  }
+  subscriptionSummary.innerHTML = `✅ ${escapeHtml(email)} · ${t("subscribe.summaryActive")}`;
+  subscriptionSummary.hidden = false;
+  subscriptionTrigger.hidden = true;
+  subscriptionCancelBtn.hidden = true;
+  subscriptionForm.classList.add("collapsed");
 }
 
 function openSupportModal() {
@@ -1287,11 +1354,61 @@ function syncSelectedBuilding() {
   fields.campusGroup.value = selected.campusGroup;
 }
 
+// Resolve whether a free-text input matches any known building.
+// Returns { matched: boolean, source: "exact" | "fuzzy" | "none", choice: object|null }
+function resolveBuildingMatch(text, campusValue) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { matched: false, source: "none", choice: null };
+  }
+  const lower = trimmed.toLowerCase();
+  const exactChoice = buildingChoices.find(
+    (item) => item.displayName === trimmed || item.displayLabel === trimmed || buildingEnglishName(item.displayName) === lower
+  );
+  if (exactChoice) {
+    /* respect campus filter when picking */
+    const filtered = (campusValue && campusValue !== "") ? [exactChoice].filter(c => c.campusGroup === campusValue) : [exactChoice];
+    return { matched: true, source: "exact", choice: filtered[0] || exactChoice };
+  }
+  const scope = campusValue ? buildingChoices.filter((c) => c.campusGroup === campusValue) : buildingChoices;
+  const fuzzyHit = scope.find((item) => item.searchText.includes(lower));
+  if (fuzzyHit) {
+    return { matched: true, source: "fuzzy", choice: fuzzyHit };
+  }
+  return { matched: false, source: "none", choice: null };
+}
+
+/* Update visual feedback beneath the building input */
+function updateBuildingFeedback(text) {
+  const fbEl = fields.buildingFeedback;
+  if (!fbEl) return;
+  const result = resolveBuildingMatch(text, fields.campusGroup?.value);
+  const comboWrap = fbEl.parentElement;
+
+  /* reset previous modifiers */
+  comboWrap.classList.remove("has-match-exact", "has-match-fuzzy", "has-no-match");
+
+  if (!result.matched) {
+    if (text.trim().length > 0) {
+      comboWrap.classList.add("has-no-match");
+      fbEl.textContent = t("form.buildingNoMatch");
+    } else {
+      fbEl.textContent = "";
+    }
+  } else if (result.source === "exact") {
+    comboWrap.classList.add("has-match-exact");
+    fbEl.textContent = "";
+  } else {
+    comboWrap.classList.add("has-match-fuzzy");
+    fbEl.textContent = t("form.buildingFuzzyMatch");
+  }
+}
+
 function selectedBuilding() {
   const text = fields.buildingSearch.value.trim();
   const normalizedText = text.toLowerCase();
   const exactChoice = buildingChoices.find(
-    (item) => item.displayName === text || item.displayLabel === text || buildingEnglishName(item.displayName) === text
+    (item) => item.displayName === text || item.displayLabel === text || buildingEnglishName(item.displayName) === normalizedText
   );
   if (exactChoice) {
     return pickVariantForRoom(exactChoice.variants);
@@ -1340,6 +1457,11 @@ function choicesForCurrentCampus() {
 
 function closeBuildingOptions() {
   document.querySelector("#buildingOptions").classList.remove("open");
+  const fb = fields.buildingFeedback;
+  if (fb) {
+    fb.parentElement.classList.remove("has-match-exact", "has-match-fuzzy", "has-no-match");
+    fb.textContent = "";
+  }
 }
 
 function roomFloor(roomName) {
