@@ -144,6 +144,7 @@
         </form>
       </dialog>
 
+      <div class="results-container">
       <section class="metrics" aria-live="polite">
         <article class="metric balance" data-metric-card data-metric-key="remaining" role="button" tabindex="0" aria-label="Toggle current balance unit">
           <span class="metric-label" data-i18n="metrics.remaining">当前余额</span>
@@ -212,7 +213,7 @@
       </section>
 
       <section class="details-grid">
-        <article class="detail">
+        <article class="detail results-section">
           <div class="section-head">
             <h2 data-i18n="details.warning">预警状态</h2>
             <span class="badge" id="statusBadge" data-i18n="status.unchecked">未查询</span>
@@ -240,7 +241,7 @@
           </dl>
         </article>
 
-        <article class="detail">
+        <article class="detail results-section">
           <div class="section-head">
             <h2 data-i18n="recharge.title">最近充值</h2>
             <span id="rechargeCount">0 条</span>
@@ -248,6 +249,7 @@
           <div id="rechargeList" class="recharge-list empty" data-i18n="empty.noData">暂无数据</div>
         </article>
       </section>
+      </div><!-- /.results-container -->
       <footer class="page-footer">
         <p id="footerCredit">
           <span data-i18n="brand.footerLead"></span><a
