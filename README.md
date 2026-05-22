@@ -5,11 +5,11 @@
   <img src="https://img.shields.io/badge/tests-19%20passed-0f9f6e?style=flat-square" alt="tests">
 </p>
 
-<h1 align="center">⚡ ElectrifySZU</h1>
+<h1 align="center">ElectrifySZU</h1>
 
 <p align="center">
   <strong>深大宿舍电费，不再只有断电时才知道。</strong><br>
-  一次查询看到余额、趋势和预警 —— 把校园电费系统变成一个真正的管家。
+  一次查询看到余额、趋势和预警，把校园电费系统变成一个真正的管家。
 </p>
 
 ---
@@ -26,55 +26,51 @@ ElectrifySZU 把查询、趋势、预警整合到一个页面里：
 |------|---------|-------------|
 | 查询入口 | 多个系统、多层跳转 | 一个页面，选楼栋+房间号即可 |
 | 余额趋势 | 看不到历史 | 30 天折线+柱状图，每日消耗一目了然 |
-| 低电量提醒 | **没有** | 邮件自动预警，每天最多一次 |
-| 校园网限制 | 必须在校园网 | 内置演示数据，离线也能看效果 |
+| 低电量提醒 | 没有 | 邮件自动预警，每天最多一次 |
+| 校园网限制 | 必须在校园网 | 支持公网主服务 + 校园内中转节点 |
 | GitHub Pages 展示 | 不存在 | `web/` 目录一键部署静态演示 |
 
 ## 功能总览
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
-│  🌐 前端仪表盘 (web/)                                    │
-│  ├── 中英双语 SPA (zh-CN / en-US)                        │
-│  ├── 宿舍搜索 → 一键查询余额、用电趋势                    │
-│  ├── 指标卡：当前余额 / 日均用电 / 预计可用天数 / 周期用电  │
-│  ├── 可交互趋势图：折线+柱状，自定义用电等级               │
-│  ├── 充值记录展示 + 预警状态条                            │
-│  └── 内置演示数据，无校园网也可完整展示                    │
+│  前端仪表盘 (web/)                                      │
+│  ├── 中英双语 SPA (zh-CN / en-US)                       │
+│  ├── 宿舍搜索，一键查询余额、用电趋势                    │
+│  ├── 指标卡：当前余额 / 日均用电 / 预计可用天数 / 周期用电 │
+│  ├── 可交互趋势图：折线+柱状，自定义用电等级              │
+│  ├── 充值记录展示 + 预警状态条                           │
+│  └── 内置演示数据，无校园网也可完整展示                   │
 ├─────────────────────────────────────────────────────────┤
-│  ❤️ 社区互动模块 (server.py + web/)                       │
-│  ├── 免费点赞：每人一次，无需登录                          │
-│  ├── 服务端签发 ID，防刷赞                                │
-│  ├── 自动统计使用人数                                     │
-│  └── 页脚实时显示：`❤️ 42 · 156 位同学使用`               │
+│  社区互动模块 (server.py + web/)                         │
+│  ├── 免费点赞：每人一次，无需登录                         │
+│  ├── 服务端签发 ID，防重复点赞                           │
+│  ├── 自动统计使用人数                                    │
+│  └── 页脚实时显示点赞数和使用人数                         │
 ├─────────────────────────────────────────────────────────┤
-│  🔔 邮件预警订阅 (subscription_alerts/)                   │
-│  ├── 邮箱验证双确认 (double opt-in)                       │
-│  ├── 低电量自动预警（每天最多一次）                        │
-│  ├── 每日电费报告（可选）                                  │
-│  ├── 一键退订链接                                          │
-│  └── 测试模式：绕过校园网直接发送测试预警                   │
+│  邮件预警订阅 (subscription_alerts/)                     │
+│  ├── 邮箱验证双确认 (double opt-in)                      │
+│  ├── 低电量自动预警（每天最多一次）                       │
+│  ├── 每日电费报告（可选）                                 │
+│  ├── 一键退订链接                                         │
+│  └── 测试模式：绕过校园网直接发送测试预警                  │
 ├─────────────────────────────────────────────────────────┤
-│  ⚙️ 后端 API 代理 (server.py)                             │
-│  ├── /api/status         宿舍电费查询                      │
-│  ├── /api/buildings      校区楼栋列表                      │
-│  ├── /api/demo-status    演示数据                          │
-│  ├── /api/subscriptions  订阅管理 (POST)                   │
-│  ├── /api/subscriptions/verify  邮箱验证确认                │
-│  ├── /api/unsubscribe    一键退订                          │
-│  ├── /api/alerts/check   手动触发预警检查                   │
-│  ├── /api/version       版本信息                             │
-│  ├── /api/health        健康检查                             │
-│  ├── /api/like/init     签发点赞者 ID                       │
-│  ├── /api/like          点赞操作 (POST)                      │
-│  ├── /api/like/count    点赞总数                             │
-│  ├── /api/like/my       检查当前用户是否已点赞        │
-│  └── /api/stats         综合统计（点赞数+使用人数） │
+│  后端 API 代理 (server.py)                               │
+│  ├── /api/status                 宿舍电费查询             │
+│  ├── /api/buildings              校区楼栋列表             │
+│  ├── /api/demo-status            演示数据                 │
+│  ├── /api/subscriptions          订阅管理                 │
+│  ├── /api/subscriptions/verify   邮箱验证确认             │
+│  ├── /api/unsubscribe            一键退订                 │
+│  ├── /api/alerts/check           手动触发预警检查         │
+│  ├── /api/version                版本信息                 │
+│  ├── /api/health                 健康检查                 │
+│  └── /api/stats                  点赞数 + 使用人数        │
 ├─────────────────────────────────────────────────────────┤
-│  🖥️ CLI 工具 (room-power-monitor/)                        │
-│  ├── python -m src.cli status      宿舍电费状态            │
-│  ├── python -m src.cli json        JSON 输出              │
-│  └── python -m src.discover        发现 roomId            │
+│  CLI 工具 (room-power-monitor/)                          │
+│  ├── python -m src.cli status      宿舍电费状态           │
+│  ├── python -m src.cli json        JSON 输出             │
+│  └── python -m src.discover        发现 roomId           │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -88,33 +84,23 @@ ElectrifySZU 把查询、趋势、预警整合到一个页面里：
 ### 本地运行
 
 ```bash
-# 1. 克隆仓库
 git clone https://github.com/jinqKing/ElectrifySZU.git
 cd ElectrifySZU
 
-# 2. 安装依赖
 uv sync
-
-# 3. 配置环境变量
 cp .env.example .env
-# 编辑 .env，填入 SMTP、校园网参数等
+# 编辑 .env，填入校园网参数和 SMTP 配置
 
-# 4. 启动服务
 uv run electrifyszu
 ```
 
-打开 http://127.0.0.1:8000。不在校园网时可点击"载入演示"预览效果。
+打开 `http://127.0.0.1:8000`。不在校园网时可点击“载入演示”预览效果。
 
 ### CLI 查询
 
 ```bash
-# 查询电费状态
 uv run python -m src.cli status
-
-# 输出 JSON 格式
 uv run python -m src.cli json
-
-# 发现 roomId
 uv run python -m src.discover <building_id> <room_name>
 ```
 
@@ -124,50 +110,114 @@ uv run python -m src.discover <building_id> <room_name>
 uv run pytest -v
 ```
 
+## 环境变量
+
+根目录 `.env` 是统一运行配置入口。真实查询至少需要：
+
+```env
+DORM_API_BASE=http://192.168.84.3:9090/cgcSims
+DORM_CLIENT=192.168.84.87
+DORM_CAMPUS_NAME=深大新斋区
+DORM_BUILDING_ID=7126
+DORM_BUILDING_NAME=风槐斋
+DORM_ROOM_NAME=713
+DORM_ROOM_ID=7322
+```
+
+邮件订阅、验证、退订和告警任务还需要：
+
+```env
+SUBSCRIPTIONS_CSV=data/subscriptions.csv
+ALERT_CHECK_TIME=08:00
+ALERT_LOOP_INTERVAL=300
+PUBLIC_BASE_URL=http://127.0.0.1:8000
+
+SMTP_HOST=smtp.example.com
+SMTP_PORT=465
+SMTP_SSL=true
+SMTP_STARTTLS=false
+SENDER_EMAIL=warning@example.com
+SENDER_PASSWORD=your_email_authorization_code
+SENDER_NAME=电费预警系统
+```
+
+测试告警链路时可启用：
+
+```env
+ALERT_MODE=testing
+ALERT_TEST_INTERVAL=300
+SKIP_RECENT=1
+FORCE_SEND_ALERT=1
+FORCE_SEND_DAILY_REPORT=0
+```
+
 ## 架构
 
-```
+```text
                     ┌──────────────┐
-                    │  用户浏览器    │
+                    │  用户浏览器   │
                     └──────┬───────┘
                            │ HTTP
                     ┌──────▼───────┐
-                    │  server.py   │  ← 线程 HTTP 服务器
-                    │  API 代理     │  ← 所有响应统一 JSON
+                    │  server.py   │
+                    │  API 代理    │
                     └──┬───┬───┬──┘
                        │   │   │
           ┌────────────┘   │   └────────────┐
           ▼                ▼                ▼
 ┌─────────────────┐ ┌────────────┐ ┌──────────────────┐
 │ room-power-     │ │subscription│ │ web/             │
-│ monitor/        │ │_alerts/    │ │ 静态文件服务      │
+│ monitor/        │ │_alerts/    │ │ 静态文件服务     │
 │                 │ │            │ │                  │
-│ • DormApi 查询  │ │ • 邮箱验证 │ │ • index.html     │
-│ • roomId 发现   │ │ • 预警线程 │ │ • app.js         │
-│ • CLI 工具      │ │ • SMTP发送 │ │ • work-intro.html│
-│                 │ │ • CSV存储  │ │                  │
+│ DormApi 查询    │ │ 邮箱验证   │ │ index.html       │
+│ roomId 发现     │ │ 预警线程   │ │ app.js           │
+│ CLI 工具        │ │ SMTP 发送  │ │ work-intro.html  │
 └────────┬────────┘ └────────────┘ └──────────────────┘
          │
          ▼
 ┌─────────────────┐
-│ 校园内网电费系统  │  ← 仅在校园网环境可达
+│ 校园内网电费系统 │
 └─────────────────┘
 ```
+
+公网部署时推荐把“公网访问”和“校园内网访问”拆开：
+
+```text
+公网用户 -> Nginx -> ElectrifySZU 容器 -> 校园内中转链路 -> 电费系统
+```
+
+后端只需要能访问 `DORM_API_BASE` 指向的地址即可。这个地址可以是校园内网原始接口，也可以是校内机器反向映射到公网服务器宿主机的本地端口。
 
 ## 部署
 
 ### GitHub Pages（静态演示）
 
-`web/` 目录通过 GitHub Actions 自动部署到 Pages，无需服务器即可展示仪表盘演示数据。
+`web/` 目录可以通过 GitHub Actions 自动部署到 Pages。GitHub Pages 适合作为静态演示和作品介绍页，但不能单独承载真实查询、邮件订阅、验证、退订等后端能力。
 
-### 完整服务
+如果使用 `https://jinqking.github.io/ElectrifySZU/` 作为前端入口，前端 API 必须指向单独部署的后端地址，并且后端需要配置 CORS、HTTPS 和正确的 `PUBLIC_BASE_URL`。
 
-真实查询需要将 `server.py` 部署到能访问深圳大学内网的机器上：
+### Docker / Compose
 
-1. 配置 `.env` 中的 SMTP 和校园网参数
-2. 运行 `uv run electrifyszu --host 0.0.0.0 --port 8000`
-3. 设置 `PUBLIC_BASE_URL` 为公网地址以生成正确的邮件验证链接
-4. 前端 API 指向该服务器
+仓库提供 `Dockerfile` 和 `compose.yml`：
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+默认 Compose 配置使用 `host` 网络模式，便于容器访问宿主机上的校园中转端口。`./data` 会挂载到容器内 `/app/data`，用于持久化订阅 CSV、点赞统计和后续状态文件。
+
+### Nginx
+
+`deploy/nginx/electrifyszu.conf` 提供了基础反代与限流示例：
+
+- `/api/status` 单独限流
+- `/api/subscriptions` 单独限流
+- 其他 `/api/` 使用基础限流
+- `client_max_body_size` 收缩到 `256k`
+- 上游服务为 `127.0.0.1:8000`
+
+正式公网运行建议再补充 HTTPS、域名、日志轮转、备份和更细粒度的滥用防护。
 
 ## 项目结构
 
@@ -175,14 +225,14 @@ uv run pytest -v
 .
 ├── room-power-monitor/        # 电费查询核心模块
 │   ├── src/
-│   │   ├── api.py             # DormApi — 校园网电费接口封装
+│   │   ├── api.py             # DormApi，校园网电费接口封装
 │   │   ├── cli.py             # 命令行入口
 │   │   ├── config.py          # 配置管理
 │   │   ├── discover.py        # roomId 自动发现
 │   │   └── version.py         # 版本号
 │   └── data/buildings.txt     # 校区楼栋列表
 ├── subscription_alerts/       # 邮件订阅预警模块
-│   ├── store.py               # 订阅存储 (CSV / 线程安全)
+│   ├── store.py               # 订阅存储
 │   ├── verification.py        # 邮箱验证流程
 │   ├── alerts.py              # 预警后台线程
 │   ├── email_service.py       # SMTP 发送
@@ -195,12 +245,12 @@ uv run pytest -v
 │   ├── i18n-data.js           # 中英文文案
 │   └── work-intro.html        # 团队介绍幻灯片
 ├── tests/                     # 测试
-│   ├── test_server.py         # demo_status、buildings 解析
-│   └── test_store.py          # 订阅存储 CRUD
+├── deploy/nginx/              # Nginx 示例配置
+├── compose.yml                # Docker Compose 部署文件
+├── Dockerfile                 # 生产镜像定义
 ├── server.py                  # HTTP 服务 & API 代理
 ├── log_config.py              # 结构化日志配置
-├── SUBSCRIPTION_FLOW.md       # 订阅流程文档（含 mermaid 图）
-├── CHANGELOG.md               # 变更记录
+├── SUBSCRIPTION_FLOW.md       # 订阅流程文档
 ├── pyproject.toml             # 项目配置
 └── .env.example               # 环境变量模板
 ```
@@ -218,23 +268,24 @@ uv run pytest -v
 | POST | `/api/alerts/check` | 手动触发预警检查（需 `X-Admin-Token`） |
 | GET | `/api/version` | 服务版本信息 |
 | GET | `/api/health` | 健康检查 |
+<<<<<<< HEAD
 | POST | `/api/like/init` | 签发点赞者 ID（首次访问自动调用） |
 | POST | `/api/like` | 点赞（每人一次，仅接受已签发 ID） |
 | GET | `/api/like/count` | 获取点赞总数 |
 | GET | `/api/like/my` | 检查当前 ID 是否已点赞 |
-| GET | `/api/stats` | 综合统计（点赞数 + 使用人数） |
+| GET | `/api/stats` | 综合统计 |
 
 所有响应统一格式：
 
 ```json
-// 成功
-{"ok": true, "data": { ... }}
+{"ok": true, "data": {}}
+```
 
-// 失败
+```json
 {"ok": false, "error": "人类可读消息", "hint": "建议操作", "error_code": "ROOM_NOT_FOUND"}
 ```
 
-错误码：`ROOM_NOT_FOUND` · `CAMPUS_NETWORK_ERROR` · `INVALID_EMAIL` · `MISSING_FIELD` · `INVALID_THRESHOLD` · `EMAIL_DELIVERY_FAILED` · `INTERNAL_ERROR` · `NOT_FOUND` · `INVALID_LIKE_ID`
+错误码包括：`ROOM_NOT_FOUND`、`CAMPUS_NETWORK_ERROR`、`INVALID_EMAIL`、`MISSING_FIELD`、`INVALID_THRESHOLD`、`EMAIL_DELIVERY_FAILED`、`INTERNAL_ERROR`、`NOT_FOUND`、`INVALID_LIKE_ID`。
 
 运维说明：
 
@@ -245,9 +296,16 @@ uv run pytest -v
 
 ElectrifySZU 由 Matrix 团队开发维护。我们也是深大学生，也在用这个工具查电费。
 
-- 📖 [飞书项目 Wiki](https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb)
-- 🎞️ [工作介绍幻灯片](web/work-intro.html)
-- ⭐ 觉得有用？给个 Star 支持我们继续维护
+- [飞书项目 Wiki](https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb)
+- [工作介绍幻灯片](web/work-intro.html)
+- 觉得有用的话，欢迎给项目一个 Star
+
+## 已知限制
+
+- `roomId` 与 `roomName` 必须匹配，输入错误会导致查询失败。
+- 如果宿主机无法访问 `DORM_API_BASE`，真实查询与自动告警都不会工作。
+- GitHub Pages 只能托管静态前端，不能替代后端 API。
+- 当前公开 API 只有基础限流，长期公网运行仍建议继续补充验证码、邮箱确认、审计日志和备份。
 
 ## 许可证
 

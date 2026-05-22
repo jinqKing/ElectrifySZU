@@ -219,6 +219,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 building_id=building_id,
                 room_name=room_name,
                 client_ip=client,
+                base_url=config.base_url,
             )
             if not room_id:
                 raise LookupError(f"未找到 {campus_name} {building_name} {room_name} 房间。")

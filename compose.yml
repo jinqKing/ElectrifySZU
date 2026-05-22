@@ -1,0 +1,14 @@
+services:
+  electrifyszu:
+    build:
+      context: .
+    image: electrifyszu:local
+    container_name: electrifyszu
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - path: ./.env
+        required: false
+    volumes:
+      - ./data:/app/data
+    command: ["python", "server.py", "--host", "127.0.0.1", "--port", "8000"]
