@@ -28,12 +28,13 @@ class _Colors:
     DIM = "\033[2m"
 
     # 前景色
-    GREY = "\033[38;5;244m"
-    CYAN = "\033[36m"
-    GREEN = "\033[32m"
+    GREY   = "\033[38;5;244m"
+    CYAN   = "\033[36m"
+    GREEN  = "\033[32m"
     YELLOW = "\033[33m"
-    RED = "\033[31m"
+    RED    = "\033[31m"
     BOLD_RED = "\033[1;31m"
+    BLUE   = "\033[34m"
 
     # 级别 → 颜色映射
     LEVEL_MAP = {
@@ -44,12 +45,26 @@ class _Colors:
         logging.CRITICAL: BOLD_RED,
     }
 
+    # 模块名 → 颜色映射（不同模块用不同颜色区分）
+    NAME_MAP = {
+        "server":        CYAN,
+        "email":         "\033[35m",       # Magenta
+        "alerts":        "\033[38;5;214m",  # Orange
+        "test_delivery": "\033[33m",       # Yellow
+        "log_config":    GREY,
+    }
+
     @classmethod
     def level_color(cls, level: int) -> str:
         return cls.LEVEL_MAP.get(level, cls.RESET)
 
+    @classmethod
+    def name_color(cls, name: str) -> str:
+        """返回模块名对应的颜色，未注册的模块名使用白色。"""
+        return cls.NAME_MAP.get(name, "\033[37m")
+
 # ── 日志格式 ──────────────────────────────────────────────────────────────
-# 示例行:
+# 示例行（模块名颜色: server=青, email=品红, alerts=橙, test_delivery=黄, log_config=灰）:
 #   2026-05-22 12:00:00 | INFO    | server      | 127.0.0.1 - GET /api/status → 200 (45ms)
 #   2026-05-22 12:00:00 | WARNING | email       | retry to=user@example.com attempt=1 wait=2.5s
 
@@ -88,8 +103,9 @@ class ColoredFormatter(logging.Formatter):
         # 级别（按等级着色）
         level_color = _Colors.level_color(record.levelno)
         colored_level = f"{level_color}{record.levelname:<7}{_Colors.RESET}"
-        # 模块名（青色）
-        colored_name = f"{_Colors.CYAN}{record.name:<12}{_Colors.RESET}"
+        # 模块名（按名称着色，不同模块不同颜色）
+        name_col = _Colors.name_color(record.name)
+        colored_name = f"{name_col}{record.name:<12}{_Colors.RESET}"
         # 消息
         msg = record.getMessage()
         return f"{asctime} | {colored_level} | {colored_name} | {msg}"
