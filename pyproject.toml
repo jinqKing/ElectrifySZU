@@ -1,6 +1,6 @@
 [project]
 name = "electrifyszu"
-version = "2.71"
+version = "2.718"
 description = "SZU dorm power balance dashboard and alerting toolkit"
 readme = "README.md"
 requires-python = ">=3.11"
