@@ -392,6 +392,42 @@ function showPageNotice() {
   const nextQuery = pageQuery.toString();
   const nextUrl = `${location.pathname}${nextQuery ? `?${nextQuery}` : ""}${location.hash}`;
   history.replaceState({}, "", nextUrl);
+
+  // Show a popup dialog for positive outcomes so the user sees it even if attention is elsewhere
+  if (["verified", "already_verified", "unsubscribed", "already_unsubscribed"].includes(notice)) {
+    showVerificationNotice(notice, values);
+  }
+}
+
+function showVerificationNotice(notice, values) {
+  const titleMapping = {
+    verified:           "notice.title.verified",
+    already_verified:   "notice.title.alreadyVerified",
+    unsubscribed:       "notice.title.unsubscribed",
+    already_unsubscribed: "notice.title.alreadyUnsubscribed",
+  };
+  const messageMapping = {
+    verified:           "notice.verified",
+    already_verified:   "notice.alreadyVerified",
+    unsubscribed:       "notice.unsubscribed",
+    already_unsubscribed: "notice.alreadyUnsubscribed",
+  };
+  const titleKey = titleMapping[notice];
+  const msgKey = messageMapping[notice];
+  if (!titleKey || !msgKey) {
+    return;
+  }
+  prepareSubscriptionDialog({
+    title: t(titleKey),
+    message: t(msgKey, values),
+    showCancel: false,
+    confirmText: t("subscribe.dialogDone"),
+  });
+  if (typeof subscriptionDialog.showModal === "function") {
+    subscriptionDialog.showModal();
+    return;
+  }
+  window.alert(`${t(titleKey)}\n${t(msgKey, values)}`);
 }
 
 async function fetchJson(url) {
