@@ -1147,7 +1147,10 @@ body.modal-open {
   z-index: 1;
   width: min(680px, calc(100% - 24px));
   margin: min(8vh, 56px) auto;
+  max-height: calc(100vh - 36px);
   padding: 24px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid rgba(220, 227, 234, 0.92);
   border-radius: 20px;
   background:
