@@ -13,6 +13,8 @@ const subscriptionDialog = document.querySelector("#subscriptionDialog");
 const subscriptionDialogMessage = document.querySelector("#subscriptionDialogMessage");
 const subscriptionDialogCancel = document.querySelector("#subscriptionDialogCancel");
 const subscriptionDialogConfirm = document.querySelector("#subscriptionDialogConfirm");
+
+let subscriptionWasPending = false;
 const usageLevelForm = document.querySelector("#usageLevelForm");
 const resetUsageLevelsButton = document.querySelector("#resetUsageLevels");
 const sponsorButton = document.querySelector("#sponsorButton");
@@ -102,9 +104,11 @@ translations["zh-CN"]["subscribe.dialogResultTitle"] ||= "订阅已提交";
 translations["zh-CN"]["subscribe.triggerOpen"] ||= "🔔 订阅电费预警邮件";
 translations["zh-CN"]["subscribe.cancelBack"] ||= "✕ 返回";
 translations["zh-CN"]["subscribe.summaryActive"] ||= "已订阅预警";
+  translations["zh-CN"]["subscribe.summaryPending"] ||= "待验证";
 translations["en-US"]["subscribe.triggerOpen"] ||= "🔔 Setup alerts";
 translations["en-US"]["subscribe.cancelBack"] ||= "✕ Back";
 translations["en-US"]["subscribe.summaryActive"] ||= "alerts subscribed";
+  translations["en-US"]["subscribe.summaryPending"] ||= "awaiting verification";
 translations["en-US"]["subscribe.emailPlaceholder"] ||= "NetID or email prefix";
 translations["en-US"]["subscribe.emailHint"] ||=
   "Auto append @email.szu.edu.cn, support other emails";
@@ -393,6 +397,13 @@ function showPageNotice() {
   const nextUrl = `${location.pathname}${nextQuery ? `?${nextQuery}` : ""}${location.hash}`;
   history.replaceState({}, "", nextUrl);
 
+  // Swap the orange ⏳ badge to green ✅ when verification completes
+  if (notice === "verified" || notice === "already_verified") {
+    if (values.email) {
+      markAsVerified(values.email);
+    }
+  }
+
   // Show a popup dialog for positive outcomes so the user sees it even if attention is elsewhere
   if (["verified", "already_verified", "unsubscribed", "already_unsubscribed"].includes(notice)) {
     showVerificationNotice(notice, values);
@@ -502,7 +513,11 @@ async function saveSubscription() {
     }
     showSubscriptionResult(confirmationMessage);
     setMessageRaw(confirmationMessage);
-    collapseToSubscribed(normalizedEmail);
+    if (payload.verification_required) {
+      collapseToPendingVerification(normalizedEmail);
+    } else {
+      collapseToSubscribed(normalizedEmail);
+    }
   } catch (error) {
     setMessageRaw(error.message, true);
   } finally {
@@ -635,6 +650,7 @@ function expandSubscriptionForm() {
   if (!subscriptionTrigger || !subscriptionForm || !subscriptionCancelBtn) {
     return;
   }
+  subscriptionWasPending = false;
   subscriptionTrigger.hidden = true;
   subscriptionSummary.hidden = true;
   subscriptionCancelBtn.hidden = false;
@@ -651,6 +667,29 @@ function collapseSubscriptionForm() {
   if (subscriptionSummary && !subscriptionSummary.hidden) {
     subscriptionTrigger.hidden = true;
   }
+}
+
+function collapseToPendingVerification(email) {
+  if (!subscriptionSummary || !subscriptionTrigger || !subscriptionCancelBtn) {
+    return;
+  }
+  subscriptionWasPending = true;
+  subscriptionSummary.innerHTML = `⏳ ${escapeHtml(email)} · ${t("subscribe.summaryPending")}`;
+  subscriptionSummary.classList.add("pending-verification");
+  subscriptionSummary.hidden = false;
+  subscriptionTrigger.hidden = true;
+  subscriptionCancelBtn.hidden = true;
+  subscriptionForm.classList.add("collapsed");
+}
+
+function markAsVerified(email) {
+  /* Called after email verification succeeds – swap the orange ⏳ badge to green ✅ */
+  if (!subscriptionSummary || !(subscriptionSummary.classList.contains("pending-verification"))) {
+    return;
+  }
+  subscriptionWasPending = false;
+  subscriptionSummary.classList.remove("pending-verification");
+  subscriptionSummary.innerHTML = `✅ ${escapeHtml(email)} · ${t("subscribe.summaryActive")}`;
 }
 
 function collapseToSubscribed(email) {
