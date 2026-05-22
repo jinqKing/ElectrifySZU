@@ -204,7 +204,7 @@ p {
 
 h1 {
   margin-bottom: 0;
-  font-size: clamp(34px, 7vw, 68px);
+  font-size: clamp(34px, 6vw, 56px);
   line-height: 1;
   letter-spacing: 0;
 }
@@ -281,7 +281,23 @@ h2 {
   display: none;
 }
 
-.subscription-toggle,
+.subscription-toggle {
+  display: block;
+  width: 100%;
+  min-height: unset;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-top: 12px;
+  background: rgba(37, 99, 235, 0.07);
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease;
+}
+
 .subscription-cancel-btn {
   min-height: unset;
   border: 0;
@@ -298,7 +314,11 @@ h2 {
 }
 
 .subscription-toggle:hover,
-.subscription-toggle:focus-visible,
+.subscription-toggle:focus-visible {
+  background: rgba(37, 99, 235, 0.13);
+  color: #1d4ed8;
+}
+
 .subscription-cancel-btn:hover,
 .subscription-cancel-btn:focus-visible {
   color: var(--blue);

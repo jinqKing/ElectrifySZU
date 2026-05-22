@@ -1,9 +1,9 @@
 window.ElectrifySZUI18n = {
   translations: {
     "zh-CN": {
-      "meta.title": "ElectrifySZU 深圳大学宿舍电费快查",
-      "hero.title": "宿舍不断电：电费仪表盘",
-      "hero.subtitle": "无需连接校园网，输入宿舍楼栋房间号，自动查询余额和使用情况",
+      "meta.title": "ElectrifySZU · 深大宿舍电费查询与预警",
+      "hero.title": "宿舍不断电：电费预警订阅",
+      "hero.subtitle": "查询电费余额，订阅低电量预警——让宿舍再也不会突然断电",
       "query.ariaLabel": "查询条件",
       "form.campus": "校区",
       "form.building": "宿舍楼栋",
@@ -58,7 +58,7 @@ window.ElectrifySZUI18n = {
       "notice.title.alreadyVerified": "无需重复验证 ℹ️",
       "notice.title.unsubscribed": "退订成功 📭",
       "notice.title.alreadyUnsubscribed": "已处于退订状态 ℹ️",
-      "message.initial": "查询电费余额，可载入演示数据预览效果。",
+      "message.initial": "查询电费余额，订阅低电量预警——余额不足时自动邮件提醒。",
       "message.staticPage": "GitHub Pages 只能托管静态页面，真实查询需要运行本地后端：uv run electrifyszu，或部署一个可访问的后端 API。",
       "message.staticMode": "当前为静态页面模式，真实查询需要连接后端服务。",
       "message.demoLoaded": "已载入静态演示数据。",
@@ -118,9 +118,9 @@ window.ElectrifySZUI18n = {
       "payment.alipay": "支付宝",
     },
     "en-US": {
-      "meta.title": "ElectrifySZU SZU Dorm Power Monitor",
-      "hero.title": "Dorm Power Dashboard",
-      "hero.subtitle": "No campus network needed. Enter dorm room number to check the usage.",
+      "meta.title": "ElectrifySZU · SZU Power Check & Alerts",
+      "hero.title": "Never Lose Power: Smart Alerts",
+      "hero.subtitle": "Check your balance, set up low-power alerts — never get caught in the dark again.",
       "query.ariaLabel": "Query filters",
       "form.campus": "Campus",
       "form.building": "Dorm building",
@@ -175,7 +175,7 @@ window.ElectrifySZUI18n = {
       "notice.title.alreadyVerified": "Already Verified ℹ️",
       "notice.title.unsubscribed": "Successfully Unsubscribed 📭",
       "notice.title.alreadyUnsubscribed": "Already Unsubscribed ℹ️",
-      "message.initial": "Check your real balance, or use demo data to preview the experience.",
+      "message.initial": "Check your real balance, then subscribe to low-power alerts — get notified before you run out.",
       "message.staticPage": "GitHub Pages can only host the static page. Live queries need the local backend: uv run electrifyszu, or a deployed API endpoint.",
       "message.staticMode": "Static page mode is active. Live queries need a backend service.",
       "message.demoLoaded": "Static demo data loaded.",
