@@ -6,6 +6,23 @@ The format follows the spirit of Keep a Changelog, and this project uses an Eule
 
 ## [2.718] - 2026-05-22
 
+### Security
+
+- Hardened API request boundaries in `server.py` with stricter POST body parsing, same-origin checks for browser POST endpoints, stronger like-ID validation, and redacted sensitive query values in access logs.
+- Changed `/api/alerts/check` from unauthenticated `GET` to authenticated `POST` using `X-Admin-Token` and `ALERT_ADMIN_TOKEN`.
+
+### Reliability
+
+- Made `data/likes.json` writes atomic.
+- Switched subscription CSV writes to unique temp files with flush/fsync + replace semantics.
+- Fixed alert batching so subscriptions with the same building and room but different `client` or campus are checked independently.
+- Clear expired verification tokens when they are encountered.
+
+### Testing and CI
+
+- Added offline regression tests for server request boundaries and alert grouping.
+- Added a GitHub Actions CI workflow that runs `uv sync --extra dev --locked` and `uv run pytest -q`.
+
 ### Added
 
 - Added `/api/health` and `/api/version` endpoints for service monitoring and deployment validation.
