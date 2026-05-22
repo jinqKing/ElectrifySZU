@@ -64,6 +64,63 @@ class TestBuildSubscription:
         assert sub.unsubscribe_token
         assert not sub.verified
 
+    def test_rejects_overlong_email(self) -> None:
+        with pytest.raises(ValueError):
+            build_subscription(
+                {
+                    "email": f"{'a' * 255}@email.szu.edu.cn",
+                    "client": "192.168.1.1",
+                    "campus_name": "粤海",
+                    "building_id": "7126",
+                    "building_name": "风槐斋",
+                    "room_name": "713",
+                },
+                20,
+            )
+
+    def test_rejects_whitespace_in_client(self) -> None:
+        with pytest.raises(ValueError):
+            build_subscription(
+                {
+                    "email": "test@email.szu.edu.cn",
+                    "client": "192.168.1.1 room",
+                    "campus_name": "粤海",
+                    "building_id": "7126",
+                    "building_name": "风槐斋",
+                    "room_name": "713",
+                },
+                20,
+            )
+
+    def test_rejects_overlong_room_name(self) -> None:
+        with pytest.raises(ValueError):
+            build_subscription(
+                {
+                    "email": "test@email.szu.edu.cn",
+                    "client": "192.168.1.1",
+                    "campus_name": "粤海",
+                    "building_id": "7126",
+                    "building_name": "风槐斋",
+                    "room_name": "7" * 33,
+                },
+                20,
+            )
+
+    def test_rejects_threshold_above_max(self) -> None:
+        with pytest.raises(ValueError):
+            build_subscription(
+                {
+                    "email": "test@email.szu.edu.cn",
+                    "client": "192.168.1.1",
+                    "campus_name": "粤海",
+                    "building_id": "7126",
+                    "building_name": "风槐斋",
+                    "room_name": "713",
+                    "threshold_kwh": "10001",
+                },
+                20,
+            )
+
 
 class TestStoreSaveAndVerify:
     def test_save_creates_pending_subscription(self, temp_csv_path: Path) -> None:
