@@ -1410,10 +1410,87 @@ body.modal-open {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 6px;
 }
 
 .page-footer a {
   text-transform: none;
+}
+
+.footer-divider {
+  color: var(--line);
+  user-select: none;
+}
+
+.like-section {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.like-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  height: 28px;
+  width: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 180ms ease, color 180ms ease, background 180ms ease;
+}
+
+.like-button:hover,
+.like-button:focus-visible {
+  transform: scale(1.22);
+  color: #e25555;
+  background: rgba(226, 85, 85, 0.08);
+}
+
+.like-button.liked {
+  color: #e25555;
+}
+
+.like-button.liked:hover {
+  transform: scale(1.14);
+  background: rgba(226, 85, 85, 0.14);
+}
+
+.like-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+  transform: none;
+}
+
+.like-count {
+  font-variant-numeric: tabular-nums;
+  min-width: 1.6em;
+}
+
+.stats-separator {
+  color: var(--line);
+  user-select: none;
+  margin: 0 2px;
+}
+
+.user-count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .page-footer p {
+    gap: 4px;
+  }
 }
 
 @media (max-width: 880px) {

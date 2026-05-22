@@ -42,6 +42,12 @@ ElectrifySZU 把查询、趋势、预警整合到一个页面里：
 │  ├── 充值记录展示 + 预警状态条                            │
 │  └── 内置演示数据，无校园网也可完整展示                    │
 ├─────────────────────────────────────────────────────────┤
+│  ❤️ 社区互动模块 (server.py + web/)                       │
+│  ├── 免费点赞：每人一次，无需登录                          │
+│  ├── 服务端签发 ID，防刷赞                                │
+│  ├── 自动统计使用人数                                     │
+│  └── 页脚实时显示：`❤️ 42 · 156 位同学使用`               │
+├─────────────────────────────────────────────────────────┤
 │  🔔 邮件预警订阅 (subscription_alerts/)                   │
 │  ├── 邮箱验证双确认 (double opt-in)                       │
 │  ├── 低电量自动预警（每天最多一次）                        │
@@ -57,8 +63,13 @@ ElectrifySZU 把查询、趋势、预警整合到一个页面里：
 │  ├── /api/subscriptions/verify  邮箱验证确认                │
 │  ├── /api/unsubscribe    一键退订                          │
 │  ├── /api/alerts/check   手动触发预警检查                   │
-│  ├── /api/version        版本信息                          │
-│  └── /api/health         健康检查                          │
+│  ├── /api/version       版本信息                             │
+│  ├── /api/health        健康检查                             │
+│  ├── /api/like/init     签发点赞者 ID                       │
+│  ├── /api/like          点赞操作 (POST)                      │
+│  ├── /api/like/count    点赞总数                             │
+│  ├── /api/like/my       检查当前用户是否已点赞        │
+│  └── /api/stats         综合统计（点赞数+使用人数） │
 ├─────────────────────────────────────────────────────────┤
 │  🖥️ CLI 工具 (room-power-monitor/)                        │
 │  ├── python -m src.cli status      宿舍电费状态            │
@@ -207,6 +218,11 @@ uv run pytest -v
 | GET | `/api/alerts/check` | 手动触发预警检查 |
 | GET | `/api/version` | 服务版本信息 |
 | GET | `/api/health` | 健康检查 |
+| POST | `/api/like/init` | 签发点赞者 ID（首次访问自动调用） |
+| POST | `/api/like` | 点赞（每人一次，服务端防重复） |
+| GET | `/api/like/count` | 获取点赞总数 |
+| GET | `/api/like/my` | 检查当前 ID 是否已点赞 |
+| GET | `/api/stats` | 综合统计（点赞数 + 使用人数） |
 
 所有响应统一格式：
 
@@ -218,7 +234,7 @@ uv run pytest -v
 {"ok": false, "error": "人类可读消息", "hint": "建议操作", "error_code": "ROOM_NOT_FOUND"}
 ```
 
-错误码：`ROOM_NOT_FOUND` · `CAMPUS_NETWORK_ERROR` · `INVALID_EMAIL` · `MISSING_FIELD` · `INVALID_THRESHOLD` · `EMAIL_DELIVERY_FAILED` · `INTERNAL_ERROR` · `NOT_FOUND`
+错误码：`ROOM_NOT_FOUND` · `CAMPUS_NETWORK_ERROR` · `INVALID_EMAIL` · `MISSING_FIELD` · `INVALID_THRESHOLD` · `EMAIL_DELIVERY_FAILED` · `INTERNAL_ERROR` · `NOT_FOUND` · `INVALID_LIKE_ID`
 
 ## Matrix 团队
 

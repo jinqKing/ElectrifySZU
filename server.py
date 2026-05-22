@@ -6,7 +6,9 @@ import logging
 import mimetypes
 import re
 import sys
+import threading
 import time
+import uuid
 from datetime import datetime
 from email import policy
 from email.parser import BytesParser
@@ -20,6 +22,7 @@ ROOT = Path(__file__).resolve().parent
 MONITOR_DIR = ROOT / "room-power-monitor"
 WEB_DIR = ROOT / "web"
 BUILDINGS_FILE = MONITOR_DIR / "data" / "buildings.txt"
+LIKES_FILE = ROOT / "data" / "likes.json"
 ENV_FILE = ROOT / ".env"
 sys.path.insert(0, str(MONITOR_DIR))
 
@@ -85,6 +88,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+        if parsed.path == "/api/like/count":
+            self._handle_like_count()
+            return
+        if parsed.path == "/api/like/my":
+            self._handle_like_my(query)
+            return
+        if parsed.path == "/api/stats":
+            self._handle_stats()
+            return
         self._serve_static(parsed.path)
 
     def do_POST(self) -> None:
@@ -93,7 +105,67 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/subscriptions":
             self._handle_subscription()
             return
+        if parsed.path == "/api/like/init":
+            self._handle_like_init()
+            return
+        if parsed.path == "/api/like":
+            self._handle_like()
+            return
         self._error("NOT_FOUND", "Not found", status=404)
+
+    # ── Like endpoints ──────────────────────────────────────────────
+
+    def _handle_like_count(self) -> None:
+        data = _load_likes()
+        self._send_json({"ok": True, "count": data["count"]})
+
+    def _handle_like_my(self, query: dict[str, list[str]]) -> None:
+        user_id = _query_value(query, "userId")
+        data = _load_likes()
+        liked = user_id in data["likedIds"]
+        self._send_json({"ok": True, "data": {"liked": liked}})
+
+    def _handle_stats(self) -> None:
+        data = _load_likes()
+        self._send_json({
+            "ok": True,
+            "data": {
+                "likes": data["count"],
+                "users": data.get("totalIssued", 0),
+            },
+        })
+
+    def _handle_like_init(self) -> None:
+        new_id = f"svr-{uuid.uuid4().hex[:16]}"
+        with _likes_lock:
+            data = _load_likes()
+            seen = data.setdefault("seenIds", [])
+            seen.append(new_id)
+            data["totalIssued"] = len(seen)
+            _save_likes(data)
+        self._send_json({"ok": True, "id": new_id})
+
+    def _handle_like(self) -> None:
+        body = self._read_request_data()
+        user_id = body.get("id", "")
+        if not user_id or not user_id.startswith("svr-"):
+            self._error("INVALID_LIKE_ID", "无效的点赞者标识", status=400)
+            return
+        with _likes_lock:
+            data = _load_likes()
+            seen = data.setdefault("seenIds", [])
+            if user_id in data["likedIds"]:
+                self._send_json({"ok": True, "already_liked": True, "count": data["count"], "users": len(seen)})
+                return
+            # 追踪新用户：不在 seenIds 中的说明是以前 init 的遗留 ID
+            if user_id not in seen:
+                seen.append(user_id)
+                data["totalIssued"] = len(seen)
+            data["likedIds"].append(user_id)
+            data["count"] += 1
+            _save_likes(data)
+        logger.info("Like #%d from %s", data["count"], user_id)
+        self._send_json({"ok": True, "already_liked": False, "count": data["count"], "users": data.get("totalIssued", 0)})
 
     def log_message(self, fmt: str, *args: object) -> None:
         """覆写：结构化日志，包含 IP、方法、路径、状态码、耗时。"""
@@ -406,6 +478,27 @@ class DashboardHandler(BaseHTTPRequestHandler):
 def _query_value(query: dict[str, list[str]], key: str) -> str:
     values = query.get(key, [])
     return values[0].strip() if values else ""
+
+
+_likes_lock = threading.Lock()
+
+
+def _load_likes() -> dict[str, object]:
+    if not LIKES_FILE.is_file():
+        return {"count": 0, "likedIds": [], "seenIds": [], "totalIssued": 0}
+    try:
+        data = json.loads(LIKES_FILE.read_text(encoding="utf-8"))
+        # 兼容旧格式
+        data.setdefault("seenIds", [])
+        data.setdefault("totalIssued", 0)
+        return data
+    except (json.JSONDecodeError, OSError):
+        return {"count": 0, "likedIds": [], "seenIds": [], "totalIssued": 0}
+
+
+def _save_likes(data: dict[str, object]) -> None:
+    LIKES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    LIKES_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
 def load_buildings_file() -> list[dict[str, object]]:
