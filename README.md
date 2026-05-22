@@ -215,11 +215,11 @@ uv run pytest -v
 | POST | `/api/subscriptions` | 创建电费预警订阅 |
 | GET | `/api/subscriptions/verify` | 邮箱验证确认 |
 | GET | `/api/unsubscribe` | 取消订阅 |
-| GET | `/api/alerts/check` | 手动触发预警检查 |
+| POST | `/api/alerts/check` | 手动触发预警检查（需 `X-Admin-Token`） |
 | GET | `/api/version` | 服务版本信息 |
 | GET | `/api/health` | 健康检查 |
 | POST | `/api/like/init` | 签发点赞者 ID（首次访问自动调用） |
-| POST | `/api/like` | 点赞（每人一次，服务端防重复） |
+| POST | `/api/like` | 点赞（每人一次，仅接受已签发 ID） |
 | GET | `/api/like/count` | 获取点赞总数 |
 | GET | `/api/like/my` | 检查当前 ID 是否已点赞 |
 | GET | `/api/stats` | 综合统计（点赞数 + 使用人数） |
@@ -235,6 +235,11 @@ uv run pytest -v
 ```
 
 错误码：`ROOM_NOT_FOUND` · `CAMPUS_NETWORK_ERROR` · `INVALID_EMAIL` · `MISSING_FIELD` · `INVALID_THRESHOLD` · `EMAIL_DELIVERY_FAILED` · `INTERNAL_ERROR` · `NOT_FOUND` · `INVALID_LIKE_ID`
+
+运维说明：
+
+- `POST /api/alerts/check` 需要请求头 `X-Admin-Token`，其值必须匹配环境变量 `ALERT_ADMIN_TOKEN`。
+- `PUBLIC_BASE_URL` 会优先用于生成验证/退订邮件链接；未配置时服务端只会回退到安全的本地地址。
 
 ## Matrix 团队
 

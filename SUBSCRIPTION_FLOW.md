@@ -71,9 +71,6 @@ Handled by `DashboardHandler` in `server.py`.
 - `/api/unsubscribe`
   - Disable a subscription
 
-- `/api/alerts/check`
-  - Manually trigger one alert pass
-
 - other paths
   - Serve static frontend files
 
@@ -81,6 +78,10 @@ Handled by `DashboardHandler` in `server.py`.
 
 - `/api/subscriptions`
   - Create a new low-balance subscription
+
+- `/api/alerts/check`
+  - Manually trigger one alert pass
+  - Requires `X-Admin-Token`
 
 ## Query Status Flow
 
@@ -215,9 +216,15 @@ Defined in `subscription_alerts/alerts.py`.
 
 ### Manual Check
 
-Route: `/api/alerts/check`
+Route: `POST /api/alerts/check`
 
 Calls `AlertRunner(ROOT).run_once(...)`.
+
+Current guardrails:
+
+1. Request must be `POST`
+2. Header `X-Admin-Token` must match `ALERT_ADMIN_TOKEN`
+3. Request body uses strict content-type and size checks
 
 ### One Alert Pass
 
