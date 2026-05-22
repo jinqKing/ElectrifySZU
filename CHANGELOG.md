@@ -4,6 +4,28 @@ All notable changes to ElectrifySZU will be documented in this file.
 
 The format follows the spirit of Keep a Changelog, and this project uses an Euler-number-inspired version sequence that converges toward `e`.
 
+## [2.718] - 2026-05-22
+
+### Added
+
+- Added `/api/health` and `/api/version` endpoints for service monitoring and deployment validation.
+- Added unified error-code convention across all API routes for consistent client-side handling.
+- Added foundational pytest suite covering core business logic and API boundary cases (19 test cases).
+- Added free-like feature with per-user deduplication: backend endpoints (`/api/like/init`, `/api/like`, `/api/like/count`, `/api/like/my`) and a thread-safe `data/likes.json` store.
+- Added `/api/stats` endpoint exposing aggregate metrics (total likes and active user count).
+- Added interactive heart button and live counters in the page footer, fully localized and mobile-responsive.
+- Restored hand-edited eight-slide work introduction deck with refined styling and layout.
+
+### Changed
+
+- Rewrote the top-level README with pain-point comparison table, feature overview, architecture diagram, API reference table, and test badges.
+- Refactored the monolithic `work-intro.html` (~977 lines) into three clean modules: pure HTML skeleton, external stylesheet (`work-intro.css`), and dedicated JavaScript (`work-intro.js`) with added touch-swipe navigation.
+- Updated the project version to `2.718`, continuing the Euler-number-inspired sequence converging toward \(e\).
+
+### Fixed
+
+- Corrected same-room logic so every occupant receives independent results regardless of query order.
+
 ## [2.71] - 2026-05-21
 
 ### Added
