@@ -373,6 +373,7 @@ function showPageNotice() {
   const mapping = {
     verified: "notice.verified",
     already_verified: "notice.alreadyVerified",
+    verify_expired: "notice.verifyExpired",
     verify_invalid: "notice.verifyInvalid",
     unsubscribed: "notice.unsubscribed",
     already_unsubscribed: "notice.alreadyUnsubscribed",
@@ -383,7 +384,13 @@ function showPageNotice() {
     return;
   }
 
-  setMessageKey(key, values, notice.endsWith("invalid"));
+  // If detail fields are empty, use a generic message for unsubscribe notices
+  const hasDetails = values.email || values.campus || values.building || values.room;
+  if (!hasDetails && notice.includes("unsubscribed")) {
+    setMessageKey("notice.unsubscribedGeneric", {}, notice.endsWith("invalid"));
+  } else {
+    setMessageKey(key, values, notice.endsWith("invalid"));
+  }
   if (notice.includes("unsubscribed")) {
     setHeroStatusKey("status.waiting", {}, "unknown");
   }
@@ -428,9 +435,17 @@ function showVerificationNotice(notice, values) {
   if (!titleKey || !msgKey) {
     return;
   }
+  // Fallback: if detail fields are empty, use a generic message instead of showing blanks
+  const hasDetails = values.email || values.campus || values.building || values.room;
+  const safeValues = hasDetails ? values : {};
+  const messageText = hasDetails
+    ? t(msgKey, values)
+    : (notice.includes("unsubscribed")
+        ? t("notice.unsubscribedGeneric", {}) || t("notice.unsubscribed", safeValues)
+        : t(msgKey, safeValues));
   prepareSubscriptionDialog({
     title: t(titleKey),
-    message: t(msgKey, values),
+    message: messageText,
     showCancel: false,
     confirmText: t("subscribe.dialogDone"),
   });
@@ -438,7 +453,7 @@ function showVerificationNotice(notice, values) {
     subscriptionDialog.showModal();
     return;
   }
-  window.alert(`${t(titleKey)}\n${t(msgKey, values)}`);
+  window.alert(`${t(titleKey)}\n${messageText}`);
 }
 
 async function fetchJson(url) {
