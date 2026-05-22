@@ -7,6 +7,7 @@ import mimetypes
 import re
 import sys
 import time
+from datetime import datetime
 from email import policy
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -68,6 +69,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/alerts/check":
             self._handle_alert_check(query)
             return
+        if parsed.path == "/api/version":
+            self._send_json(
+                {"ok": True, "version": __version__, "python": sys.version.split()[0]}
+            )
+            return
+        if parsed.path == "/api/health":
+            self._send_json(
+                {
+                    "ok": True,
+                    "status": "healthy",
+                    "version": __version__,
+                    "python": sys.version.split()[0],
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
+            return
         self._serve_static(parsed.path)
 
     def do_POST(self) -> None:
@@ -76,7 +93,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/subscriptions":
             self._handle_subscription()
             return
-        self._send_json({"ok": False, "error": "Not found"}, status=404)
+        self._error("NOT_FOUND", "Not found", status=404)
 
     def log_message(self, fmt: str, *args: object) -> None:
         """覆写：结构化日志，包含 IP、方法、路径、状态码、耗时。"""
@@ -121,13 +138,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             result["building_id"] = building_id
             result["building_name"] = building_name
             self._send_json({"ok": True, "data": result})
+        except LookupError as exc:
+            self._error(
+                "ROOM_NOT_FOUND",
+                str(exc),
+                "请确认校区、楼栋与房间号是否正确。",
+                status=502,
+            )
         except Exception as exc:
-            self._send_json(
-                {
-                    "ok": False,
-                    "error": str(exc),
-                    "hint": "请确认已连接校园网，并检查楼栋与房间号是否正确。",
-                },
+            self._error(
+                "CAMPUS_NETWORK_ERROR",
+                str(exc),
+                "请确认已连接校园网，稍后重试。",
                 status=502,
             )
 
@@ -188,23 +210,28 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 status=201,
             )
         except ValueError as exc:
-            self._send_json({"ok": False, "error": str(exc)}, status=400)
+            msg = str(exc)
+            if "邮箱" in msg:
+                code = "INVALID_EMAIL"
+            elif "缺少" in msg:
+                code = "MISSING_FIELD"
+            elif "阈值" in msg:
+                code = "INVALID_THRESHOLD"
+            else:
+                code = "INVALID_INPUT"
+            self._error(code, msg, status=400)
         except EmailDeliveryError as exc:
-            self._send_json(
-                {
-                    "ok": False,
-                    "error": str(exc),
-                    "hint": "验证邮件发送失败，订阅已保存但暂未生效。请联系管理员检查SMTP配置。",
-                },
+            self._error(
+                "EMAIL_DELIVERY_FAILED",
+                str(exc),
+                "验证邮件发送失败，订阅已保存但暂未生效。请联系管理员检查SMTP配置。",
                 status=502,
             )
         except Exception as exc:
-            self._send_json(
-                {
-                    "ok": False,
-                    "error": str(exc),
-                    "hint": "订阅保存失败，请稍后重试或联系管理员。",
-                },
+            self._error(
+                "INTERNAL_ERROR",
+                str(exc),
+                "订阅保存失败，请稍后重试或联系管理员。",
                 status=500,
             )
 
@@ -317,6 +344,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.end_headers()
         self.wfile.write(data)
+
+    def _error(
+        self,
+        code: str,
+        message: str,
+        hint: str = "",
+        status: int = 400,
+    ) -> None:
+        """统一错误响应。code 机器可读，message/hint 给人看，向后兼容前端。"""
+        self._send_json(
+            {
+                "ok": False,
+                "error": message,
+                "hint": hint,
+                "error_code": code,
+            },
+            status=status,
+        )
 
     def _validate_referer(self) -> bool:
         """检查 Referer 头是否来自本域（轻量 CSRF 防护）。"""
