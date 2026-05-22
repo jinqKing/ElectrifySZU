@@ -42,6 +42,11 @@ def send_verification_email(
     confirmation_url: str,
     env_path: str | Path,
 ) -> None:
+    """发送验证邮件。
+
+    异常会向上传播给调用方（server.py），
+    由后者返回准确的错误信息给用户。
+    """
     EmailService(EmailConfig.from_env(str(env_path))).send_text(
         subscription.email,
         verification_subject(subscription),

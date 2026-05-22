@@ -17,7 +17,7 @@ from src.api import DormApi
 from src.config import Config, _load_dotenv
 from src.discover import discover_room_id
 
-from .email_service import EmailConfig, EmailService
+from .email_service import EmailConfig, EmailDeliveryError, EmailService
 from .email_templates import (
     alert_content,
     alert_subject,
@@ -239,22 +239,31 @@ class AlertRunner:
     def _dispatch_alert(
         self, subscription: Subscription, result: dict[str, object], today: str
     ) -> None:
-        EmailService(EmailConfig.from_env(str(self.settings.env_path))).send_text(
-            subscription.email,
-            alert_subject(result),
-            alert_content(subscription, result, self.settings.base_url),
-        )
-        self.store.mark_alert_sent(subscription, today)
+        try:
+            EmailService(EmailConfig.from_env(str(self.settings.env_path))).send_text(
+                subscription.email,
+                alert_subject(result),
+                alert_content(subscription, result, self.settings.base_url),
+            )
+            self.store.mark_alert_sent(subscription, today)
+        except EmailDeliveryError as exc:
+            print(f"[alert] 预警邮件发送失败 {subscription.email}: {exc}")
+            # 不标记已发送，下次循环会重试
+            raise  # 由外层 run_once 统计 failed
 
     def _dispatch_report(
         self, subscription: Subscription, result: dict[str, object], today: str
     ) -> None:
-        EmailService(EmailConfig.from_env(str(self.settings.env_path))).send_text(
-            subscription.email,
-            daily_report_subject(subscription),
-            daily_report_content(subscription, result, self.settings.base_url),
-        )
-        self.store.mark_daily_report_sent(subscription, today)
+        try:
+            EmailService(EmailConfig.from_env(str(self.settings.env_path))).send_text(
+                subscription.email,
+                daily_report_subject(subscription),
+                daily_report_content(subscription, result, self.settings.base_url),
+            )
+            self.store.mark_daily_report_sent(subscription, today)
+        except EmailDeliveryError as exc:
+            print(f"[alert] 日报邮件发送失败 {subscription.email}: {exc}")
+            raise
 
 
 def shutdown_alert_worker() -> None:
