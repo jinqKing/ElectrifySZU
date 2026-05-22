@@ -3,10 +3,14 @@ import tempfile
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Callable
 
 from .config import Config
 from .version import __version__
+
+
+class ParsedColumnError(ValueError):
+    """Raised when a required Excel column cannot be resolved."""
 
 
 class DormApi:
@@ -108,11 +112,15 @@ class DormApi:
         if usage:
             first = usage[0]
             last = usage[-1]
-            keys = list(first.keys())
-            remaining = _to_float(last.get(keys[2]))
-            total_used = max(_to_float(last.get(keys[3])) - _to_float(first.get(keys[3])), 0)
+            usage_columns = _resolve_usage_columns(first)
+            remaining = _to_float(last.get(usage_columns["remaining"]))
+            total_used = max(
+                _to_float(last.get(usage_columns["total_used"]))
+                - _to_float(first.get(usage_columns["total_used"])),
+                0,
+            )
             daily_avg = round(total_used / max(len(usage), 1), 2)
-            result["trend"] = _build_trend(usage, keys)
+            result["trend"] = _build_trend(usage, usage_columns)
 
             result.update(
                 {
@@ -122,18 +130,19 @@ class DormApi:
                     "est_days_left": round(remaining / daily_avg, 1)
                     if daily_avg > 0
                     else None,
-                    "last_record": last.get(keys[5]),
+                    "last_record": last.get(usage_columns["record_time"]),
                     "status": _status_level(remaining, threshold),
                 }
             )
 
         if recharge:
+            recharge_columns = _resolve_recharge_columns(recharge[0])
             result["recharges"] = [
                 {
-                    "time": row.get(list(row.keys())[6]),
-                    "kwh": _to_float(row.get(list(row.keys())[4])),
-                    "yuan": _to_float(row.get(list(row.keys())[5])),
-                    "method": row.get(list(row.keys())[3]),
+                    "time": row.get(recharge_columns["time"]),
+                    "kwh": _to_float(row.get(recharge_columns["kwh"])),
+                    "yuan": _to_float(row.get(recharge_columns["yuan"])),
+                    "method": row.get(recharge_columns["method"]),
                 }
                 for row in recharge
             ]
@@ -151,7 +160,7 @@ def parse_excel(data: bytes) -> list[dict[str, Any]]:
         tmp.close()
         workbook = xlrd.open_workbook(tmp.name)
         sheet = workbook.sheets()[0]
-        headers = [sheet.cell_value(0, col) for col in range(sheet.ncols)]
+        headers = [_clean_header(sheet.cell_value(0, col)) for col in range(sheet.ncols)]
         return [
             {headers[col]: sheet.cell_value(row, col) for col in range(sheet.ncols)}
             for row in range(1, sheet.nrows)
@@ -176,19 +185,159 @@ def _status_level(remaining: float, threshold: float | None) -> str:
     return "ok"
 
 
-def _build_trend(records: list[dict[str, Any]], keys: list[Any]) -> list[dict[str, Any]]:
+def _build_trend(
+    records: list[dict[str, Any]],
+    usage_columns: dict[str, str],
+) -> list[dict[str, Any]]:
     trend: list[dict[str, Any]] = []
     previous_total: float | None = None
     for row in records:
-        total = _to_float(row.get(keys[3]))
+        total = _to_float(row.get(usage_columns["total_used"]))
         daily_used = 0.0 if previous_total is None else max(total - previous_total, 0.0)
         trend.append(
             {
-                "date": str(row.get(keys[5], "")),
-                "remaining": _to_float(row.get(keys[2])),
+                "date": str(row.get(usage_columns["record_time"], "")),
+                "remaining": _to_float(row.get(usage_columns["remaining"])),
                 "daily_used_kwh": round(daily_used, 2),
                 "total_used_kwh": total,
             }
         )
         previous_total = total
     return trend
+
+
+def _clean_header(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _normalize_header(value: Any) -> str:
+    text = _clean_header(value)
+    ignored_chars = "()\uFF08\uFF09[]\u3010\u3011_-:/"
+    return "".join(
+        ch.lower() for ch in text if not ch.isspace() and ch not in ignored_chars
+    )
+
+
+def _resolve_usage_columns(row: dict[str, Any]) -> dict[str, str]:
+    return _resolve_required_columns(
+        row,
+        {
+            "remaining": [
+                _contains("\u5269\u4f59"),
+                "\u5269\u4f59\u7535\u91cf",
+                "\u5269\u4f59\u7535\u8d39",
+                "\u5f53\u524d\u5269\u4f59\u7535\u91cf",
+            ],
+            "total_used": [
+                lambda header: _contains("\u7528\u7535")(header)
+                and (
+                    _contains("\u603b")(header)
+                    or _contains("\u7d2f\u8ba1")(header)
+                ),
+                "\u603b\u7528\u7535\u91cf",
+                "\u7d2f\u8ba1\u7528\u7535\u91cf",
+                "\u7d2f\u8ba1\u7528\u7535",
+            ],
+            "record_time": [
+                lambda header: _contains("\u65f6\u95f4")(header)
+                or _contains("\u65e5\u671f")(header),
+                "\u6284\u8868\u65f6\u95f4",
+                "\u8bb0\u5f55\u65f6\u95f4",
+                "\u65e5\u671f",
+            ],
+        },
+        dataset_name="usage",
+    )
+
+
+def _resolve_recharge_columns(row: dict[str, Any]) -> dict[str, str]:
+    return _resolve_required_columns(
+        row,
+        {
+            "method": [
+                lambda header: _contains("\u65b9\u5f0f")(header)
+                or _contains("\u6e20\u9053")(header),
+                "\u5145\u503c\u65b9\u5f0f",
+                "\u652f\u4ed8\u65b9\u5f0f",
+            ],
+            "kwh": [
+                lambda header: _contains("\u5145\u503c")(header)
+                and (
+                    _contains("\u7535")(header)
+                    or _contains("\u91cf")(header)
+                    or _contains("\u5ea6")(header)
+                ),
+                "\u5145\u503c\u7535\u91cf",
+                "\u5145\u503c\u6570\u91cf",
+                "\u5145\u503c\u5ea6\u6570",
+            ],
+            "yuan": [
+                lambda header: _contains("\u91d1\u989d")(header)
+                or (_contains("\u5145\u503c")(header) and _contains("\u5143")(header)),
+                "\u5145\u503c\u91d1\u989d",
+                "\u652f\u4ed8\u91d1\u989d",
+                "\u91d1\u989d",
+            ],
+            "time": [
+                lambda header: _contains("\u65f6\u95f4")(header)
+                or _contains("\u65e5\u671f")(header),
+                "\u5145\u503c\u65f6\u95f4",
+                "\u4ea4\u6613\u65f6\u95f4",
+                "\u65e5\u671f",
+            ],
+        },
+        dataset_name="recharge",
+    )
+
+
+def _contains(text: str) -> Callable[[str], bool]:
+    normalized = _normalize_header(text)
+    return lambda header: normalized in header
+
+
+def _resolve_required_columns(
+    row: dict[str, Any],
+    required_columns: dict[str, list[Callable[[str], bool] | str]],
+    dataset_name: str,
+) -> dict[str, str]:
+    headers = list(row.keys())
+    normalized_headers = {_normalize_header(header): header for header in headers}
+    resolved: dict[str, str] = {}
+    missing: list[str] = []
+
+    for field_name, matchers in required_columns.items():
+        resolved_header = _match_header(headers, normalized_headers, matchers)
+        if resolved_header is None:
+            missing.append(field_name)
+            continue
+        resolved[field_name] = resolved_header
+
+    if missing:
+        available = ", ".join(_clean_header(header) or "<empty>" for header in headers) or "<none>"
+        raise ParsedColumnError(
+            f"Missing required {dataset_name} column(s): {', '.join(missing)}. "
+            f"Available headers: {available}"
+        )
+
+    return resolved
+
+
+def _match_header(
+    headers: list[str],
+    normalized_headers: dict[str, str],
+    matchers: list[Callable[[str], bool] | str],
+) -> str | None:
+    for matcher in matchers:
+        if callable(matcher):
+            for header in headers:
+                if matcher(_normalize_header(header)):
+                    return header
+            continue
+
+        matched = normalized_headers.get(_normalize_header(matcher))
+        if matched is not None:
+            return matched
+
+    return None

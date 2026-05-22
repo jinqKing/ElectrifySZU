@@ -12,6 +12,13 @@ from pathlib import Path
 from typing import Any
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x1f\x7f]")
+MAX_EMAIL_LENGTH = 254
+MAX_CLIENT_LENGTH = 64
+MAX_BUILDING_ID_LENGTH = 32
+MAX_NAME_LENGTH = 80
+MAX_ROOM_NAME_LENGTH = 32
+MAX_THRESHOLD_KWH = 10000.0
 CSV_FIELDS = [
     "email",
     "client",
@@ -296,7 +303,7 @@ class SubscriptionStore:
 
 def build_subscription(values: dict[str, Any], default_threshold: float) -> Subscription:
     email = str(values.get("email", "")).strip().lower()
-    if not EMAIL_PATTERN.match(email):
+    if len(email) > MAX_EMAIL_LENGTH or not EMAIL_PATTERN.match(email):
         raise ValueError("请输入有效的邮箱地址。")
 
     required = {
@@ -313,8 +320,21 @@ def build_subscription(values: dict[str, Any], default_threshold: float) -> Subs
             raise ValueError(f"缺少{label}。")
         cleaned[key] = value
 
+    if any(CONTROL_CHAR_PATTERN.search(value) for value in cleaned.values()):
+        raise ValueError("输入包含非法控制字符。")
+    if any(ch.isspace() for ch in cleaned["client"]) or len(cleaned["client"]) > MAX_CLIENT_LENGTH:
+        raise ValueError("校区网络参数格式不正确。")
+    if any(ch.isspace() for ch in cleaned["building_id"]) or len(cleaned["building_id"]) > MAX_BUILDING_ID_LENGTH:
+        raise ValueError("楼栋 ID 格式不正确。")
+    if len(cleaned["campus_name"]) > MAX_NAME_LENGTH:
+        raise ValueError("校区名称过长。")
+    if len(cleaned["building_name"]) > MAX_NAME_LENGTH:
+        raise ValueError("楼栋名称过长。")
+    if len(cleaned["room_name"]) > MAX_ROOM_NAME_LENGTH:
+        raise ValueError("房间号过长。")
+
     threshold = _to_float(values.get("threshold_kwh"), default_threshold)
-    if threshold <= 0:
+    if threshold <= 0 or threshold > MAX_THRESHOLD_KWH:
         raise ValueError("预警阈值必须大于 0。")
 
     now = now_iso()
