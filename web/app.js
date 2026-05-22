@@ -796,6 +796,7 @@ async function loadStatus(url) {
 }
 
 function renderStatus(data) {
+  revealResultsContainer();
   currentStatusData = data;
   const remaining = numberOrNull(data.remaining);
   renderMetricCards(data);
@@ -1359,6 +1360,11 @@ function floorRange(name) {
     return { minFloor: null, maxFloor: null };
   }
   return { minFloor: Number(match[1]), maxFloor: Number(match[2]) };
+}
+
+function revealResultsContainer() {
+  const rc = document.querySelector(".results-container");
+  if (rc) rc.classList.add("visible");
 }
 
 function setBusy(isBusy) {
