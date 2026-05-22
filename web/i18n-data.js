@@ -127,7 +127,7 @@ window.ElectrifySZUI18n = {
     },
     "en-US": {
       "meta.title": "ElectrifySZU · SZU Power Check & Alerts",
-      "hero.title": "Never Lose Power: Smart Alerts",
+      "hero.title": "Never Lose Power: Dorm Power Management",
       "hero.subtitle": "Check your balance, set up low-power alerts — never get caught in the dark again.",
       "query.ariaLabel": "Query filters",
       "form.campus": "Campus",
