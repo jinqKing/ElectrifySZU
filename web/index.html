@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ElectrifySZU 深大宿舍电费快查</title>
+    <title>ElectrifySZU · 深大宿舍电费查询与预警</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -13,7 +13,7 @@
           <div class="hero-kicker">
             <p class="eyebrow">
               SZU Dorm Power Monitor
-              <span class="version-label" id="editionVersion" data-i18n="brand.version">Version 2.7</span>
+              <span class="version-label" id="editionVersion" data-i18n="brand.version">Version 2.71</span>
             </p>
           </div>
           <h1 id="page-title" data-i18n="hero.title">宿舍不断电：电费仪表盘</h1>
@@ -43,6 +43,17 @@
             </svg>
             <span class="sr-only" data-i18n="brand.repo">GitHub Repository</span>
           </a>
+          <button
+            class="secondary sponsor-trigger"
+            id="sponsorButton"
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="supportDialog"
+            data-i18n="brand.sponsor"
+          >
+            赞助我们
+          </button>
           <div class="language-switcher" role="group" aria-label="Language">
             <button type="button" data-lang="zh-CN" aria-pressed="true">中文</button>
             <button type="button" data-lang="en-US" aria-pressed="false">English</button>
@@ -70,6 +81,7 @@
             <div class="combo">
               <input id="buildingSearch" value="风槐斋" placeholder="搜索宿舍楼栋" data-i18n-placeholder="form.buildingPlaceholder" autocomplete="off" />
               <div id="buildingOptions" class="combo-list" role="listbox"></div>
+              <div class="combo-feedback" id="buildingFeedback" aria-live="polite"></div>
             </div>
             <input id="buildingId" name="buildingId" type="hidden" value="7126" />
             <input id="buildingName" name="buildingName" type="hidden" value="风槐斋" />
@@ -90,7 +102,10 @@
         <p class="message query-hint" id="message" data-i18n="message.initial" aria-live="polite">
           连接校园网后查询真实余额，可先载入演示数据预览效果。
         </p>
-        <form id="subscriptionForm" class="subscription-form">
+        <button type="button" class="subscription-toggle" id="subscriptionTrigger"
+            data-i18n="subscribe.triggerOpen">🔔 订阅电费预警邮件</button>
+        <div class="subscription-summary" id="subscriptionSummary" hidden></div>
+        <form id="subscriptionForm" class="subscription-form collapsed">
           <label>
             <span data-i18n="subscribe.email">预警邮箱</span>
             <div class="email-input-group" data-default-domain="@email.szu.edu.cn">
@@ -106,12 +121,36 @@
               />
               <span class="email-domain-hint" id="subscriberEmailDomainHint" aria-hidden="true">@email.szu.edu.cn</span>
             </div>
-            <small class="field-hint" data-i18n="subscribe.emailHint">可只填写邮箱前缀，默认补全 @email.szu.edu.cn；也支持输入其他完整邮箱。</small>
+            <small class="field-hint" data-i18n="subscribe.emailHint">可只填写邮箱前缀，默认补全 @email.szu.edu.cn；提交后需到邮箱点击确认链接。</small>
           </label>
+          <fieldset class="subscription-options" aria-label="订阅类型" data-i18n-aria-label="subscribe.optionsLabel">
+            <label class="checkbox-option">
+              <input id="subscribeAlert" name="alertEnabled" type="checkbox" checked />
+              <span data-i18n="subscribe.alertOption">订阅电费预警</span>
+            </label>
+            <label class="checkbox-option">
+              <input id="subscribeDailyReport" name="dailyReportEnabled" type="checkbox" />
+              <span data-i18n="subscribe.dailyReportOption">每日电费报告</span>
+            </label>
+          </fieldset>
           <button class="secondary" type="submit" data-i18n="subscribe.submit">订阅低电量预警</button>
         </form>
+        <button type="button" class="subscription-cancel-btn" id="subscriptionCancelBtn" hidden
+          data-i18n="subscribe.cancelBack">✕ 返回</button>
       </section>
 
+      <dialog class="subscription-dialog" id="subscriptionDialog" aria-labelledby="subscriptionDialogTitle">
+        <form method="dialog">
+          <h2 id="subscriptionDialogTitle" data-i18n="subscribe.dialogTitle">订阅确认</h2>
+          <p id="subscriptionDialogMessage"></p>
+          <div class="dialog-actions">
+            <button class="secondary" id="subscriptionDialogCancel" type="submit" value="cancel" data-i18n="subscribe.dialogCancel">取消</button>
+            <button class="primary" id="subscriptionDialogConfirm" type="submit" value="confirm" data-i18n="subscribe.dialogConfirm">确认</button>
+          </div>
+        </form>
+      </dialog>
+
+      <div class="results-container">
       <section class="metrics" aria-live="polite">
         <article class="metric balance" data-metric-card data-metric-key="remaining" role="button" tabindex="0" aria-label="Toggle current balance unit">
           <span class="metric-label" data-i18n="metrics.remaining">当前余额</span>
@@ -180,7 +219,7 @@
       </section>
 
       <section class="details-grid">
-        <article class="detail">
+        <article class="detail results-section">
           <div class="section-head">
             <h2 data-i18n="details.warning">预警状态</h2>
             <span class="badge" id="statusBadge" data-i18n="status.unchecked">未查询</span>
@@ -208,7 +247,7 @@
           </dl>
         </article>
 
-        <article class="detail">
+        <article class="detail results-section">
           <div class="section-head">
             <h2 data-i18n="recharge.title">最近充值</h2>
             <span id="rechargeCount">0 条</span>
@@ -216,10 +255,73 @@
           <div id="rechargeList" class="recharge-list empty" data-i18n="empty.noData">暂无数据</div>
         </article>
       </section>
+      </div><!-- /.results-container -->
       <footer class="page-footer">
-        <p id="footerCredit" data-i18n="brand.footer">Completed by Matrix Team</p>
+        <p id="footerCredit">
+          <span data-i18n="brand.footerLead"></span><a
+            class="footer-team-link"
+            href="work-intro.html"
+            target="_blank"
+            rel="noreferrer"
+            data-i18n="brand.footerTeam"
+          >Matrix 团队</a><span data-i18n="brand.footerTail">完成</span>
+          <span class="footer-divider" role="separator" aria-hidden="true">·</span>
+          <span class="like-section">
+            <button class="like-button" id="likeButton" type="button" aria-label="Like this project" data-i18n-aria-label="like.buttonLabel">❤️</button>
+            <span class="like-count" id="likeCount" data-count="0">0</span>
+            <span class="stats-separator" aria-hidden="true">·</span>
+            <span class="user-count" id="userCount" data-count="0">0</span>
+          </span>
+        </p>
       </footer>
     </main>
+
+    <div class="support-modal" id="supportModal" hidden>
+      <div class="support-backdrop" data-support-close></div>
+      <section
+        class="support-dialog"
+        id="supportDialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="supportTitle"
+        aria-describedby="supportDescription"
+        tabindex="-1"
+      >
+        <button
+          class="support-close"
+          id="supportClose"
+          type="button"
+          aria-label="Close sponsor dialog"
+          data-i18n-aria-label="sponsor.close"
+        >
+          ×
+        </button>
+        <div class="support-copy">
+          <p class="support-eyebrow" data-i18n="brand.sponsor">赞助我们</p>
+          <h2 id="supportTitle" data-i18n="sponsor.title">请我们喝杯咖啡</h2>
+          <p id="supportDescription" data-i18n="sponsor.description">
+            感谢每一份支持，它会帮助我们持续维护服务、补充功能和优化体验。
+          </p>
+          <p class="support-work-link">
+            <span data-i18n="sponsor.workPrefix">想先了解我们做了什么？</span>
+            <a href="work-intro.html" target="_blank" rel="noreferrer" data-i18n="sponsor.workLink">查看工作介绍幻灯片</a>
+          </p>
+        </div>
+        <div class="support-qrcodes">
+          <figure class="support-card">
+            <img src="pic/qrcode/wxvu.png" alt="微信赞赏码" data-i18n-alt="sponsor.wechatAlt" loading="lazy" />
+            <figcaption data-i18n="sponsor.wechat">微信支付</figcaption>
+          </figure>
+          <figure class="support-card">
+            <img src="pic/qrcode/alipayvu.png" alt="支付宝收款码" data-i18n-alt="sponsor.alipayAlt" loading="lazy" />
+            <figcaption data-i18n="sponsor.alipay">支付宝</figcaption>
+          </figure>
+        </div>
+        <p class="support-thanks" data-i18n="sponsor.thanks">
+          谢谢你愿意支持这个小项目，愿它继续帮更多同学少一点断电焦虑。
+        </p>
+      </section>
+    </div>
 
     <script src="i18n-data.js" defer></script>
     <script src="loading-status.js" defer></script>

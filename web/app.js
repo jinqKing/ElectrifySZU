@@ -1,24 +1,52 @@
 const form = document.querySelector("#queryForm");
 const subscriptionForm = document.querySelector("#subscriptionForm");
+const subscriptionTrigger = document.querySelector("#subscriptionTrigger");
+const subscriptionSummary = document.querySelector("#subscriptionSummary");
+const subscriptionCancelBtn = document.querySelector("#subscriptionCancelBtn");
 const demoButton = document.querySelector("#demoButton");
 const message = document.querySelector("#message");
 const heroStatus = document.querySelector("#heroStatus");
 const languageButtons = document.querySelectorAll("[data-lang]");
 const emailInputGroup = document.querySelector(".email-input-group");
 const emailDomainHint = document.querySelector("#subscriberEmailDomainHint");
+const subscriptionDialog = document.querySelector("#subscriptionDialog");
+const subscriptionDialogMessage = document.querySelector("#subscriptionDialogMessage");
+const subscriptionDialogCancel = document.querySelector("#subscriptionDialogCancel");
+const subscriptionDialogConfirm = document.querySelector("#subscriptionDialogConfirm");
+
+let subscriptionWasPending = false;
+const likeButton = document.querySelector("#likeButton");
+const likeCount = document.querySelector("#likeCount");
+const userCount = document.querySelector("#userCount");
 const usageLevelForm = document.querySelector("#usageLevelForm");
 const resetUsageLevelsButton = document.querySelector("#resetUsageLevels");
+const sponsorButton = document.querySelector("#sponsorButton");
+const supportModal = document.querySelector("#supportModal");
+const supportDialog = document.querySelector("#supportDialog");
+const supportCloseButton = document.querySelector("#supportClose");
+const supportBackdrop = document.querySelector("[data-support-close]");
+const supportFocusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
 
 const fields = {
   campusGroup: document.querySelector("#campusGroup"),
   client: document.querySelector("#client"),
   campusName: document.querySelector("#campusName"),
   buildingSearch: document.querySelector("#buildingSearch"),
+  buildingFeedback: document.querySelector("#buildingFeedback"),
   buildingId: document.querySelector("#buildingId"),
   buildingName: document.querySelector("#buildingName"),
   roomName: document.querySelector("#roomName"),
   days: document.querySelector("#days"),
   subscriberEmail: document.querySelector("#subscriberEmail"),
+  subscribeAlert: document.querySelector("#subscribeAlert"),
+  subscribeDailyReport: document.querySelector("#subscribeDailyReport"),
   mediumUseThreshold: document.querySelector("#mediumUseThreshold"),
   highUseThreshold: document.querySelector("#highUseThreshold"),
 };
@@ -54,7 +82,9 @@ let buildingChoices = [];
 let currentStatusData = null;
 let lastMessage = { key: "message.initial", values: {}, isError: false, raw: null };
 let lastHeroStatus = { key: "status.waiting", values: {}, status: "unknown", raw: null };
+let lastFocusedElement = null;
 
+const LIKE_ID_KEY = "electrifyszu.likeId";
 const API_BASE = window.ELECTRIFYSZU_API_BASE || "";
 const IS_STATIC_PAGE =
   location.protocol === "file:" ||
@@ -73,17 +103,30 @@ translations["zh-CN"]["subscribe.emailPlaceholder"] ||= "学号或邮箱前缀";
 translations["zh-CN"]["subscribe.emailHint"] ||=
   "自动补全 @email.szu.edu.cn；支持输入其他完整邮箱。";
 translations["zh-CN"]["subscribe.invalidEmail"] ||= "请输入有效邮箱，或仅填写默认邮箱前缀。";
+translations["zh-CN"]["subscribe.chooseOne"] ||= "请至少选择一种订阅类型。";
+translations["zh-CN"]["subscribe.dialogResultTitle"] ||= "订阅已提交";
+translations["zh-CN"]["subscribe.triggerOpen"] ||= "🔔 订阅电费预警邮件";
+translations["zh-CN"]["subscribe.cancelBack"] ||= "✕ 返回";
+translations["zh-CN"]["subscribe.summaryActive"] ||= "已订阅预警";
+  translations["zh-CN"]["subscribe.summaryPending"] ||= "待验证";
+translations["en-US"]["subscribe.triggerOpen"] ||= "🔔 Setup alerts";
+translations["en-US"]["subscribe.cancelBack"] ||= "✕ Back";
+translations["en-US"]["subscribe.summaryActive"] ||= "alerts subscribed";
+  translations["en-US"]["subscribe.summaryPending"] ||= "awaiting verification";
 translations["en-US"]["subscribe.emailPlaceholder"] ||= "NetID or email prefix";
 translations["en-US"]["subscribe.emailHint"] ||=
   "Auto append @email.szu.edu.cn, support other emails";
 translations["en-US"]["subscribe.invalidEmail"] ||=
   "Enter a valid email address, or only the default mailbox prefix.";
+translations["en-US"]["subscribe.chooseOne"] ||= "Choose at least one subscription type.";
+translations["en-US"]["subscribe.dialogResultTitle"] ||= "Subscription submitted";
 const LOCALE_QUERY = {
   zh: "zh-CN",
   "zh-CN": "zh-CN",
   en: "en-US",
   "en-US": "en-US",
 };
+const pageQuery = new URLSearchParams(location.search);
 const campusLabels = {
   粤海: "粤海 / Yuehai",
   丽湖: "丽湖 / Lihu",
@@ -177,9 +220,18 @@ fields.campusGroup.addEventListener("change", () => {
 fields.buildingSearch.addEventListener("change", syncSelectedBuilding);
 fields.buildingSearch.addEventListener("input", () => {
   renderBuildingOptions(fields.buildingSearch.value);
+  updateBuildingFeedback(fields.buildingSearch.value);
 });
 fields.buildingSearch.addEventListener("focus", () => {
+  fields.buildingSearch.select();
   renderBuildingOptions("");
+});
+fields.buildingSearch.addEventListener("blur", () => {
+  setTimeout(() => updateBuildingFeedback(fields.buildingSearch.value), 120);
+});
+
+fields.roomName.addEventListener("focus", () => {
+  fields.roomName.select();
 });
 fields.subscriberEmail.addEventListener("input", syncEmailInputState);
 
@@ -222,11 +274,30 @@ window.addEventListener("beforeunload", (event) => {
   event.returnValue = "";
 });
 
+window.addEventListener("keydown", (event) => {
+  if (!supportModal || supportModal.hidden) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    closeSupportModal();
+    return;
+  }
+
+  if (event.key === "Tab") {
+    trapSupportFocus(event);
+  }
+});
+
 languageButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setLanguage(button.dataset.lang);
   });
 });
+
+if (likeButton) {
+  likeButton.addEventListener("click", handleLike);
+}
 
 usageLevelForm.addEventListener("input", () => {
   customUsageLevels = readUsageLevelInputs();
@@ -246,9 +317,117 @@ resetUsageLevelsButton.addEventListener("click", () => {
   }
 });
 
+sponsorButton?.addEventListener("click", openSupportModal);
+supportCloseButton?.addEventListener("click", closeSupportModal);
+supportBackdrop?.addEventListener("click", closeSupportModal);
+
+supportDialog?.addEventListener("click", (event) => {
+  event.stopPropagation();
+});
+
 setLanguage(currentLocale, { persist: false });
 loadBuildings();
 syncEmailInputState();
+setupSubscriptionToggle();
+showPageNotice();
+initLike();
+
+// ── Like ──────────────────────────────────────────────────────────
+
+async function initLike() {
+  if (!canUseBackend() || !likeButton || !likeCount) {
+    return;
+  }
+
+  // 加载点赞数和总使用人数
+  try {
+    const payload = await fetchJson(apiUrl("/api/stats"));
+    updateLikeCount(payload.data.likes);
+    updateUserCount(payload.data.users);
+  } catch {
+    // 静默失败，不影响页面
+  }
+
+  // 检查当前用户是否已点过赞
+  const likeId = localStorage.getItem(LIKE_ID_KEY);
+  if (!likeId) {
+    likeButton.disabled = false;
+    return;
+  }
+  try {
+    const payload = await fetchJson(apiUrl(`/api/like/my?userId=${encodeURIComponent(likeId)}`));
+    if (payload.data.liked) {
+      likeButton.classList.add("liked");
+      likeButton.disabled = true;
+    } else {
+      likeButton.disabled = false;
+    }
+  } catch {
+    likeButton.disabled = false;
+  }
+}
+
+async function handleLike() {
+  if (!canUseBackend() || !likeButton || !likeCount) {
+    return;
+  }
+
+  likeButton.disabled = true;
+
+  try {
+    let likeId = localStorage.getItem(LIKE_ID_KEY);
+    if (!likeId) {
+      // 首次点赞，向服务端申请 ID
+      const initPayload = await postJson(apiUrl("/api/like/init"), {});
+      likeId = initPayload.id;
+      localStorage.setItem(LIKE_ID_KEY, likeId);
+    }
+
+    const payload = await postJson(apiUrl("/api/like"), { id: likeId });
+    if (!payload.already_liked) {
+      likeButton.classList.add("liked");
+    }
+    // 用返回的数据直接更新，避免多一次请求
+    updateLikeCount(payload.count);
+    if (payload.users != null) {
+      updateUserCount(payload.users);
+    }
+    // 再从 /api/stats 同步一次确保数据最新
+    try {
+      const statsPayload = await fetchJson(apiUrl("/api/stats"));
+      updateLikeCount(statsPayload.data.likes);
+      updateUserCount(statsPayload.data.users);
+    } catch {
+      // 静默
+    }
+    likeButton.disabled = true;
+  } catch {
+    setMessageKey("like.error", {}, true);
+    likeButton.disabled = false;
+  }
+}
+
+function updateLikeCount(count) {
+  if (!likeCount) {
+    return;
+  }
+  const number = Number(count);
+  if (Number.isFinite(number)) {
+    likeCount.textContent = number.toLocaleString();
+    likeCount.dataset.count = String(number);
+  }
+}
+
+function updateUserCount(count) {
+  if (!userCount) {
+    return;
+  }
+  const number = Number(count);
+  if (Number.isFinite(number)) {
+    userCount.textContent = t("stats.usersFormat", { count: number.toLocaleString() });
+    userCount.dataset.count = String(number);
+  }
+}
 
 async function loadBuildings() {
   if (!canUseBackend()) {
@@ -283,6 +462,104 @@ function apiUrl(path) {
     return path;
   }
   return new URL(path, API_BASE).toString();
+}
+
+function showPageNotice() {
+  const notice = pageQuery.get("notice");
+  if (!notice) {
+    return;
+  }
+
+  const values = {
+    email: pageQuery.get("email") || "",
+    campus: pageQuery.get("campus") || "",
+    building: pageQuery.get("building") || "",
+    room: pageQuery.get("room") || "",
+  };
+  const mapping = {
+    verified: "notice.verified",
+    already_verified: "notice.alreadyVerified",
+    verify_expired: "notice.verifyExpired",
+    verify_invalid: "notice.verifyInvalid",
+    unsubscribed: "notice.unsubscribed",
+    already_unsubscribed: "notice.alreadyUnsubscribed",
+    unsubscribe_invalid: "notice.unsubscribeInvalid",
+  };
+  const key = mapping[notice];
+  if (!key) {
+    return;
+  }
+
+  // If detail fields are empty, use a generic message for unsubscribe notices
+  const hasDetails = values.email || values.campus || values.building || values.room;
+  if (!hasDetails && notice.includes("unsubscribed")) {
+    setMessageKey("notice.unsubscribedGeneric", {}, notice.endsWith("invalid"));
+  } else {
+    setMessageKey(key, values, notice.endsWith("invalid"));
+  }
+  if (notice.includes("unsubscribed")) {
+    setHeroStatusKey("status.waiting", {}, "unknown");
+  }
+
+  pageQuery.delete("notice");
+  pageQuery.delete("email");
+  pageQuery.delete("campus");
+  pageQuery.delete("building");
+  pageQuery.delete("room");
+  const nextQuery = pageQuery.toString();
+  const nextUrl = `${location.pathname}${nextQuery ? `?${nextQuery}` : ""}${location.hash}`;
+  history.replaceState({}, "", nextUrl);
+
+  // Swap the orange ⏳ badge to green ✅ when verification completes
+  if (notice === "verified" || notice === "already_verified") {
+    if (values.email) {
+      markAsVerified(values.email);
+    }
+  }
+
+  // Show a popup dialog for positive outcomes so the user sees it even if attention is elsewhere
+  if (["verified", "already_verified", "unsubscribed", "already_unsubscribed"].includes(notice)) {
+    showVerificationNotice(notice, values);
+  }
+}
+
+function showVerificationNotice(notice, values) {
+  const titleMapping = {
+    verified:           "notice.title.verified",
+    already_verified:   "notice.title.alreadyVerified",
+    unsubscribed:       "notice.title.unsubscribed",
+    already_unsubscribed: "notice.title.alreadyUnsubscribed",
+  };
+  const messageMapping = {
+    verified:           "notice.verified",
+    already_verified:   "notice.alreadyVerified",
+    unsubscribed:       "notice.unsubscribed",
+    already_unsubscribed: "notice.alreadyUnsubscribed",
+  };
+  const titleKey = titleMapping[notice];
+  const msgKey = messageMapping[notice];
+  if (!titleKey || !msgKey) {
+    return;
+  }
+  // Fallback: if detail fields are empty, use a generic message instead of showing blanks
+  const hasDetails = values.email || values.campus || values.building || values.room;
+  const safeValues = hasDetails ? values : {};
+  const messageText = hasDetails
+    ? t(msgKey, values)
+    : (notice.includes("unsubscribed")
+        ? t("notice.unsubscribedGeneric", {}) || t("notice.unsubscribed", safeValues)
+        : t(msgKey, safeValues));
+  prepareSubscriptionDialog({
+    title: t(titleKey),
+    message: messageText,
+    showCancel: false,
+    confirmText: t("subscribe.dialogDone"),
+  });
+  if (typeof subscriptionDialog.showModal === "function") {
+    subscriptionDialog.showModal();
+    return;
+  }
+  window.alert(`${t(titleKey)}\n${messageText}`);
 }
 
 async function fetchJson(url) {
@@ -324,19 +601,44 @@ async function saveSubscription() {
     fields.subscriberEmail.focus();
     return;
   }
+  if (!fields.subscribeAlert.checked && !fields.subscribeDailyReport.checked) {
+    setMessageKey("subscribe.chooseOne", {}, true);
+    fields.subscribeAlert.focus();
+    return;
+  }
+
+  const subscriptionPayload = {
+    email: normalizedEmail,
+    client: fields.client.value,
+    campusName: fields.campusName.value,
+    buildingId: fields.buildingId.value,
+    buildingName: fields.buildingName.value,
+    roomName: fields.roomName.value,
+    alertEnabled: fields.subscribeAlert.checked,
+    dailyReportEnabled: fields.subscribeDailyReport.checked,
+  };
+
+  const confirmed = await confirmSubscription(subscriptionPayload);
+  if (!confirmed) {
+    return;
+  }
 
   setSubscriptionBusy(true);
   setMessageKey("subscribe.saving");
   try {
-    const payload = await postJson(apiUrl("/api/subscriptions"), {
-      email: normalizedEmail,
-      client: fields.client.value,
-      campusName: fields.campusName.value,
-      buildingId: fields.buildingId.value,
-      buildingName: fields.buildingName.value,
-      roomName: fields.roomName.value,
-    });
-    setMessageRaw(payload.message || t("subscribe.saved"));
+    const payload = await postJson(apiUrl("/api/subscriptions"), subscriptionPayload);
+    const confirmationMessage = payload.message || t("subscribe.saved");
+    if (payload.verification_required) {
+      fields.subscriberEmail.value = normalizedEmail;
+      syncEmailInputState();
+    }
+    showSubscriptionResult(confirmationMessage);
+    setMessageRaw(confirmationMessage);
+    if (payload.verification_required) {
+      collapseToPendingVerification(normalizedEmail);
+    } else {
+      collapseToSubscribed(normalizedEmail);
+    }
   } catch (error) {
     setMessageRaw(error.message, true);
   } finally {
@@ -373,6 +675,230 @@ function syncEmailInputState() {
   fields.subscriberEmail.setCustomValidity("");
   if (emailDomainHint) {
     emailDomainHint.textContent = DEFAULT_EMAIL_DOMAIN;
+  }
+}
+
+function confirmSubscription(payload) {
+  const message = t("subscribe.dialogConfirmMessage", {
+    email: payload.email,
+    dorm: `${payload.campusName} ${payload.buildingName} ${payload.roomName}`,
+    types: selectedSubscriptionTypeLabels(payload).join("、"),
+  });
+  if (!subscriptionDialog || !subscriptionDialogMessage) {
+    return Promise.resolve(window.confirm(message));
+  }
+
+  prepareSubscriptionDialog({
+    title: t("subscribe.dialogTitle"),
+    message,
+    showCancel: true,
+    confirmText: t("subscribe.dialogConfirm"),
+  });
+
+  if (typeof subscriptionDialog.showModal !== "function") {
+    return Promise.resolve(window.confirm(message));
+  }
+
+  return new Promise((resolve) => {
+    subscriptionDialog.addEventListener(
+      "close",
+      () => {
+        resolve(subscriptionDialog.returnValue === "confirm");
+      },
+      { once: true }
+    );
+    subscriptionDialog.showModal();
+  });
+}
+
+function selectedSubscriptionTypeLabels(payload) {
+  const labels = [];
+  if (payload.alertEnabled) {
+    labels.push(t("subscribe.alertOption"));
+  }
+  if (payload.dailyReportEnabled) {
+    labels.push(t("subscribe.dailyReportOption"));
+  }
+  return labels;
+}
+
+function showSubscriptionResult(text) {
+  if (!subscriptionDialog || !subscriptionDialogMessage) {
+    window.alert(text);
+    return;
+  }
+
+  prepareSubscriptionDialog({
+    title: t("subscribe.dialogResultTitle"),
+    message: text,
+    showCancel: false,
+    confirmText: t("subscribe.dialogDone"),
+  });
+
+  if (typeof subscriptionDialog.showModal === "function") {
+    subscriptionDialog.showModal();
+    return;
+  }
+  window.alert(text);
+}
+
+function prepareSubscriptionDialog({ title, message, showCancel, confirmText }) {
+  const titleElement = document.querySelector("#subscriptionDialogTitle");
+  if (titleElement) {
+    titleElement.textContent = title;
+  }
+  subscriptionDialogMessage.textContent = message;
+  subscriptionDialog.returnValue = "";
+  subscriptionDialogCancel.hidden = !showCancel;
+  subscriptionDialogConfirm.value = showCancel ? "confirm" : "done";
+  subscriptionDialogConfirm.textContent = confirmText;
+}
+
+// ---- Subscription Toggle (expand/collapse) ----
+
+function setupSubscriptionToggle() {
+  if (!subscriptionTrigger || !subscriptionForm || !subscriptionCancelBtn) {
+    return;
+  }
+  subscriptionTrigger.addEventListener("click", expandSubscriptionForm);
+  subscriptionCancelBtn.addEventListener("click", collapseSubscriptionForm);
+  if (subscriptionSummary) {
+    subscriptionSummary.addEventListener("click", expandSubscriptionForm);
+  }
+}
+
+function expandSubscriptionForm() {
+  if (!subscriptionTrigger || !subscriptionForm || !subscriptionCancelBtn) {
+    return;
+  }
+  subscriptionWasPending = false;
+  subscriptionTrigger.hidden = true;
+  subscriptionSummary.hidden = true;
+  subscriptionCancelBtn.hidden = false;
+  subscriptionForm.classList.remove("collapsed");
+}
+
+function collapseSubscriptionForm() {
+  if (!subscriptionTrigger || !subscriptionForm || !subscriptionCancelBtn) {
+    return;
+  }
+  subscriptionTrigger.hidden = false;
+  subscriptionCancelBtn.hidden = true;
+  subscriptionForm.classList.add("collapsed");
+  if (subscriptionSummary && !subscriptionSummary.hidden) {
+    subscriptionTrigger.hidden = true;
+  }
+}
+
+function collapseToPendingVerification(email) {
+  if (!subscriptionSummary || !subscriptionTrigger || !subscriptionCancelBtn) {
+    return;
+  }
+  subscriptionWasPending = true;
+  subscriptionSummary.innerHTML = `⏳ ${escapeHtml(email)} · ${t("subscribe.summaryPending")}`;
+  subscriptionSummary.classList.add("pending-verification");
+  subscriptionSummary.hidden = false;
+  subscriptionTrigger.hidden = true;
+  subscriptionCancelBtn.hidden = true;
+  subscriptionForm.classList.add("collapsed");
+}
+
+function markAsVerified(email) {
+  /* Called after email verification succeeds – swap the orange ⏳ badge to green ✅ */
+  if (!subscriptionSummary || !(subscriptionSummary.classList.contains("pending-verification"))) {
+    return;
+  }
+  subscriptionWasPending = false;
+  subscriptionSummary.classList.remove("pending-verification");
+  subscriptionSummary.innerHTML = `✅ ${escapeHtml(email)} · ${t("subscribe.summaryActive")}`;
+}
+
+function collapseToSubscribed(email) {
+  if (!subscriptionSummary || !subscriptionTrigger || !subscriptionCancelBtn) {
+    return;
+  }
+  subscriptionSummary.innerHTML = `✅ ${escapeHtml(email)} · ${t("subscribe.summaryActive")}`;
+  subscriptionSummary.hidden = false;
+  subscriptionTrigger.hidden = true;
+  subscriptionCancelBtn.hidden = true;
+  subscriptionForm.classList.add("collapsed");
+}
+
+function openSupportModal() {
+  if (!supportModal || !supportDialog || !sponsorButton) {
+    return;
+  }
+
+  lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : sponsorButton;
+  supportModal.hidden = false;
+  sponsorButton.setAttribute("aria-expanded", "true");
+  document.body.classList.add("modal-open");
+  supportDialog.focus();
+}
+
+function closeSupportModal() {
+  if (!supportModal || !sponsorButton) {
+    return;
+  }
+
+  supportModal.hidden = true;
+  sponsorButton.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("modal-open");
+  if (lastFocusedElement instanceof HTMLElement && document.contains(lastFocusedElement)) {
+    lastFocusedElement.focus();
+  } else {
+    sponsorButton.focus();
+  }
+  lastFocusedElement = null;
+}
+
+function getSupportFocusableElements() {
+  if (!supportDialog) {
+    return [];
+  }
+
+  return Array.from(supportDialog.querySelectorAll(supportFocusableSelector)).filter(
+    (element) => element instanceof HTMLElement && element.offsetParent !== null,
+  );
+}
+
+function trapSupportFocus(event) {
+  if (!supportDialog) {
+    return;
+  }
+
+  const focusableElements = getSupportFocusableElements();
+  if (!focusableElements.length) {
+    event.preventDefault();
+    supportDialog.focus();
+    return;
+  }
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+  const activeElement = document.activeElement;
+
+  if (activeElement === supportDialog) {
+    event.preventDefault();
+    (event.shiftKey ? lastElement : firstElement).focus();
+    return;
+  }
+
+  if (!supportDialog.contains(activeElement)) {
+    event.preventDefault();
+    firstElement.focus();
+    return;
+  }
+
+  if (event.shiftKey && activeElement === firstElement) {
+    event.preventDefault();
+    lastElement.focus();
+    return;
+  }
+
+  if (!event.shiftKey && activeElement === lastElement) {
+    event.preventDefault();
+    firstElement.focus();
   }
 }
 
@@ -533,6 +1059,7 @@ async function loadStatus(url) {
 }
 
 function renderStatus(data) {
+  revealResultsContainer();
   currentStatusData = data;
   const remaining = numberOrNull(data.remaining);
   renderMetricCards(data);
@@ -679,21 +1206,28 @@ function renderTrend(trend) {
   }
 
   const width = 920;
-  const height = 300;
-  const padding = { top: 28, right: 34, bottom: 48, left: 58 };
+  const height = 320;
+  const padding = { top: 36, right: 72, bottom: 52, left: 70 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const remainingValues = points.map((item) => Number(item.remaining));
-  const usedValues = points.map((item) => Number(item.daily_used_kwh || 0));
+  const usedValues = points.map((item) => Math.max(0, Number(item.daily_used_kwh || 0)));
   const maxRemaining = Math.max(...remainingValues, 1);
-  const minRemaining = Math.min(...remainingValues, 0);
-  const maxUsed = Math.max(...usedValues, 1);
+  const minRemaining = Math.min(...remainingValues);
+  const maxUsed = Math.max(...usedValues, 0);
+  const balanceAxis = chartAxisRange(minRemaining, maxRemaining, 5);
+  const usageAxis = chartAxis(maxUsed, 5, 1.12);
   const usageLevels = resolveUsageLevels(usedValues);
   syncUsageLevelInputs(usedValues);
   const x = (index) => padding.left + (index / (points.length - 1)) * plotWidth;
   const y = (value) => {
-    const range = Math.max(maxRemaining - minRemaining, 1);
-    return padding.top + (1 - (value - minRemaining) / range) * plotHeight;
+    const range = Math.max(balanceAxis.max - balanceAxis.min, 1);
+    const ratio = Math.max(0, Math.min(1, (value - balanceAxis.min) / range));
+    return height - padding.bottom - ratio * plotHeight;
+  };
+  const usageY = (value) => {
+    const ratio = Math.max(0, Math.min(1, value / usageAxis.max));
+    return height - padding.bottom - ratio * plotHeight;
   };
   const barWidth = Math.max(8, Math.min(24, plotWidth / points.length / 2));
   const line = points.map((item, index) => `${x(index)},${y(Number(item.remaining))}`).join(" ");
@@ -711,8 +1245,8 @@ function renderTrend(trend) {
   };
 
   const bars = points.map((item, index) => {
-    const used = Number(item.daily_used_kwh || 0);
-    const barHeight = (used / maxUsed) * (plotHeight * 0.42);
+    const used = Math.max(0, Number(item.daily_used_kwh || 0));
+    const barHeight = used > 0 ? Math.max(4, height - padding.bottom - usageY(used)) : 0;
     const bx = x(index) - barWidth / 2;
     const by = height - padding.bottom - barHeight;
     return `<rect class="chart-bar ${usageClass(used)}" x="${bx}" y="${by}" width="${barWidth}" height="${barHeight}" rx="4"></rect>`;
@@ -733,21 +1267,37 @@ function renderTrend(trend) {
     end: lastDate,
   });
 
+  const ticks = balanceAxis.ticks.map((balanceValue, index) => {
+    const fraction = index / balanceAxis.intervals;
+    const tickY = height - padding.bottom - fraction * plotHeight;
+    const usageValue = usageAxis.max * fraction;
+    const gridClass = index === 0 ? "chart-grid baseline" : "chart-grid";
+    return `
+      <g class="chart-tick">
+        <line class="${gridClass}" x1="${padding.left}" y1="${tickY}" x2="${width - padding.right}" y2="${tickY}"></line>
+        <line class="chart-tick-mark" x1="${padding.left - 5}" y1="${tickY}" x2="${padding.left}" y2="${tickY}"></line>
+        <line class="chart-tick-mark" x1="${width - padding.right}" y1="${tickY}" x2="${width - padding.right + 5}" y2="${tickY}"></line>
+        <text class="chart-axis-label left" x="${padding.left - 10}" y="${tickY + 4}">${formatAxisTick(balanceValue, balanceAxis.step)}</text>
+        <text class="chart-axis-label right" x="${width - padding.right + 10}" y="${tickY + 4}">${formatAxisTick(usageValue, usageAxis.step)}</text>
+      </g>
+    `;
+  }).join("");
+
   view.trendChart.innerHTML = `
     <div class="chart-canvas">
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${t("chart.svgLabel")}">
         <line class="chart-axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
         <line class="chart-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
-        <line class="chart-grid" x1="${padding.left}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top}"></line>
-        <line class="chart-grid" x1="${padding.left}" y1="${padding.top + plotHeight / 2}" x2="${width - padding.right}" y2="${padding.top + plotHeight / 2}"></line>
+        <line class="chart-axis" x1="${width - padding.right}" y1="${padding.top}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
+        ${ticks}
         ${bars}
         <polygon class="chart-area" points="${area}"></polygon>
         <polyline class="chart-line" points="${line}"></polyline>
         ${dots}
-        <text class="chart-label" x="${padding.left}" y="${height - 14}">${firstDate}</text>
-        <text class="chart-label" x="${width - padding.right - 52}" y="${height - 14}">${lastDate}</text>
-        <text class="chart-label" x="${padding.left}" y="14">${t("chart.balanceLabel")}</text>
-        <text class="chart-label" x="${width - padding.right - 96}" y="14">${t("chart.dailyUseLabel")}</text>
+        <text class="chart-label" x="${padding.left}" y="${height - 16}">${escapeHtml(firstDate)}</text>
+        <text class="chart-label" x="${width - padding.right}" y="${height - 16}" text-anchor="end">${escapeHtml(lastDate)}</text>
+        <text class="chart-label chart-title-label" x="${padding.left}" y="20">${t("chart.balanceLabel")}</text>
+        <text class="chart-label chart-title-label" x="${width - padding.right}" y="20" text-anchor="end">${t("chart.dailyUseLabel")}</text>
       </svg>
       <div class="chart-hit-layer" aria-label="${t("chart.tooltipHint")}">
         ${targets}
@@ -757,6 +1307,80 @@ function renderTrend(trend) {
   `;
 
   attachTrendInteractions(points, { width, height, padding, x, y, barWidth, selectedIndex });
+}
+
+function chartAxis(maxValue, intervals = 5, headroom = 1) {
+  const safeMax = Math.max(0, numberOrNull(maxValue) ?? 0);
+  const target = safeMax > 0 ? safeMax * headroom : 1;
+  const step = niceAxisStep(target / intervals);
+  const max = step * intervals;
+  const ticks = Array.from({ length: intervals + 1 }, (_, index) => step * index);
+  return { intervals, min: 0, max, step, ticks };
+}
+
+function chartAxisRange(minValue, maxValue, intervals = 5) {
+  const safeMin = Math.max(0, numberOrNull(minValue) ?? 0);
+  const safeMax = Math.max(safeMin, numberOrNull(maxValue) ?? safeMin);
+  if (safeMax === safeMin) {
+    let step = niceAxisStep(Math.max(Math.abs(safeMax), 1) / 10);
+    let min = 0;
+    let max = 0;
+    do {
+      min = Math.max(0, Math.floor((safeMin - step * 2) / step) * step);
+      max = min + step * intervals;
+      if (max <= safeMax) {
+        step = niceAxisStep(step * 1.01);
+      }
+    } while (max <= safeMax);
+    const ticks = Array.from({ length: intervals + 1 }, (_, index) => min + step * index);
+    return { intervals, min, max, step, ticks };
+  }
+
+  let step = niceAxisStep((safeMax - safeMin) / intervals);
+  let min = Math.floor(safeMin / step) * step;
+  let max = min + step * intervals;
+  while (max < safeMax) {
+    step = niceAxisStep(step * 1.01);
+    min = Math.floor(safeMin / step) * step;
+    max = min + step * intervals;
+  }
+  if (min < 0) {
+    min = 0;
+    max = step * intervals;
+    while (max < safeMax) {
+      step = niceAxisStep(step * 1.01);
+      max = step * intervals;
+    }
+  }
+  const ticks = Array.from({ length: intervals + 1 }, (_, index) => min + step * index);
+  return { intervals, min, max, step, ticks };
+}
+
+function niceAxisStep(value) {
+  const number = Math.max(Number(value) || 0, 0);
+  if (number <= 0) {
+    return 1;
+  }
+
+  const magnitude = 10 ** Math.floor(Math.log10(number));
+  const normalized = number / magnitude;
+  const steps = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+  const matched = steps.find((step) => normalized <= step) ?? 10;
+  return matched * magnitude;
+}
+
+function formatAxisTick(value, step) {
+  const absStep = Math.abs(step);
+  let maximumFractionDigits = 0;
+  if (absStep < 1) {
+    maximumFractionDigits = absStep < 0.1 ? 2 : 1;
+  } else if (!Number.isInteger(absStep)) {
+    maximumFractionDigits = 1;
+  }
+
+  return Number(value).toLocaleString(currentLocale, {
+    maximumFractionDigits,
+  });
 }
 
 function attachTrendInteractions(points, geometry) {
@@ -926,11 +1550,61 @@ function syncSelectedBuilding() {
   fields.campusGroup.value = selected.campusGroup;
 }
 
+// Resolve whether a free-text input matches any known building.
+// Returns { matched: boolean, source: "exact" | "fuzzy" | "none", choice: object|null }
+function resolveBuildingMatch(text, campusValue) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { matched: false, source: "none", choice: null };
+  }
+  const lower = trimmed.toLowerCase();
+  const exactChoice = buildingChoices.find(
+    (item) => item.displayName === trimmed || item.displayLabel === trimmed || buildingEnglishName(item.displayName) === lower
+  );
+  if (exactChoice) {
+    /* respect campus filter when picking */
+    const filtered = (campusValue && campusValue !== "") ? [exactChoice].filter(c => c.campusGroup === campusValue) : [exactChoice];
+    return { matched: true, source: "exact", choice: filtered[0] || exactChoice };
+  }
+  const scope = campusValue ? buildingChoices.filter((c) => c.campusGroup === campusValue) : buildingChoices;
+  const fuzzyHit = scope.find((item) => item.searchText.includes(lower));
+  if (fuzzyHit) {
+    return { matched: true, source: "fuzzy", choice: fuzzyHit };
+  }
+  return { matched: false, source: "none", choice: null };
+}
+
+/* Update visual feedback beneath the building input */
+function updateBuildingFeedback(text) {
+  const fbEl = fields.buildingFeedback;
+  if (!fbEl) return;
+  const result = resolveBuildingMatch(text, fields.campusGroup?.value);
+  const comboWrap = fbEl.parentElement;
+
+  /* reset previous modifiers */
+  comboWrap.classList.remove("has-match-exact", "has-match-fuzzy", "has-no-match");
+
+  if (!result.matched) {
+    if (text.trim().length > 0) {
+      comboWrap.classList.add("has-no-match");
+      fbEl.textContent = t("form.buildingNoMatch");
+    } else {
+      fbEl.textContent = "";
+    }
+  } else if (result.source === "exact") {
+    comboWrap.classList.add("has-match-exact");
+    fbEl.textContent = "";
+  } else {
+    comboWrap.classList.add("has-match-fuzzy");
+    fbEl.textContent = t("form.buildingFuzzyMatch");
+  }
+}
+
 function selectedBuilding() {
   const text = fields.buildingSearch.value.trim();
   const normalizedText = text.toLowerCase();
   const exactChoice = buildingChoices.find(
-    (item) => item.displayName === text || item.displayLabel === text || buildingEnglishName(item.displayName) === text
+    (item) => item.displayName === text || item.displayLabel === text || buildingEnglishName(item.displayName) === normalizedText
   );
   if (exactChoice) {
     return pickVariantForRoom(exactChoice.variants);
@@ -979,6 +1653,11 @@ function choicesForCurrentCampus() {
 
 function closeBuildingOptions() {
   document.querySelector("#buildingOptions").classList.remove("open");
+  const fb = fields.buildingFeedback;
+  if (fb) {
+    fb.parentElement.classList.remove("has-match-exact", "has-match-fuzzy", "has-no-match");
+    fb.textContent = "";
+  }
 }
 
 function roomFloor(roomName) {
@@ -999,6 +1678,11 @@ function floorRange(name) {
     return { minFloor: null, maxFloor: null };
   }
   return { minFloor: Number(match[1]), maxFloor: Number(match[2]) };
+}
+
+function revealResultsContainer() {
+  const rc = document.querySelector(".results-container");
+  if (rc) rc.classList.add("visible");
 }
 
 function setBusy(isBusy) {
@@ -1198,6 +1882,9 @@ function setLanguage(locale, options = {}) {
   document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
   });
+  document.querySelectorAll("[data-i18n-alt]").forEach((element) => {
+    element.setAttribute("alt", t(element.dataset.i18nAlt));
+  });
   document.querySelectorAll(".field-hint[data-i18n]").forEach((element) => {
     element.textContent = t(element.dataset.i18n);
   });
@@ -1226,12 +1913,23 @@ function setLanguage(locale, options = {}) {
   }
 
   syncEmailInputState();
+  // 语言切换后重新渲染使用人数（从 dataset 读取数字）
+  if (userCount && userCount.dataset.count) {
+    updateUserCount(Number(userCount.dataset.count));
+  }
 }
 
 function t(key, values = {}) {
   const dictionary = translations[currentLocale] || translations[DEFAULT_LOCALE];
-  const fallback = translations[DEFAULT_LOCALE][key] || key;
-  return (dictionary[key] || fallback).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
+  const fallback =
+    Object.prototype.hasOwnProperty.call(translations[DEFAULT_LOCALE], key)
+      ? translations[DEFAULT_LOCALE][key]
+      : key;
+  const copy =
+    Object.prototype.hasOwnProperty.call(dictionary, key)
+      ? dictionary[key]
+      : fallback;
+  return copy.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
 }
 
 function loadingStatusOptions() {
