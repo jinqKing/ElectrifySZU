@@ -7,15 +7,19 @@
     <link rel="stylesheet" href="work-intro.css" />
   </head>
   <body>
-    <a class="top-link link-button" href="index.html">返回主页</a>
+    <div class="top-actions">
+    <button class="link-button" id="landscapeToggle" type="button" title="横屏查看" aria-label="切换横屏">↻ 横屏</button>
+    <a class="link-button" href="index.html">返回主页</a>
+  </div>
     <main class="deck" aria-label="ElectrifySZU 工作介绍幻灯片">
       <div class="slides" id="slides">
         <section class="slide" aria-labelledby="slide-1-title">
           <div class="slide-inner">
             <div class="slide-title">
               <p class="eyebrow">Matrix Team · ElectrifySZU</p>
-              <h1 id="slide-1-title"><span class="title-line">把宿舍电费查询做成</span><span class="title-line">一个可用的仪表盘</span></h1>
-              <p class="lead">我们把校园电费查询、余额趋势、低电量预警和静态展示整合到一个开源项目里，让同学不用在断电前才想起查余额。</p>
+              <h1 id="slide-1-title"><span class="title-line">你需要的</span><span class="title-line">电费余额管家</span></h1>
+              <h2>从被动断电到主动预警</h2>
+              <p class="lead">一个页面：校园电费查询、余额趋势、订阅预警和每日报告，让SZUers不用在断电才充值。</p>
               <div class="actions">
                 <a class="link-button primary" href="https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb" target="_blank" rel="noreferrer">飞书项目 Wiki</a>
                 <a class="link-button" href="https://github.com/jinqKing/ElectrifySZU" target="_blank" rel="noreferrer">GitHub 仓库</a>
@@ -57,98 +61,114 @@
           <div class="slide-inner">
             <div class="slide-title">
               <p class="eyebrow">Problem</p>
-              <h2 id="slide-2-title">同学真正需要的不是一个接口，而是少一点电量焦虑</h2>
-              <p class="lead">查询入口分散、校园网环境有限、房间参数难找、余额变化不直观，这些小麻烦叠在一起，就会变成宿舍生活里的高频打扰。</p>
+              <h2 id="slide-2-title">三个系统、四个步骤、零提醒——查个电费有多难？</h2>
+              <p class="lead">我们对深大同学做了调研，所有人都说了同一句话。<br/><em>“我们只会在停电时充电费，从来不知道还剩多少电费。”</em></p>
+              <blockquote style="margin:18px 0 0;padding:12px 16px;border-left:3px solid var(--red);color:var(--red);font-weight:900;font-style:normal;background:none;">⚡ 于是有一天，电费归零——就断电了。</blockquote>
             </div>
             <div class="fact-list">
               <div class="fact">
-                <span class="icon blue">1</span>
+                <span class="icon blue">🧩</span>
                 <div>
-                  <strong>查询要快</strong>
-                  <p>选择校区、楼栋和房间号后，直接展示当前余额、周期用电和预计可用天数。</p>
+                  <strong>入口分散</strong>
+                  <p>企业微信小程序数据不及时；校园网页面古老；充值界面看不到余额，需多次跳转</p>
                 </div>
               </div>
               <div class="fact">
-                <span class="icon green">2</span>
+                <span class="icon green">🔒</span>
                 <div>
-                  <strong>趋势要清楚</strong>
-                  <p>用折线和柱状把余额走势、每日消耗和用电等级放在同一个视图里。</p>
+                  <strong>必须校园网</strong>
+                  <p>以上所有方式都只能在校园网环境使用——出了宿舍就查不了</p>
                 </div>
               </div>
               <div class="fact">
-                <span class="icon yellow">3</span>
+                <span class="icon yellow">🔇</span>
                 <div>
-                  <strong>提醒要可靠</strong>
-                  <p>低电量订阅支持学校邮箱自动补全，减少遗漏和输入成本。</p>
+                  <strong>零提醒</strong>
+                  <p>没有余额提醒、没有用电分析、没有统一界面</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon red">⚡</span>
+                <div>
+                  <strong>停电才知道</strong>
+                  <p>电费归零就直接断电，没有任何提前预警</p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
+        <!-- Slide 3 — 产品亮相 Solution -->
         <section class="slide" aria-labelledby="slide-3-title">
           <div class="slide-inner">
             <div class="slide-title">
+              <p class="eyebrow">Solution</p>
+              <h2 id="slide-3-title">ElectrifySZU：一站式电费管家</h2>
+              <p class="lead">我们是开发者，我们也是每天被断电困扰的深大住户。所以我们就自己做了这个工具。</p>
+              <p style="margin-top:12px;color:var(--muted);font-size:14px;font-weight:700;">💡 核心价值：订阅预警 —— 不只是一次性查询，而是持续守护</p>
+              <ul style="margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:14px;line-height:1.7;">
+                <li>一个页面完成 校区选择 → 楼栋搜索 → 房间输入 → 一键查询</li>
+                <li>中英文双语切换，GitHub Pages 可直接预览演示数据</li>
+                <li>支持校园网真实查询 + 离线演示双模式</li>
+              </ul>
+            </div>
+            <div class="dashboard-visual" aria-hidden="true">
+              <div class="mock-toolbar">
+                <span class="mock-input"></span>
+                <span class="mock-input"></span>
+                <span class="mock-button"></span>
+              </div>
+              <div class="mock-metrics">
+                <div class="mock-card dark">
+                  <span class="mock-label"></span>
+                  <span class="mock-value"></span>
+                </div>
+                <div class="mock-card">
+                  <span class="mock-label"></span>
+                  <span class="mock-value"></span>
+                </div>
+              </div>
+              <div class="mock-chart">
+                <div class="points"></div>
+                <div class="bars">
+                  <span class="bar" style="height: 36%"></span>
+                  <span class="bar" style="height: 55%"></span>
+                  <span class="bar" style="height: 42%"></span>
+                  <span class="bar" style="height: 68%"></span>
+                  <span class="bar" style="height: 58%"></span>
+                  <span class="bar" style="height: 76%"></span>
+                  <span class="bar" style="height: 48%"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Slide 4 — 架构 Architecture -->
+        <section class="slide" aria-labelledby="slide-4-title">
+          <div class="slide-inner">
+            <div class="slide-title">
               <p class="eyebrow">Architecture</p>
-              <h2 id="slide-3-title">静态页面负责体验，本地后端负责校园网查询</h2>
-              <p class="lead">公开页面可部署到 GitHub Pages 做演示；真实查询时运行本地服务，由后端代理访问校园电费系统，前端只消费统一的 JSON API。</p>
+              <h2 id="slide-4-title">静态页面负责体验，本地后端代理校园网查询</h2>
+              <p class="lead">GitHub Pages 部署公开演示页；真实查询时运行本地服务，后端代理访问校园电费系统，前端只消费统一 JSON API。</p>
+              <p style="margin-top:10px;color:var(--muted);font-size:13px;font-weight:700;">Python (uv) + 原生 HTML/CSS/JS + CSV 存储 + SMTP 邮件</p>
             </div>
             <div class="flow-visual" aria-label="系统流程">
               <div class="flow-step">
                 <span class="step-number">01</span>
-                <div><strong>输入宿舍信息</strong><span>校区、楼栋、房间号、统计天数</span></div>
+                <div><strong>输入宿舍信息</strong><span>校区、楼栋（模糊搜索+自动补全）、房间号、统计天数</span></div>
               </div>
               <div class="flow-step">
                 <span class="step-number">02</span>
-                <div><strong>发现 roomId</strong><span>把可读房间号转换为电费系统参数</span></div>
+                <div><strong>发现 roomId</strong><span>把可读房间号转换为电费系统内部参数</span></div>
               </div>
               <div class="flow-step">
                 <span class="step-number">03</span>
-                <div><strong>API 代理查询</strong><span>由校园网环境中的服务请求内网接口</span></div>
+                <div><strong>API 代理查询</strong><span>由校园网环境中的 Python 服务请求内网接口</span></div>
               </div>
               <div class="flow-step">
                 <span class="step-number">04</span>
-                <div><strong>仪表盘渲染</strong><span>余额、趋势、充值记录和预警状态同步更新</span></div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="slide" aria-labelledby="slide-4-title">
-          <div class="slide-inner">
-            <div class="slide-title">
-              <p class="eyebrow">Features</p>
-              <h2 id="slide-4-title">我们把核心体验做成了完整闭环</h2>
-              <p class="lead">从首页查询到单位切换、趋势探索、订阅保存和静态演示，每个环节都尽量让项目在展示和真实使用时都站得住。</p>
-            </div>
-            <div class="capability-list">
-              <div class="fact">
-                <span class="icon blue">✓</span>
-                <div>
-                  <strong>双语静态仪表盘</strong>
-                  <p>中英文文案统一管理，GitHub Pages 可直接展示演示数据。</p>
-                </div>
-              </div>
-              <div class="fact">
-                <span class="icon green">✓</span>
-                <div>
-                  <strong>可交互趋势图</strong>
-                  <p>点击柱状图或折线点查看每日余额和用电详情，可自定义用电等级。</p>
-                </div>
-              </div>
-              <div class="fact">
-                <span class="icon yellow">✓</span>
-                <div>
-                  <strong>低电量邮件预警</strong>
-                  <p>订阅记录可保存，系统按阈值发送提醒，避免频繁打扰。</p>
-                </div>
-              </div>
-              <div class="fact">
-                <span class="icon red">✓</span>
-                <div>
-                  <strong>CLI 与 API 并存</strong>
-                  <p>既能命令行输出 JSON，也能启动本地网页服务和 API 代理。</p>
-                </div>
+                <div><strong>仪表盘渲染</strong><span>余额、趋势、充值记录、预警状态、预计可用天数同步更新</span></div>
               </div>
             </div>
           </div>
@@ -157,9 +177,64 @@
         <section class="slide" aria-labelledby="slide-5-title">
           <div class="slide-inner">
             <div class="slide-title">
-              <p class="eyebrow">Alerting</p>
-              <h2 id="slide-5-title">预警系统让查询从“想起来”变成“被照看”</h2>
-              <p class="lead">余额低于阈值时，系统每天最多发送一次提醒。对同学来说，重要的是在快没电前知道，而不是每天主动检查。</p>
+              <p class="eyebrow">Features</p>
+              <h2 id="slide-5-title">从查询到预警，完整闭环</h2>
+              <p class="lead">每个特性都对应一个真实痛点，且经过多轮打磨。</p>
+            </div>
+            <div class="capability-list">
+              <div class="fact">
+                <span class="icon blue">1</span>
+                <div>
+                  <strong>双语仪表盘</strong>
+                  <p>中英文 i18n 数据抽离，GitHub Pages 可展示；指标卡可点击切换单位（kWh/元）</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon green">2</span>
+                <div>
+                  <strong>可交互趋势图</strong>
+                  <p>柱状图+折线图双视图，hover 查看每日详情；可自定义用电等级阈值（低/中/高）</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon yellow">3</span>
+                <div>
+                  <strong>模糊楼栋搜索</strong>
+                  <p>输入关键词即时匹配，自动补全 campus+buildingId，有反馈提示</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon red">4</span>
+                <div>
+                  <strong>CLI + API 并存</strong>
+                  <p><code>uv run python -m src.cli json</code> 命令行 + 本地 Web 服务双入口</p>
+                </div>
+              </div>
+              <div class="fact">
+                <span class="icon blue">5</span>
+                <div>
+                  <strong>响应式适配</strong>
+                  <p>移动端布局优化，QR code 可滚动</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" aria-labelledby="slide-6-title">
+          <div class="slide-inner">
+            <div class="slide-title">
+              <p class="eyebrow">Killer Feature</p>
+              <h2 id="slide-6-title">从“想起来了才查”变成“系统替你照看”</h2>
+              <p class="lead">这是 ElectrifySZU 最区别于其他查询工具的能力——不是一次性查询，而是持续守护。</p>
+              <ul style="margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.8;">
+                <li>📧 邮箱自动补全 <code>@szu.edu.cn</code></li>
+                <li>🔔 双类型订阅：低电量预警 + 每日电费报告</li>
+                <li>✉️ 验证确认后激活，badge 显示状态</li>
+                <li>🔄 仪表盘内 toggle 开关，一键退订</li>
+                <li>⏰ 低于阈值时每天最多发一封预警邮件</li>
+                <li>🧪 <code>FORCE_SEND_ALERT</code> 测试模式方便演示</li>
+              </ul>
             </div>
             <div class="signal-visual" aria-hidden="true">
               <div class="signal-meter">
@@ -189,36 +264,23 @@
           </div>
         </section>
 
-        <section class="slide" aria-labelledby="slide-6-title">
-          <div class="slide-inner">
-            <div class="slide-title">
-              <p class="eyebrow">Milestones</p>
-              <h2 id="slide-6-title">从 MVP 到可展示版本，我们持续补齐细节</h2>
-              <p class="lead">项目版本沿用向 e 收敛的编号节奏。近期工作重点是稳定查询链路、完善展示体验、整理文案和团队说明。</p>
-            </div>
-            <div class="timeline-visual">
-              <div class="timeline-item">
-                <time>0.1.0</time>
-                <div><strong>项目初始化</strong><span>整理 Python 查询模块、静态页面、API 代理和演示数据。</span></div>
-              </div>
-              <div class="timeline-item">
-                <time>2.7</time>
-                <div><strong>版本体系与部署说明</strong><span>统一运行时版本标签，明确 GitHub Pages 与本地后端的边界。</span></div>
-              </div>
-              <div class="timeline-item">
-                <time>2.71</time>
-                <div><strong>体验打磨</strong><span>加入仓库入口、可点击指标卡、加载反馈、双语文案组织和订阅输入优化。</span></div>
-              </div>
-            </div>
-          </div>
-        </section>
 
-        <section class="slide" aria-labelledby="slide-7-title">
+
+                <!-- Slide 8 — 未来规划 + 支持 -->
+        <section class="slide" aria-labelledby="slide-8-title">
           <div class="slide-inner">
             <div class="slide-title">
-              <p class="eyebrow">Support</p>
-              <h2 id="slide-7-title">你的支持会变成更稳定的服务和更少的断电焦虑</h2>
-              <p class="lead">我们会继续维护宿舍楼栋数据、优化查询体验、完善预警链路，并把项目过程沉淀到飞书文档中，方便协作和展示。</p>
+              <p class="eyebrow">What's Next</p>
+              <h2 id="slide-8-title">项目不会止步于此</h2>
+              <p class="lead">已有 branch 在并行开发中。</p>
+              <ul style="margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:14px;line-height:1.8;">
+                <li><strong>① 丽湖新 4 间宿舍</strong> — <code>codex/dlc-lihu</code> branch 已建，争取上线（独立电费系统）</li>
+                <li><strong>② CSV → SQLite</strong> — 订阅量增长后数据可靠性升级</li>
+                <li><strong>③ 排行榜</strong> — 告诉同学自己在整栋楼的用电排名，引导节约能源</li>
+              </ul>
+              <hr style="border:none;border-top:1px solid var(--line);margin:20px 0;">
+              <p class="eyebrow" style="margin-bottom:6px;">Support</p>
+              <h2 style="font-size:clamp(22px,3vw,32px);">你的支持会变成更稳定的服务和更少的断电焦虑</h2>
               <div class="actions">
                 <a class="link-button primary" href="https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb" target="_blank" rel="noreferrer">打开飞书 Wiki</a>
                 <a class="link-button" href="index.html">回到电费仪表盘</a>
@@ -232,7 +294,7 @@
               <div class="mini-stat-grid" aria-hidden="true">
                 <div class="mini-stat"><strong>Web</strong><span>静态仪表盘</span></div>
                 <div class="mini-stat"><strong>API</strong><span>本地代理服务</span></div>
-                <div class="mini-stat"><strong>Mail</strong><span>低电量预警</span></div>
+                <div class="mini-stat"><strong>Mail</strong><span>双类型邮件订阅</span></div>
               </div>
             </div>
           </div>
@@ -242,9 +304,16 @@
       <nav class="nav" aria-label="幻灯片导航">
         <button id="prevSlide" type="button" aria-label="上一页">‹</button>
         <div class="dots" id="dots" aria-hidden="true"></div>
-        <span class="counter" id="counter">1 / 7</span>
+        <span class="counter" id="counter">1 / 8</span>
         <button id="nextSlide" type="button" aria-label="下一页">›</button>
       </nav>
+      <div id="rotateHint" class="rotate-hint" hidden>
+        <div class="rotate-hint-inner">
+          <span class="rotate-icon">↻</span>
+          <p>请将手机横屏查看</p>
+          <button class="link-button" id="dismissHint" type="button">知道了</button>
+        </div>
+      </div>
     </main>
 
     <script src="work-intro.js" defer></script>

@@ -53,23 +53,36 @@
   var landscapeToggle = document.getElementById("landscapeToggle");
   var rotateHint = document.getElementById("rotateHint");
   var dismissHint = document.getElementById("dismissHint");
-
-  landscapeToggle.addEventListener("click", function () {
-    rotateHint.hidden = false;
-  });
+  var isSmallTouchScreen = window.matchMedia("(max-width: 860px) and (pointer: coarse)").matches;
 
   function hideRotateHint() {
-    rotateHint.hidden = true;
+    if (rotateHint) {
+      rotateHint.hidden = true;
+    }
   }
 
-  dismissHint.addEventListener("click", hideRotateHint);
-  rotateHint.addEventListener("click", function (e) {
-    if (e.target === rotateHint) hideRotateHint();
-  });
-
-  window.addEventListener("orientationchange", function () {
-    if (!rotateHint.hidden && window.matchMedia("(orientation: landscape)").matches) {
-      hideRotateHint();
+  if (!isSmallTouchScreen) {
+    hideRotateHint();
+    if (landscapeToggle) {
+      landscapeToggle.hidden = true;
     }
-  });
+    return;
+  }
+
+  if (landscapeToggle && rotateHint && dismissHint) {
+    landscapeToggle.addEventListener("click", function () {
+      rotateHint.hidden = false;
+    });
+
+    dismissHint.addEventListener("click", hideRotateHint);
+    rotateHint.addEventListener("click", function (e) {
+      if (e.target === rotateHint) hideRotateHint();
+    });
+
+    window.addEventListener("orientationchange", function () {
+      if (!rotateHint.hidden && window.matchMedia("(orientation: landscape)").matches) {
+        hideRotateHint();
+      }
+    });
+  }
 })();
