@@ -15,6 +15,9 @@ const subscriptionDialogCancel = document.querySelector("#subscriptionDialogCanc
 const subscriptionDialogConfirm = document.querySelector("#subscriptionDialogConfirm");
 
 let subscriptionWasPending = false;
+const likeButton = document.querySelector("#likeButton");
+const likeCount = document.querySelector("#likeCount");
+const userCount = document.querySelector("#userCount");
 const usageLevelForm = document.querySelector("#usageLevelForm");
 const resetUsageLevelsButton = document.querySelector("#resetUsageLevels");
 const sponsorButton = document.querySelector("#sponsorButton");
@@ -81,6 +84,7 @@ let lastMessage = { key: "message.initial", values: {}, isError: false, raw: nul
 let lastHeroStatus = { key: "status.waiting", values: {}, status: "unknown", raw: null };
 let lastFocusedElement = null;
 
+const LIKE_ID_KEY = "electrifyszu.likeId";
 const API_BASE = window.ELECTRIFYSZU_API_BASE || "";
 const IS_STATIC_PAGE =
   location.protocol === "file:" ||
@@ -291,6 +295,10 @@ languageButtons.forEach((button) => {
   });
 });
 
+if (likeButton) {
+  likeButton.addEventListener("click", handleLike);
+}
+
 usageLevelForm.addEventListener("input", () => {
   customUsageLevels = readUsageLevelInputs();
   saveUsageLevelSettings(customUsageLevels);
@@ -322,6 +330,104 @@ loadBuildings();
 syncEmailInputState();
 setupSubscriptionToggle();
 showPageNotice();
+initLike();
+
+// ── Like ──────────────────────────────────────────────────────────
+
+async function initLike() {
+  if (!canUseBackend() || !likeButton || !likeCount) {
+    return;
+  }
+
+  // 加载点赞数和总使用人数
+  try {
+    const payload = await fetchJson(apiUrl("/api/stats"));
+    updateLikeCount(payload.data.likes);
+    updateUserCount(payload.data.users);
+  } catch {
+    // 静默失败，不影响页面
+  }
+
+  // 检查当前用户是否已点过赞
+  const likeId = localStorage.getItem(LIKE_ID_KEY);
+  if (!likeId) {
+    likeButton.disabled = false;
+    return;
+  }
+  try {
+    const payload = await fetchJson(apiUrl(`/api/like/my?userId=${encodeURIComponent(likeId)}`));
+    if (payload.data.liked) {
+      likeButton.classList.add("liked");
+      likeButton.disabled = true;
+    } else {
+      likeButton.disabled = false;
+    }
+  } catch {
+    likeButton.disabled = false;
+  }
+}
+
+async function handleLike() {
+  if (!canUseBackend() || !likeButton || !likeCount) {
+    return;
+  }
+
+  likeButton.disabled = true;
+
+  try {
+    let likeId = localStorage.getItem(LIKE_ID_KEY);
+    if (!likeId) {
+      // 首次点赞，向服务端申请 ID
+      const initPayload = await postJson(apiUrl("/api/like/init"), {});
+      likeId = initPayload.id;
+      localStorage.setItem(LIKE_ID_KEY, likeId);
+    }
+
+    const payload = await postJson(apiUrl("/api/like"), { id: likeId });
+    if (!payload.already_liked) {
+      likeButton.classList.add("liked");
+    }
+    // 用返回的数据直接更新，避免多一次请求
+    updateLikeCount(payload.count);
+    if (payload.users != null) {
+      updateUserCount(payload.users);
+    }
+    // 再从 /api/stats 同步一次确保数据最新
+    try {
+      const statsPayload = await fetchJson(apiUrl("/api/stats"));
+      updateLikeCount(statsPayload.data.likes);
+      updateUserCount(statsPayload.data.users);
+    } catch {
+      // 静默
+    }
+    likeButton.disabled = true;
+  } catch {
+    setMessageKey("like.error", {}, true);
+    likeButton.disabled = false;
+  }
+}
+
+function updateLikeCount(count) {
+  if (!likeCount) {
+    return;
+  }
+  const number = Number(count);
+  if (Number.isFinite(number)) {
+    likeCount.textContent = number.toLocaleString();
+    likeCount.dataset.count = String(number);
+  }
+}
+
+function updateUserCount(count) {
+  if (!userCount) {
+    return;
+  }
+  const number = Number(count);
+  if (Number.isFinite(number)) {
+    userCount.textContent = t("stats.usersFormat", { count: number.toLocaleString() });
+    userCount.dataset.count = String(number);
+  }
+}
 
 async function loadBuildings() {
   if (!canUseBackend()) {
@@ -1807,6 +1913,10 @@ function setLanguage(locale, options = {}) {
   }
 
   syncEmailInputState();
+  // 语言切换后重新渲染使用人数（从 dataset 读取数字）
+  if (userCount && userCount.dataset.count) {
+    updateUserCount(Number(userCount.dataset.count));
+  }
 }
 
 function t(key, values = {}) {
