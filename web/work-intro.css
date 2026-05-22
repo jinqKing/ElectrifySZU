@@ -102,7 +102,7 @@ h1 {
 
 h2 {
   max-width: 700px;
-  font-size: clamp(34px, 5vw, 58px);
+  font-size: clamp(15px, 5vw, 58px);
   line-height: 1.05;
 }
 
@@ -639,6 +639,11 @@ h2 {
   place-items: center;
   background: rgba(22, 33, 45, 0.88);
   backdrop-filter: blur(12px);
+}
+
+.rotate-hint[hidden],
+#landscapeToggle[hidden] {
+  display: none !important;
 }
 
 .rotate-hint-inner {
