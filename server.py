@@ -212,55 +212,53 @@ class DashboardHandler(BaseHTTPRequestHandler):
         settings = AlertSettings.from_env(ROOT)
         token = _query_value(query, "token")
         status, subscription = verify_subscription(SubscriptionStore(settings.csv_path), token)
-        if status == "verified" and subscription is not None:
-            self._redirect_to_dashboard(
-                {
-                    "notice": "verified",
-                    "email": subscription.email,
-                    "campus": subscription.campus_name,
-                    "building": subscription.building_name,
-                    "room": subscription.room_name,
-                }
-            )
+        if status == "verified":
+            params = {"notice": "verified"}
+            if subscription:
+                params["email"] = subscription.email
+                params["campus"] = subscription.campus_name
+                params["building"] = subscription.building_name
+                params["room"] = subscription.room_name
+            self._redirect_to_dashboard(params)
             return
-        if status == "already_verified" and subscription is not None:
-            self._redirect_to_dashboard(
-                {
-                    "notice": "already_verified",
-                    "email": subscription.email,
-                    "campus": subscription.campus_name,
-                    "building": subscription.building_name,
-                    "room": subscription.room_name,
-                }
-            )
+        if status == "already_verified":
+            params = {"notice": "already_verified"}
+            if subscription:
+                params["email"] = subscription.email
+                params["campus"] = subscription.campus_name
+                params["building"] = subscription.building_name
+                params["room"] = subscription.room_name
+            self._redirect_to_dashboard(params)
+            return
+        if status == "expired":
+            self._redirect_to_dashboard({"notice": "verify_expired"})
             return
         self._redirect_to_dashboard({"notice": "verify_invalid"})
 
     def _handle_unsubscribe(self, query: dict[str, list[str]]) -> None:
+        """GET /api/unsubscribe?token=xxx — 一键退订（token 一次性，用后即销毁）。"""
         settings = AlertSettings.from_env(ROOT)
         token = _query_value(query, "token")
-        status, subscription = unsubscribe_subscription(SubscriptionStore(settings.csv_path), token)
-        if status == "unsubscribed" and subscription is not None:
-            self._redirect_to_dashboard(
-                {
-                    "notice": "unsubscribed",
-                    "email": subscription.email,
-                    "campus": subscription.campus_name,
-                    "building": subscription.building_name,
-                    "room": subscription.room_name,
-                }
-            )
+        status, subscription = unsubscribe_subscription(
+            SubscriptionStore(settings.csv_path), token
+        )
+        if status == "unsubscribed":
+            params = {"notice": "unsubscribed"}
+            if subscription:
+                params["email"] = subscription.email
+                params["campus"] = subscription.campus_name
+                params["building"] = subscription.building_name
+                params["room"] = subscription.room_name
+            self._redirect_to_dashboard(params)
             return
-        if status == "already_unsubscribed" and subscription is not None:
-            self._redirect_to_dashboard(
-                {
-                    "notice": "already_unsubscribed",
-                    "email": subscription.email,
-                    "campus": subscription.campus_name,
-                    "building": subscription.building_name,
-                    "room": subscription.room_name,
-                }
-            )
+        if status == "already_unsubscribed":
+            params = {"notice": "already_unsubscribed"}
+            if subscription:
+                params["email"] = subscription.email
+                params["campus"] = subscription.campus_name
+                params["building"] = subscription.building_name
+                params["room"] = subscription.room_name
+            self._redirect_to_dashboard(params)
             return
         self._redirect_to_dashboard({"notice": "unsubscribe_invalid"})
 
@@ -297,6 +295,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Referrer-Policy", "no-referrer")
         self.end_headers()
         self.wfile.write(data)
 
@@ -305,8 +304,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Referrer-Policy", "no-referrer")
         self.end_headers()
         self.wfile.write(data)
+
+    def _send_html(self, html: str, status: int = 200) -> None:
+        """发送 HTML 页面。"""
+        data = html.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _validate_referer(self) -> bool:
+        """检查 Referer 头是否来自本域（轻量 CSRF 防护）。"""
+        referer = self.headers.get("Referer", "")
+        host = self.headers.get("Host", "")
+        return bool(referer and host in referer)
 
     def _read_request_data(self) -> dict[str, str]:
         length = int(self.headers.get("Content-Length", "0") or "0")
@@ -338,6 +354,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(302)
         self.send_header("Location", location)
         self.send_header("Content-Length", "0")
+        self.send_header("Referrer-Policy", "no-referrer")
         self.end_headers()
 
 
@@ -447,6 +464,7 @@ def demo_status() -> dict[str, object]:
             ],
         },
     }
+
 
 
 def main() -> None:
