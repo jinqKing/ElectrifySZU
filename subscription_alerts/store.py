@@ -28,6 +28,7 @@ CSV_FIELDS = [
     "verification_token",
     "verification_sent_at",
     "last_alert_date",
+    "last_daily_report_date",
     "unsubscribe_token",
 ]
 _STORE_LOCKS: dict[Path, threading.Lock] = {}
@@ -53,6 +54,7 @@ class Subscription:
     verification_token: str
     verification_sent_at: str
     last_alert_date: str
+    last_daily_report_date: str
     unsubscribe_token: str
 
     @property
@@ -88,6 +90,7 @@ class Subscription:
             verification_token=row.get("verification_token", "").strip(),
             verification_sent_at=row.get("verification_sent_at", "").strip(),
             last_alert_date=row.get("last_alert_date", "").strip(),
+            last_daily_report_date=row.get("last_daily_report_date", "").strip(),
             unsubscribe_token=row.get("unsubscribe_token", "").strip(),
         )
 
@@ -110,6 +113,7 @@ class Subscription:
             "verification_token": self.verification_token,
             "verification_sent_at": self.verification_sent_at,
             "last_alert_date": self.last_alert_date,
+            "last_daily_report_date": self.last_daily_report_date,
             "unsubscribe_token": self.unsubscribe_token,
         }
 
@@ -166,12 +170,31 @@ class SubscriptionStore:
     def list_enabled(self) -> list[Subscription]:
         return [item for item in self.list_all() if item.is_active and item.alert_enabled]
 
+    def list_with_reports(self) -> list[Subscription]:
+        return [
+            item
+            for item in self.list_all()
+            if item.is_active and item.daily_report_enabled
+        ]
+
     def mark_alert_sent(self, subscription: Subscription, alert_date: str) -> None:
         with self._lock:
             rows = self.list_all()
             for row in rows:
                 if row.key == subscription.key:
                     row.last_alert_date = alert_date
+                    row.updated_at = now_iso()
+                    break
+            self._write(rows)
+
+    def mark_daily_report_sent(
+        self, subscription: Subscription, report_date: str
+    ) -> None:
+        with self._lock:
+            rows = self.list_all()
+            for row in rows:
+                if row.key == subscription.key:
+                    row.last_daily_report_date = report_date
                     row.updated_at = now_iso()
                     break
             self._write(rows)
@@ -273,6 +296,7 @@ def build_subscription(values: dict[str, Any], default_threshold: float) -> Subs
         verification_token=secrets.token_urlsafe(24),
         verification_sent_at=now,
         last_alert_date="",
+        last_daily_report_date="",
         unsubscribe_token=secrets.token_urlsafe(24),
     )
 
@@ -296,6 +320,7 @@ def merge_active_subscription(existing: Subscription, submitted: Subscription) -
         verification_token=existing.verification_token or submitted.verification_token,
         verification_sent_at=existing.verification_sent_at,
         last_alert_date=existing.last_alert_date,
+        last_daily_report_date=existing.last_daily_report_date,
         unsubscribe_token=existing.unsubscribe_token or submitted.unsubscribe_token,
     )
 
@@ -323,6 +348,9 @@ def merge_pending_subscription(
         verification_token=secrets.token_urlsafe(24),
         verification_sent_at=now,
         last_alert_date=existing.last_alert_date if existing else "",
+        last_daily_report_date=(
+            existing.last_daily_report_date if existing else ""
+        ),
         unsubscribe_token=(
             existing.unsubscribe_token
             if existing and existing.unsubscribe_token
