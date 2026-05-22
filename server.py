@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import mimetypes
 import re
 import sys
+import time
 from email import policy
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
+
+from log_config import setup_logging
 
 ROOT = Path(__file__).resolve().parent
 MONITOR_DIR = ROOT / "room-power-monitor"
@@ -17,6 +21,8 @@ WEB_DIR = ROOT / "web"
 BUILDINGS_FILE = MONITOR_DIR / "data" / "buildings.txt"
 ENV_FILE = ROOT / ".env"
 sys.path.insert(0, str(MONITOR_DIR))
+
+logger = logging.getLogger("server")
 
 from src.api import DormApi  # noqa: E402
 from src.config import Config  # noqa: E402
@@ -41,6 +47,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     server_version = f"ElectrifySZU/{__version__}"
 
     def do_GET(self) -> None:
+        self._request_start = time.time()
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
         if parsed.path == "/api/status":
@@ -64,6 +71,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._serve_static(parsed.path)
 
     def do_POST(self) -> None:
+        self._request_start = time.time()
         parsed = urlparse(self.path)
         if parsed.path == "/api/subscriptions":
             self._handle_subscription()
@@ -71,7 +79,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._send_json({"ok": False, "error": "Not found"}, status=404)
 
     def log_message(self, fmt: str, *args: object) -> None:
-        print(f"{self.address_string()} - {fmt % args}")
+        """覆写：结构化日志，包含 IP、方法、路径、状态码、耗时。"""
+        elapsed = ""
+        if hasattr(self, "_request_start"):
+            ms = (time.time() - self._request_start) * 1000
+            elapsed = f" ({ms:.0f}ms)"
+        logger.info(
+            "%s - %s%s",
+            self.address_string(),
+            fmt % args if args else fmt,
+            elapsed,
+        )
 
     def _handle_status(self, query: dict[str, list[str]]) -> None:
         try:
@@ -432,6 +450,8 @@ def demo_status() -> dict[str, object]:
 
 
 def main() -> None:
+    setup_logging()
+
     parser = argparse.ArgumentParser(description="Run the ElectrifySZU dashboard.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8000, type=int)
@@ -448,17 +468,17 @@ def main() -> None:
     args = parser.parse_args()
 
     server = ThreadingHTTPServer((args.host, args.port), DashboardHandler)
-    print(f"ElectrifySZU dashboard: http://{args.host}:{args.port}")
+    logger.info("ElectrifySZU dashboard: http://%s:%d", args.host, args.port)
     if args.check_now:
         stats = AlertRunner(ROOT).run_once(skip_recent=not args.no_skip)
-        print(f"[alert] startup check finished: {stats}")
+        logger.info("startup check finished: %s", stats)
     alert_thread = start_alert_worker(ROOT, skip_recent=not args.no_skip)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutdown requested (Ctrl+C)...")
+        logger.warning("Shutdown requested (Ctrl+C)...")
     finally:
-        print("Shutting down...")
+        logger.info("Shutting down...")
 
         # Step 1: Signal alert worker to stop
         shutdown_alert_worker()
@@ -466,15 +486,15 @@ def main() -> None:
         # Step 2: Stop accepting new connections and drain in-flight HTTP requests.
         # ThreadingMixIn.block_on_close=True (default) makes server_close() wait
         # for all non-daemon handler threads to finish before returning.
-        print("Closing server socket, draining in-flight requests...")
+        logger.info("Closing server socket, draining in-flight requests...")
         server.server_close()
 
         # Step 3: Wait for alert worker thread to finish
         alert_thread.join(timeout=10)
         if alert_thread.is_alive():
-            print("[warn] Alert worker thread did not exit within timeout.")
+            logger.warning("Alert worker thread did not exit within timeout.")
 
-        print("Server stopped.")
+        logger.info("Server stopped.")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import random
 import smtplib
@@ -15,6 +16,8 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 MONITOR_DIR = PROJECT_DIR / "room-power-monitor"
 if str(MONITOR_DIR) not in sys.path:
     sys.path.insert(0, str(MONITOR_DIR))
+
+logger = logging.getLogger("email")
 
 from src.config import _load_dotenv
 
@@ -91,9 +94,9 @@ class EmailService:
         for attempt in range(1, 4):
             try:
                 self._send_once(to_email, message)
-                print(
-                    f"[mail] sent OK  to={to_email}  "
-                    f"subject={subject!r}  attempt={attempt}"
+                logger.info(
+                    "sent OK to=%s subject=%r attempt=%d",
+                    to_email, subject, attempt,
                 )
                 return
             except (smtplib.SMTPServerDisconnected,
@@ -102,34 +105,38 @@ class EmailService:
                     TimeoutError) as exc:
                 last_exc = exc
                 wait = 2 ** attempt + random.uniform(0, 1)
-                print(
-                    f"[mail] retry    to={to_email}  "
-                    f"attempt={attempt}  error={exc!r}  "
-                    f"wait={wait:.1f}s"
+                logger.warning(
+                    "retry to=%s attempt=%d error=%r wait=%.1fs",
+                    to_email, attempt, exc, wait,
                 )
                 time.sleep(wait)
             except smtplib.SMTPAuthenticationError as exc:
-                print(f"[mail] FAILURE  to={to_email}  SMTP认证失败: {exc}")
+                logger.error(
+                    "FAILURE to=%s SMTP认证失败: %s", to_email, exc,
+                )
                 raise EmailDeliveryError(
                     f"SMTP认证失败，请检查发件邮箱密码/授权码: {exc}"
                 ) from exc
             except smtplib.SMTPRecipientsRefused as exc:
-                print(f"[mail] FAILURE  to={to_email}  收件人被SMTP拒绝: {exc}")
+                logger.error(
+                    "FAILURE to=%s 收件人被SMTP拒绝: %s", to_email, exc,
+                )
                 raise EmailDeliveryError(
                     f"收件地址 {to_email} 被SMTP服务器拒绝，请确认邮箱地址正确: {exc}"
                 ) from exc
             except smtplib.SMTPException as exc:
                 last_exc = exc
                 wait = 2 ** attempt + random.uniform(0, 1)
-                print(
-                    f"[mail] retry    to={to_email}  "
-                    f"attempt={attempt}  error={exc!r}  "
-                    f"wait={wait:.1f}s"
+                logger.warning(
+                    "retry to=%s attempt=%d error=%r wait=%.1fs",
+                    to_email, attempt, exc, wait,
                 )
                 time.sleep(wait)
 
         # 3 次全部失败
-        print(f"[mail] FAILURE  to={to_email}  重试3次后仍然失败: {last_exc}")
+        logger.error(
+            "FAILURE to=%s 重试3次后仍然失败: %s", to_email, last_exc,
+        )
         raise EmailDeliveryError(
             f"邮件发送失败（已重试3次）: {last_exc}"
         ) from last_exc
@@ -184,14 +191,14 @@ def main() -> None:
 
     config = EmailConfig.from_env(args.env)
     if args.show_config:
-        print(f"sender_name={config.sender_name}")
-        print(f"sender_email={config.sender_email}")
-        print(f"smtp_host={config.smtp_host}:{config.smtp_port}")
-        print(f"smtp_ssl={config.smtp_ssl}")
-        print(f"smtp_starttls={config.smtp_starttls}")
+        logger.info("sender_name=%s", config.sender_name)
+        logger.info("sender_email=%s", config.sender_email)
+        logger.info("smtp_host=%s:%d", config.smtp_host, config.smtp_port)
+        logger.info("smtp_ssl=%s", config.smtp_ssl)
+        logger.info("smtp_starttls=%s", config.smtp_starttls)
 
     EmailService(config).send_text(args.to, args.subject, args.content)
-    print(f"sent to {args.to}")
+    logger.info("sent to %s", args.to)
 
 
 if __name__ == "__main__":
