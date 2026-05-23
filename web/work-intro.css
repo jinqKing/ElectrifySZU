@@ -62,14 +62,17 @@ button {
   margin: 0 auto;
   padding-top: 52px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 430px);
-  align-items: center;
-  gap: 54px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 400px);
+  grid-auto-flow: dense;
+  align-content: center;
+  gap: 36px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .slide-title {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .eyebrow {
@@ -95,23 +98,73 @@ h2 {
 }
 
 h1 {
-  max-width: 760px;
-  font-size: clamp(38px, 6vw, 64px);
-  line-height: 1.04;
+  max-width: 640px;
+  font-size: clamp(32px, 5.5vw, 52px);
+  line-height: 1.1;
 }
 
 h2 {
-  max-width: 700px;
-  font-size: clamp(15px, 5vw, 58px);
-  line-height: 1.05;
+  max-width: 580px;
+  font-size: clamp(24px, 4.5vw, 42px);
+  line-height: 1.2;
 }
 
 .lead {
-  max-width: 680px;
+  max-width: 560px;
   margin-bottom: 0;
   color: var(--muted);
   font-size: clamp(17px, 2vw, 22px);
   line-height: 1.72;
+}
+
+/* --- Inline styles extracted from HTML --- */
+.alert-quote {
+  margin: 18px 0 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--red);
+  color: var(--red);
+  font-weight: 900;
+  font-style: normal;
+  background: none;
+}
+
+.meta-text {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.meta-text-sm {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.feature-ul,
+.killer-feature-ul,
+.future-ul {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.killer-feature-ul {
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.support-eyebrow {
+  margin-bottom: 6px;
+}
+
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 20px 0;
 }
 
 .title-line {
@@ -175,14 +228,14 @@ h2 {
 
 .dashboard-visual {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 10px;
+  padding: 14px;
 }
 
 .mock-toolbar,
 .mock-metrics {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .mock-toolbar {
@@ -247,8 +300,8 @@ h2 {
 }
 
 .mock-chart {
-  height: 190px;
-  padding: 22px 18px 16px;
+  height: 160px;
+  padding: 16px 14px 12px;
   border: 1px solid var(--line);
   background:
     linear-gradient(to top, rgba(220, 227, 234, 0.55) 1px, transparent 1px) 0 0 / 100% 25%,
@@ -299,15 +352,15 @@ h2 {
 .capability-list,
 .timeline-list {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .fact {
   display: grid;
-  grid-template-columns: 44px 1fr;
-  gap: 14px;
+  grid-template-columns: 40px 1fr;
+  gap: 12px;
   align-items: start;
-  padding: 15px;
+  padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.8);
@@ -329,11 +382,11 @@ h2 {
 .icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
   color: #fff;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
 }
 
@@ -355,17 +408,17 @@ h2 {
 
 .flow-visual {
   display: grid;
-  gap: 12px;
-  padding: 18px;
+  gap: 8px;
+  padding: 14px;
 }
 
 .flow-step {
   display: grid;
-  grid-template-columns: 42px 1fr;
-  gap: 12px;
+  grid-template-columns: 38px 1fr;
+  gap: 10px;
   align-items: center;
-  min-height: 64px;
-  padding: 10px 12px;
+  min-height: 54px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -374,12 +427,13 @@ h2 {
 .step-number {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   border-radius: 8px;
   background: var(--dark);
   color: #fff;
   font-weight: 900;
+  font-size: 13px;
 }
 
 .flow-step strong {
@@ -394,12 +448,12 @@ h2 {
 }
 
 .signal-visual {
-  padding: 20px;
+  padding: 16px;
 }
 
 .signal-meter {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .signal-row {
@@ -440,8 +494,8 @@ h2 {
 }
 
 .mail-preview {
-  margin-top: 22px;
-  padding: 15px;
+  margin-top: 16px;
+  padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -498,14 +552,14 @@ h2 {
 
 .support-visual {
   display: grid;
-  gap: 15px;
-  padding: 18px;
+  gap: 12px;
+  padding: 14px;
 }
 
 .wiki-box {
   display: grid;
-  gap: 12px;
-  padding: 18px;
+  gap: 8px;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -524,12 +578,12 @@ h2 {
 .mini-stat-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .mini-stat {
-  min-height: 82px;
-  padding: 12px;
+  min-height: 68px;
+  padding: 10px;
   border-radius: 8px;
   background: var(--dark);
   color: #fff;
@@ -545,7 +599,7 @@ h2 {
 
 .mini-stat strong {
   display: block;
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .mini-stat span {
@@ -676,6 +730,41 @@ h2 {
   cursor: pointer;
 }
 
+/* ===== Tablet portrait ≤1024px ===== */
+@media (max-width: 1024px) {
+  .slide-inner {
+    gap: 24px;
+    padding-top: 44px;
+    height: calc(100vh - 96px);
+  }
+
+  h1 {
+    font-size: clamp(28px, 5vw, 44px);
+  }
+
+  h2 {
+    font-size: clamp(22px, 4vw, 36px);
+  }
+
+  .lead {
+    font-size: clamp(15px, 2vw, 19px);
+  }
+
+  .dashboard-visual {
+    padding: 12px;
+  }
+
+  .mock-chart {
+    height: 140px;
+  }
+
+  .fact-list,
+  .capability-list {
+    gap: 8px;
+  }
+}
+
+/* ===== Phone / narrow screens ≤860px ===== */
 @media (max-width: 860px) {
   body {
     overflow: hidden;
@@ -693,7 +782,7 @@ h2 {
     max-height: calc(100vh - 100px);
     padding: 60px 0 30px;
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -721,29 +810,29 @@ h2 {
   }
 
   h1 {
-    font-size: clamp(30px, 8vw, 44px);
+    font-size: clamp(26px, 7vw, 38px);
   }
 
   h2 {
-    font-size: clamp(26px, 7vw, 40px);
+    font-size: clamp(20px, 6vw, 32px);
   }
 
   .lead {
-    font-size: clamp(15px, 3.5vw, 19px);
+    font-size: clamp(14px, 3vw, 17px);
   }
 
   .eyebrow {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .flow-visual {
-    gap: 8px;
-    padding: 12px;
+    gap: 6px;
+    padding: 10px;
   }
 
   .flow-step {
-    min-height: 52px;
-    padding: 8px 10px;
+    min-height: 46px;
+    padding: 6px 8px;
   }
 
   .flow-step strong {
@@ -755,13 +844,13 @@ h2 {
   }
 
   .step-number {
-    width: 34px;
-    height: 34px;
-    font-size: 14px;
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
   }
 
   .fact {
-    padding: 12px;
+    padding: 10px;
   }
 
   .fact strong {
@@ -769,7 +858,7 @@ h2 {
   }
 
   .signal-visual {
-    padding: 14px;
+    padding: 12px;
   }
 
   .signal-row {
@@ -778,17 +867,17 @@ h2 {
   }
 
   .timeline-visual {
-    padding: 12px;
+    padding: 10px;
   }
 
   .timeline-item {
     grid-template-columns: 64px 1fr;
-    gap: 12px;
-    padding: 10px 0;
+    gap: 10px;
+    padding: 8px 0;
   }
 
   .support-visual {
-    padding: 12px;
+    padding: 10px;
   }
 
   .mock-toolbar,
@@ -803,7 +892,7 @@ h2 {
   }
 
   .mock-chart {
-    height: 130px;
+    height: 120px;
   }
 
   .nav {
@@ -832,10 +921,11 @@ h2 {
   }
 }
 
+/* ===== Phone landscape ===== */
 @media (max-width: 860px) and (orientation: landscape) {
   .slide-inner {
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: 14px;
     padding: 44px 0 18px;
     max-height: calc(100vh - 80px);
   }
@@ -845,65 +935,65 @@ h2 {
   }
 
   h1 {
-    font-size: clamp(24px, 4vw, 36px);
+    font-size: clamp(22px, 4vw, 32px);
   }
 
   h2 {
-    font-size: clamp(20px, 3.5vw, 32px);
+    font-size: clamp(18px, 3.5vw, 28px);
   }
 
   .lead {
-    font-size: clamp(13px, 2.2vw, 16px);
+    font-size: clamp(12px, 2vw, 15px);
   }
 
   .flow-visual {
-    gap: 6px;
-    padding: 10px;
-  }
-
-  .flow-step {
-    min-height: 42px;
-    padding: 6px 8px;
-  }
-
-  .fact-list {
-    gap: 8px;
-  }
-
-  .fact {
-    padding: 10px;
-    grid-template-columns: 30px 1fr;
-    gap: 10px;
-  }
-
-  .fact strong {
-    font-size: 13px;
-  }
-
-  .fact p {
-    font-size: 12px;
-  }
-
-  .icon {
-    width: 30px;
-    height: 30px;
-    font-size: 16px;
-  }
-
-  .support-visual {
-    padding: 10px;
-  }
-
-  .mini-stat {
-    min-height: 60px;
+    gap: 4px;
     padding: 8px;
   }
 
+  .flow-step {
+    min-height: 38px;
+    padding: 4px 6px;
+  }
+
+  .fact-list {
+    gap: 6px;
+  }
+
+  .fact {
+    padding: 8px;
+    grid-template-columns: 28px 1fr;
+    gap: 8px;
+  }
+
+  .fact strong {
+    font-size: 12px;
+  }
+
+  .fact p {
+    font-size: 11px;
+  }
+
+  .icon {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+
+  .support-visual {
+    padding: 8px;
+  }
+
+  .mini-stat {
+    min-height: 52px;
+    padding: 6px;
+  }
+
   .mini-stat strong {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .mock-chart {
-    height: 100px;
+    height: 90px;
   }
 }
