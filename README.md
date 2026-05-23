@@ -78,7 +78,7 @@ ElectrifySZU 把查询、趋势、预警整合到一个页面里：
 
 ### 环境要求
 
-- Python 3.11+
+- Python 3.11+(3.14)
 - [uv](https://docs.astral.sh/uv/) 包管理器
 
 ### 本地运行
@@ -91,7 +91,7 @@ uv sync
 cp .env.example .env
 # 编辑 .env，填入校园网参数和 SMTP 配置
 
-uv run electrifyszu
+uv run server.py
 ```
 
 打开 `http://127.0.0.1:8000`。不在校园网时可点击“载入演示”预览效果。
@@ -268,7 +268,6 @@ docker compose up -d
 | POST | `/api/alerts/check` | 手动触发预警检查（需 `X-Admin-Token`） |
 | GET | `/api/version` | 服务版本信息 |
 | GET | `/api/health` | 健康检查 |
-<<<<<<< HEAD
 | POST | `/api/like/init` | 签发点赞者 ID（首次访问自动调用） |
 | POST | `/api/like` | 点赞（每人一次，仅接受已签发 ID） |
 | GET | `/api/like/count` | 获取点赞总数 |
