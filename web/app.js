@@ -79,6 +79,7 @@ const view = {
 let campuses = [];
 let allBuildings = [];
 let buildingChoices = [];
+let buildingActiveIndex = -1;
 let currentStatusData = null;
 let lastMessage = { key: "message.initial", values: {}, isError: false, raw: null };
 let lastHeroStatus = { key: "status.waiting", values: {}, status: "unknown", raw: null };
@@ -217,17 +218,57 @@ fields.campusGroup.addEventListener("change", () => {
   syncSelectedBuilding();
 });
 
+const debouncedBuildingInput = debounce((value) => {
+  buildingActiveIndex = -1;
+  renderBuildingOptions(value);
+  updateBuildingFeedback(value);
+}, 150);
+
 fields.buildingSearch.addEventListener("change", syncSelectedBuilding);
 fields.buildingSearch.addEventListener("input", () => {
-  renderBuildingOptions(fields.buildingSearch.value);
-  updateBuildingFeedback(fields.buildingSearch.value);
+  debouncedBuildingInput(fields.buildingSearch.value);
 });
 fields.buildingSearch.addEventListener("focus", () => {
   fields.buildingSearch.select();
-  renderBuildingOptions("");
+  /* scope to current campus on focus to avoid overwhelming the user */
+  const campusVal = fields.campusGroup.value;
+  if (campusVal) {
+    const campusBuildings = buildingChoices.filter((c) => c.campusGroup === campusVal);
+    renderBuildingOptionsForList(campusBuildings, "");
+  } else {
+    renderBuildingOptions("");
+  }
 });
 fields.buildingSearch.addEventListener("blur", () => {
-  setTimeout(() => updateBuildingFeedback(fields.buildingSearch.value), 120);
+  updateBuildingFeedback(fields.buildingSearch.value);
+});
+fields.buildingSearch.addEventListener("keydown", (e) => {
+  const list = document.querySelector("#buildingOptions");
+  const options = list.querySelectorAll(".combo-option");
+  if (!list.classList.contains("open") || options.length === 0) return;
+
+  switch (e.key) {
+    case "ArrowDown":
+      e.preventDefault();
+      buildingActiveIndex = Math.min(buildingActiveIndex + 1, options.length - 1);
+      updateActiveDescendant(options);
+      break;
+    case "ArrowUp":
+      e.preventDefault();
+      buildingActiveIndex = Math.max(buildingActiveIndex - 1, 0);
+      updateActiveDescendant(options);
+      break;
+    case "Enter":
+      e.preventDefault();
+      if (buildingActiveIndex >= 0 && buildingActiveIndex < options.length) {
+        options[buildingActiveIndex].click();
+      }
+      break;
+    case "Escape":
+      e.preventDefault();
+      closeBuildingOptions();
+      break;
+  }
 });
 
 fields.roomName.addEventListener("focus", () => {
@@ -1016,29 +1057,96 @@ function renderCampusOptions() {
 
 function renderBuildingOptions(filter = "") {
   const keyword = filter.trim().toLowerCase();
-  const options = buildingChoices
-    .filter((choice) => {
-      if (!keyword) {
-        return true;
-      }
-      return choice.searchText.includes(keyword);
-    });
+  const options = buildingChoices.filter((choice) => {
+    if (!keyword) return true;
+    return choice.searchText.includes(keyword);
+  });
+  renderBuildingOptionsForList(options, filter.trim());
+}
 
+function renderBuildingOptionsForList(options, rawKeyword = "") {
   const list = document.querySelector("#buildingOptions");
   list.innerHTML = "";
-  list.classList.toggle("open", options.length > 0);
-  for (const choice of options) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "combo-option";
-    button.innerHTML = `${choice.displayLabel}<small>${bilingualCampusName(choice.campusName)} · ${choice.sourceCampusLabel}</small>`;
-    button.addEventListener("click", () => {
+  buildingActiveIndex = -1;
+  fields.buildingSearch.removeAttribute("aria-activedescendant");
+
+  if (options.length === 0 && rawKeyword) {
+    /* ── No-results state ── */
+    const empty = document.createElement("div");
+    empty.className = "combo-empty";
+    empty.textContent = t("form.buildingNoResults");
+    list.append(empty);
+    list.classList.add("open");
+    return;
+  }
+
+  if (options.length === 0) {
+    list.classList.remove("open");
+    return;
+  }
+
+  list.classList.add("open");
+
+  const keywordLower = rawKeyword.toLowerCase();
+
+  for (let i = 0; i < options.length; i++) {
+    const choice = options[i];
+    const div = document.createElement("div");
+    div.className = "combo-option";
+    div.setAttribute("role", "option");
+    div.id = `building-opt-${i}`;
+    div.setAttribute("aria-selected", "false");
+
+    /* highlight matched text in label */
+    const label = keywordLower
+      ? highlightBuildingText(choice.displayLabel, rawKeyword)
+      : choice.displayLabel;
+    const campusInfo = `${bilingualCampusName(choice.campusName)} · ${choice.sourceCampusLabel}`;
+    div.innerHTML = `${label}<small>${campusInfo}</small>`;
+
+    /* pointerdown fires BEFORE blur — preventDefault keeps focus on input */
+    div.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
       fields.buildingSearch.value = choice.displayLabel;
       syncSelectedBuilding();
       closeBuildingOptions();
+      updateBuildingFeedback(choice.displayLabel);
     });
-    list.append(button);
+
+    list.append(div);
   }
+}
+
+function highlightBuildingText(text, rawKeyword) {
+  if (!rawKeyword) return text;
+  const escaped = rawKeyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`(${escaped})`, "gi"), "<mark>$1</mark>");
+}
+
+function updateActiveDescendant(options) {
+  if (!options) {
+    options = document.querySelectorAll("#buildingOptions .combo-option");
+  }
+  options.forEach((opt, i) => {
+    const isActive = i === buildingActiveIndex;
+    opt.classList.toggle("active", isActive);
+    opt.setAttribute("aria-selected", String(isActive));
+  });
+  const active = options[buildingActiveIndex];
+  if (active) {
+    fields.buildingSearch.setAttribute("aria-activedescendant", active.id);
+    active.scrollIntoView({ block: "nearest" });
+  } else {
+    fields.buildingSearch.removeAttribute("aria-activedescendant");
+  }
+}
+
+function debounce(fn, delay) {
+  let timer;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
 }
 
 async function loadStatus(url) {
@@ -1197,8 +1305,13 @@ function renderRecharges(recharges) {
   }
 }
 
+// Maximum data points shown in the trend chart
+const MAX_CHART_POINTS = 60;
+
 function renderTrend(trend) {
-  const points = trend.filter((item) => numberOrNull(item.remaining) != null).slice(-30);
+  const validPoints = trend.filter((item) => numberOrNull(item.remaining) != null);
+  const truncated = validPoints.length > MAX_CHART_POINTS;
+  const points = validPoints.slice(-(truncated ? MAX_CHART_POINTS : validPoints.length));
   view.trendChart.innerHTML = "";
   view.trendChart.classList.toggle("empty", points.length < 2);
 
@@ -1259,9 +1372,19 @@ function renderTrend(trend) {
     `<circle class="chart-dot" cx="${x(index)}" cy="${y(Number(item.remaining))}" r="4"></circle>`
   )).join("");
 
-  const targets = points.map((item, index) => (
-    `<button class="chart-target${index === selectedIndex ? " active" : ""}" type="button" data-chart-index="${index}" style="left: ${(x(index) / width) * 100}%; width: ${Math.max(28, barWidth + 18)}px;" aria-label="${escapeHtml(chartPointLabel(item))}"></button>`
-  )).join("");
+  // Interaction zones live inside the SVG so they map perfectly regardless of container size
+  const hotZoneHalfW = Math.max(14, barWidth / 2 + 9);
+  const interactions = points.map((item, index) => {
+    const cx = x(index);
+    const activeAttr = index === selectedIndex ? " active" : "";
+    return `
+      <g class="chart-zone${activeAttr}" data-chart-index="${index}" tabindex="0" role="button" aria-label="${escapeHtml(chartPointLabel(item))}">
+        <!-- invisible wide rectangle for easy hover/touch targeting -->
+        <rect class="chart-hotzone" x="${cx - hotZoneHalfW}" y="${padding.top}" width="${hotZoneHalfW * 2}" height="${plotHeight}" fill="transparent" />
+        <!-- visible indicator dot pinned to the baseline -->
+        <circle class="chart-indicator" cx="${cx}" cy="${height - padding.bottom + 5}" r="4" />
+      </g>`;
+  }).join("");
 
   const firstDate = shortDate(points[0].date);
   const lastDate = shortDate(points[points.length - 1].date);
@@ -1286,6 +1409,10 @@ function renderTrend(trend) {
     `;
   }).join("");
 
+  const truncationNotice = truncated
+    ? `<div class="chart-truncation"><span data-i18n-fallback="chart.truncatedInfo">⚠ 仅显示最近 ${MAX_CHART_POINTS} 天趋势，共 ${validPoints.length} 条记录</span></div>`
+    : "";
+
   view.trendChart.innerHTML = `
     <div class="chart-canvas">
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${t("chart.svgLabel")}">
@@ -1297,19 +1424,21 @@ function renderTrend(trend) {
         <polygon class="chart-area" points="${area}"></polygon>
         <polyline class="chart-line" points="${line}"></polyline>
         ${dots}
+        <g class="chart-interaction" aria-label="${t("chart.tooltipHint")}">
+          ${interactions}
+        </g>
         <text class="chart-label" x="${padding.left}" y="${height - 16}">${escapeHtml(firstDate)}</text>
         <text class="chart-label" x="${width - padding.right}" y="${height - 16}" text-anchor="end">${escapeHtml(lastDate)}</text>
         <text class="chart-label chart-title-label" x="${padding.left}" y="20">${t("chart.balanceLabel")}</text>
         <text class="chart-label chart-title-label" x="${width - padding.right}" y="20" text-anchor="end">${t("chart.dailyUseLabel")}</text>
       </svg>
-      <div class="chart-hit-layer" aria-label="${t("chart.tooltipHint")}">
-        ${targets}
-      </div>
       <div class="chart-tooltip" role="status" aria-live="polite"></div>
     </div>
+    ${truncationNotice}
   `;
 
-  attachTrendInteractions(points, { width, height, padding, x, y, barWidth, selectedIndex });
+  const svgEl = view.trendChart.querySelector("svg");
+  attachTrendInteractions(points, svgEl, { width, height, padding, x, y, barWidth, selectedIndex });
 }
 
 function chartAxis(maxValue, intervals = 5, headroom = 1) {
@@ -1386,57 +1515,70 @@ function formatAxisTick(value, step) {
   });
 }
 
-function attachTrendInteractions(points, geometry) {
-  const targets = Array.from(view.trendChart.querySelectorAll(".chart-target"));
+function computeSvgScale(svgEl, viewBoxSize) {
+  const rect = svgEl.getBoundingClientRect();
+  return { sx: rect.width / viewBoxSize.width, sy: rect.height / viewBoxSize.height };
+}
+
+function attachTrendInteractions(points, svgEl, geometry) {
+  const zones = Array.from(svgEl.querySelectorAll(".chart-zone"));
   const tooltip = view.trendChart.querySelector(".chart-tooltip");
-  if (!targets.length || !tooltip) {
+  if (!zones.length || !tooltip) {
     return;
   }
+
+  const vbSize = { width: geometry.width, height: geometry.height };
 
   const showPoint = (index) => {
     const item = points[index];
     if (!item) {
       return;
     }
-    const left = Math.max(12, Math.min(88, (geometry.x(index) / geometry.width) * 100));
-    const top = (geometry.y(Number(item.remaining)) / geometry.height) * 100;
+    const scale = computeSvgScale(svgEl, vbSize);
+    // Position tooltip in px relative to .chart-canvas
+    const pixelX = geometry.x(index) * scale.sx;
+    const pixelY = geometry.y(Number(item.remaining)) * scale.sy;
     tooltip.innerHTML = chartTooltipMarkup(item);
-    tooltip.style.left = `${left}%`;
-    tooltip.style.top = `${top}%`;
+    tooltip.style.left = `${pixelX}px`;
+    tooltip.style.top = `${pixelY}px`;
     tooltip.classList.add("visible");
-    targets.forEach((target, targetIndex) => {
-      target.classList.toggle("active", targetIndex === index);
+    zones.forEach((zone, zi) => {
+      zone.classList.toggle("active", zi === index);
     });
   };
 
   const hidePoint = () => {
     tooltip.classList.remove("visible");
-    targets.forEach((target) => target.classList.remove("active"));
+    zones.forEach((zone) => zone.classList.remove("active"));
   };
 
   showPoint(geometry.selectedIndex);
 
-  targets.forEach((target, index) => {
-    target.addEventListener("pointerenter", () => showPoint(index));
-    target.addEventListener("focus", () => showPoint(index));
-    target.addEventListener("click", () => showPoint(index));
-    target.addEventListener("keydown", (event) => {
+  zones.forEach((zone, index) => {
+    zone.addEventListener("pointerenter", () => showPoint(index));
+    zone.addEventListener("focus", () => showPoint(index));
+    zone.addEventListener("click", () => showPoint(index));
+    zone.addEventListener("keydown", (event) => {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
         return;
       }
       event.preventDefault();
       const direction = event.key === "ArrowLeft" ? -1 : 1;
       const nextIndex = Math.max(0, Math.min(points.length - 1, index + direction));
-      targets[nextIndex].focus();
+      zones[nextIndex].focus();
     });
   });
 
+  // Hide tooltip when leaving both the SVG AND the tooltip itself
   const canvas = view.trendChart.querySelector(".chart-canvas");
-  canvas.onpointerleave = (event) => {
-    if (event.pointerType === "mouse") {
-      hidePoint();
-    }
-  };
+  canvas.addEventListener("mouseleave", () => {
+    // Only hide if pointer isn't entering the tooltip
+    setTimeout(() => {
+      if (!tooltip.matches(":hover")) {
+        hidePoint();
+      }
+    }, 50);
+  });
 }
 
 function chartTooltipMarkup(item) {
@@ -1668,11 +1810,8 @@ function choicesForCurrentCampus() {
 
 function closeBuildingOptions() {
   document.querySelector("#buildingOptions").classList.remove("open");
-  const fb = fields.buildingFeedback;
-  if (fb) {
-    fb.parentElement.classList.remove("has-match-exact", "has-match-fuzzy", "has-no-match");
-    fb.textContent = "";
-  }
+  buildingActiveIndex = -1;
+  fields.buildingSearch.removeAttribute("aria-activedescendant");
 }
 
 function roomFloor(roomName) {
