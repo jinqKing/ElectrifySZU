@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -16,15 +17,20 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_ENV_FILE = PROJECT_DIR / ".env"
 
 
+def _env_str(name: str, default: str) -> str:
+    val = os.getenv(name)
+    return val.strip() if val and val.strip() else default
+
+
 def build_test_subscription(email: str) -> Subscription:
     timestamp = now_iso()
     return Subscription(
         email=email.strip().lower(),
-        client="192.168.84.87",
-        campus_name="粤海",
+        client=_env_str("TEST_CLIENT_IP", "192.168.84.87"),
+        campus_name=_env_str("TEST_BUILDING_CAMPUS", "粤海"),
         building_id="7126",
-        building_name="风槐斋",
-        room_name="713",
+        building_name=_env_str("TEST_BUILDING_NAME", "风槐斋"),
+        room_name=_env_str("TEST_ROOM_NAME", "713"),
         threshold_kwh=20.0,
         enabled=True,
         verified=True,
@@ -84,7 +90,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--base-url",
-        default="http://127.0.0.1:8001",
+        default=None,
         help="Base URL used in verify/unsubscribe links.",
     )
     parser.add_argument(
@@ -107,6 +113,7 @@ def main() -> None:
     args = parser.parse_args()
 
     config = EmailConfig.from_env(args.env)
+    base_url = args.base_url or os.getenv("PUBLIC_BASE_URL", "http://127.0.0.1:8000")
     if args.show_config:
         logger.info("sender_name=%s", config.sender_name)
         logger.info("sender_email=%s", config.sender_email)
@@ -124,11 +131,11 @@ def main() -> None:
         logger.info("run=%d at %s kind=%s", run_count, timestamp, args.kind)
 
         if args.kind in {"verification", "both"}:
-            send_verification_probe(service, args.to, args.base_url)
+            send_verification_probe(service, args.to, base_url)
             logger.info("verification email sent to %s", args.to)
 
         if args.kind in {"alert", "both"}:
-            send_alert_probe(service, args.to, args.base_url)
+            send_alert_probe(service, args.to, base_url)
             logger.info("alert email sent to %s", args.to)
 
         if interval_seconds <= 0:
