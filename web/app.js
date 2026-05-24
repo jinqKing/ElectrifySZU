@@ -83,7 +83,7 @@ const pageQuery = new URLSearchParams(location.search);
 let lastMessage = { key: "message.initial", values: {}, isError: false, raw: null };
 let lastHeroStatus = { key: "status.waiting", values: {}, status: "unknown", raw: null };
 
-const loadingStatusController =
+export const loadingStatusController =
   window.ElectrifySZULoadingStatus?.createController(message, loadingStatusOptions()) || null;
 
 setState("customUsageLevels", loadUsageLevelSettings());
