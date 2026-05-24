@@ -9,6 +9,7 @@ import { canUseBackend, apiUrl, fetchJson } from './api.js';
 export { buildingActiveIndex };
 
 const pageQuery = new URLSearchParams(location.search);
+let _firstLoad = true;
 
 // ── Cache ─────────────────────────────────────────────────────────
 
@@ -98,46 +99,16 @@ export function mergeBuildingChoices(buildings) {
   }));
 }
 
-// ── Static fallback data ───────────────────────────────────────────
+// ── Fallback JSON loader ────────────────────────────────────────────
 
-export function staticCampuses() {
-  return [
-    { client: "192.168.84.1", name: "北校区", buildings: [
-      { id: "6363", name: "乔林11-12层" }, { id: "6364", name: "乔木11-12层" },
-      { id: "6875", name: "乔森阁2-10层" }, { id: "6876", name: "乔森11-20层" },
-      { id: "6877", name: "乔相阁2-10层" }, { id: "6878", name: "乔相11-20层" },
-      { id: "6121", name: "乔林阁1-10层" }, { id: "6122", name: "乔木阁1-10层" },
-      { id: "7724", name: "乔梧阁2-10层" }, { id: "7725", name: "乔梧阁11-20" },
-      { id: "54", name: "山茶斋" }, { id: "55", name: "红榴斋" },
-      { id: "56", name: "米兰斋" }, { id: "57", name: "海桐斋" },
-      { id: "58", name: "桃李斋" }, { id: "59", name: "凌霄斋" },
-      { id: "61", name: "银桦斋" }, { id: "63", name: "木犀轩" },
-      { id: "64", name: "丹枫轩" }, { id: "65", name: "紫檀轩" },
-      { id: "66", name: "石楠轩" }, { id: "67", name: "苏铁轩" },
-      { id: "68", name: "芸香阁" }, { id: "69", name: "丁香阁" },
-      { id: "70", name: "文杏阁" }, { id: "71", name: "海棠阁" },
-      { id: "72", name: "疏影阁" }, { id: "73", name: "杜衡阁" },
-      { id: "74", name: "辛夷阁" }, { id: "75", name: "韵竹阁" },
-      { id: "76", name: "云杉轩" }, { id: "77", name: "紫藤轩" },
-      { id: "8147", name: "留学生公寓" },
-    ]},
-    { client: "192.168.84.110", name: "南校区", buildings: [
-      { id: "6875", name: "春笛3-8楼" }, { id: "6876", name: "夏筝3-17楼" },
-      { id: "6877", name: "秋瑟3-8楼" }, { id: "6878", name: "冬筑3-6楼" },
-      { id: "7119", name: "春笛9-17楼" }, { id: "7828", name: "秋瑟9-17楼" },
-      { id: "8240", name: "冬筑7-10楼" }, { id: "8241", name: "冬筑11-14楼" },
-      { id: "8242", name: "冬筑15-17楼" },
-    ]},
-    { client: "172.21.101.11", name: "丽湖校区", buildings: [
-      { id: "10057", name: "A栋风信子" }, { id: "10934", name: "B栋山楂树" },
-      { id: "10935", name: "C栋胡杨林" },
-    ]},
-    { client: "192.168.84.87", name: "深大新斋区", buildings: [
-      { id: "7126", name: "风槐斋" }, { id: "7603", name: "雨鹃斋" },
-      { id: "17887", name: "蓬莱客舍" }, { id: "18118", name: "聚翰斋" },
-      { id: "18119", name: "紫薇斋" }, { id: "18120", name: "红豆斋" },
-    ]},
-  ];
+// Derive base URL from import.meta.url so paths work in any deployment.
+const _DATA_BASE = new URL('../data/', import.meta.url).href;
+
+async function _fetchJSON(relativePath) {
+  const url = new URL(relativePath, _DATA_BASE).href;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
 }
 
 // ── Render ─────────────────────────────────────────────────────────
@@ -332,9 +303,9 @@ function choicesForCurrentCampus(fields) {
 
 // ── Master loader (with localStorage cache) ───────────────────────
 
-export async function loadBuildings(fields, { setMessageKey, loadStaticBuildings } = {}) {
+export async function loadBuildings(fields, { setMessageKey } = {}) {
   if (!canUseBackend()) {
-    if (loadStaticBuildings) loadStaticBuildings(fields);
+    await loadStaticBuildings(fields);
     if (setMessageKey) setMessageKey("message.staticPage");
     return;
   }
@@ -355,7 +326,7 @@ export async function loadBuildings(fields, { setMessageKey, loadStaticBuildings
       applyBuildingsData(fresh, fields);
     }
   } catch {
-    if (loadStaticBuildings) loadStaticBuildings(fields);
+    await loadStaticBuildings(fields);
     if (setMessageKey) setMessageKey("message.staticMode");
   }
 }
@@ -369,6 +340,20 @@ function applyBuildingsData(campusData, fields) {
   chooseDefaultBuildingForCampus(fields);
   renderBuildingOptions(fields);
   syncSelectedBuilding(fields);
+
+  // On first page load, gently animate the building dropdown open
+  // to hint that the user can directly select a building.
+  if (_firstLoad) {
+    _firstLoad = false;
+    const list = document.querySelector("#buildingOptions");
+    if (list && list.childElementCount > 0) {
+      list.classList.add("open");
+      // Force a reflow so the browser registers display:block
+      // before the animation keyframes kick in.
+      void list.offsetHeight;
+      list.classList.add("open-animated");
+    }
+  }
 }
 
 async function refreshBuildingsInBackground(fields) {
@@ -385,39 +370,25 @@ async function refreshBuildingsInBackground(fields) {
   } catch { /* silent — keep using cache */ }
 }
 
-export function loadStaticBuildings(fields) {
-  applyBuildingsData(staticCampuses(), fields);
+export async function loadStaticBuildings(fields) {
+  try {
+    const data = await _fetchJSON('buildings-fallback.json');
+    applyBuildingsData(data, fields);
+  } catch {
+    // Ultimate fallback: one building so the UI doesn't break
+    applyBuildingsData([{
+      client: "192.168.84.87",
+      name: "深大新斋区",
+      buildings: [{ id: "7126", name: "风槐斋" }],
+    }], fields);
+  }
 }
 
-export function staticDemoStatus() {
-  return {
-    client: "192.168.84.87",
-    campus_name: "粤海",
-    building_id: "7126",
-    building_name: "风槐斋",
-    room_id: "7322",
-    room_name: "713",
-    period: { begin: "2026-04-20", end: "2026-05-20", days: 30 },
-    records: 30,
-    threshold_kwh: 20,
-    status: "low",
-    remaining: 18.6,
-    total_used_kwh: 42.8,
-    daily_avg_kwh: 1.43,
-    est_days_left: 13.0,
-    last_record: "2026-05-20",
-    trend: [
-      { date: "2026-05-14", remaining: 27.8, daily_used_kwh: 1.5 },
-      { date: "2026-05-15", remaining: 26.1, daily_used_kwh: 1.7 },
-      { date: "2026-05-16", remaining: 24.9, daily_used_kwh: 1.2 },
-      { date: "2026-05-17", remaining: 23.0, daily_used_kwh: 1.9 },
-      { date: "2026-05-18", remaining: 21.4, daily_used_kwh: 1.6 },
-      { date: "2026-05-19", remaining: 20.0, daily_used_kwh: 1.4 },
-      { date: "2026-05-20", remaining: 18.6, daily_used_kwh: 1.4 },
-    ],
-    recharges: [
-      { time: "2026-05-08", kwh: 50, yuan: 30.5, method: "微信支付" },
-      { time: "2026-04-19", kwh: 30, yuan: 18.3, method: "支付宝" },
-    ],
-  };
+/** Lazy-load demo status data (used only when user clicks "载入演示"). */
+export async function fetchDemoStatus() {
+  try {
+    return await _fetchJSON('demo-status.json');
+  } catch {
+    return null;
+  }
 }
