@@ -45,7 +45,11 @@ export function renderStatus(data, view) {
   view.meterFill.style.background = statusColor(status);
 
   renderRecharges(data.recharges || [], view);
-  renderTrend(data.trend || [], view);
+  const rate = yuanPerKwh(data, DEFAULT_YUAN_PER_KWH);
+  renderTrend(data.trend || [], view, rate);
+
+  // 楼栋排行百分位
+  renderBuildingRank(data);
 }
 
 function revealResultsContainer() {
@@ -155,10 +159,63 @@ function waitTransition(el, ms) {
   });
 }
 
-export function renderTrend(trend, view) {
+/** Resolve formatting config based on chart unit mode */
+function resolveChartFmt(mode, rate) {
+  if (mode === "yuan") {
+    return {
+      mode: "yuan",
+      rate,
+      balTitle: t("chart.balanceLabelYuan"),
+      useTitle: t("chart.dailyUseLabelYuan"),
+      valToScreen(val, axis) {
+        const converted = val * rate;
+        const ratio = Math.max(0, Math.min(1, (converted - axis.min) / Math.max(axis.max - axis.min, 1)));
+        return ratio;
+      },
+      usageToScreen(val, axis) {
+        const converted = val * rate;
+        return Math.max(0, Math.min(1, converted / axis.max));
+      },
+      fmtAxisTick(rawValue, step) {
+        return formatMoneyNumber(rawValue * rate);
+      },
+      fmtBarValue(val) { return formatMoneyNumber(val * rate); },
+      fmtBalTooltip(val) { return `${MONEY_UNIT}${formatMoneyNumber(val * rate)}`; },
+      fmtUseTooltip(val) { return `${MONEY_UNIT}${formatMoneyNumber(val * rate)}`; },
+      balUnitStr: MONEY_UNIT,
+      useUnitStr: `${MONEY_UNIT}/day`,
+    };
+  }
+  return {
+    mode: "kwh",
+    rate,
+    balTitle: t("chart.balanceLabel"),
+    useTitle: t("chart.dailyUseLabel"),
+    valToScreen(val, axis) {
+      const ratio = Math.max(0, Math.min(1, (val - axis.min) / Math.max(axis.max - axis.min, 1)));
+      return ratio;
+    },
+    usageToScreen(val, axis) {
+      return Math.max(0, Math.min(1, val / axis.max));
+    },
+    fmtAxisTick(rawValue, step) {
+      return formatAxisTick(rawValue, step);
+    },
+    fmtBarValue(val) { return formatNumber(val); },
+    fmtBalTooltip(val) { return `${formatNumber(val)} kWh`; },
+    fmtUseTooltip(val) { return `${formatNumber(val)} kWh`; },
+    balUnitStr: "kWh",
+    useUnitStr: "kWh/day",
+  };
+}
+
+export function renderTrend(trend, view, rate) {
+  rate = rate ?? yuanPerKwh(currentStatusData ?? {}, DEFAULT_YUAN_PER_KWH);
   const validPoints = trend.filter((item) => numberOrNull(item.remaining) != null);
   const truncated = validPoints.length > MAX_CHART_POINTS;
   const points = validPoints.slice(-(truncated ? MAX_CHART_POINTS : validPoints.length));
+
+  const fmt = resolveChartFmt(metricMode.chartArea, rate);
 
   // ── Phase 1: fade-out old chart if present ──
   const oldCanvas = view.trendChart.querySelector(".chart-canvas");
@@ -166,15 +223,25 @@ export function renderTrend(trend, view) {
     oldCanvas.classList.add("chart-exit");
     waitTransition(oldCanvas, CHART_EXIT_MS).then(() => {
       view.trendChart.innerHTML = "";
-      buildAndAnimateIn(view, points, truncated);
+      buildAndAnimateIn(view, points, truncated, fmt);
     });
   } else {
-    buildAndAnimateIn(view, points, truncated);
+    buildAndAnimateIn(view, points, truncated, fmt);
+  }
+}
+
+export function toggleChartUnit(view) {
+  metricMode.chartArea = metricMode.chartArea === "yuan" ? "kwh" : "yuan";
+  const btn = document.getElementById("chartUnitToggle");
+  if (btn) btn.textContent = t("chart.unitToggle");
+  if (currentStatusData) {
+    const rate = yuanPerKwh(currentStatusData, DEFAULT_YUAN_PER_KWH);
+    renderTrend(currentStatusData.trend || [], view, rate);
   }
 }
 
 /** Build SVG markup, write DOM with invisible start, animate in, then wire events */
-function buildAndAnimateIn(view, points, truncated) {
+function buildAndAnimateIn(view, points, truncated, fmt) {
   view.trendChart.classList.toggle("empty", points.length < 2);
 
   if (points.length < 2) {
@@ -193,18 +260,20 @@ function buildAndAnimateIn(view, points, truncated) {
   const maxRemaining = Math.max(...remainingValues, 1);
   const minRemaining = Math.min(...remainingValues);
   const maxUsed = Math.max(...usedValues, 0);
-  const balanceAxis = chartAxisRange(minRemaining, maxRemaining, 5);
-  const usageAxis = chartAxis(maxUsed, 5, 1.12);
+  const effectiveMaxBal = fmt.mode === "yuan" ? maxRemaining * fmt.rate : maxRemaining;
+  const effectiveMinBal = fmt.mode === "yuan" ? minRemaining * fmt.rate : minRemaining;
+  const effectiveMaxUsed = fmt.mode === "yuan" ? maxUsed * fmt.rate : maxUsed;
+  const balanceAxis = chartAxisRange(effectiveMinBal, effectiveMaxBal, 5);
+  const usageAxis = chartAxis(effectiveMaxUsed, 5, 1.12);
   const usageLevels = resolveUsageLevels(usedValues);
   syncUsageLevelInputs(usedValues);
   const x = (index) => padding.left + (index / (points.length - 1)) * plotWidth;
   const y = (value) => {
-    const range = Math.max(balanceAxis.max - balanceAxis.min, 1);
-    const ratio = Math.max(0, Math.min(1, (value - balanceAxis.min) / range));
+    const ratio = fmt.valToScreen(value, balanceAxis);
     return height - padding.bottom - ratio * plotHeight;
   };
   const usageY = (value) => {
-    const ratio = Math.max(0, Math.min(1, value / usageAxis.max));
+    const ratio = fmt.usageToScreen(value, usageAxis);
     return height - padding.bottom - ratio * plotHeight;
   };
   const barWidth = Math.max(8, Math.min(24, plotWidth / points.length / 2));
@@ -235,7 +304,7 @@ function buildAndAnimateIn(view, points, truncated) {
     const cx = x(index);
     const activeAttr = index === selectedIndex ? " active" : "";
     return `
-      <g class="chart-zone${activeAttr}" data-chart-index="${index}" tabindex="0" role="button" aria-label="${escapeHtml(chartPointLabel(item))}">
+      <g class="chart-zone${activeAttr}" data-chart-index="${index}" tabindex="0" role="button" aria-label="${escapeHtml(chartPointLabel(item, fmt))}">
         <rect class="chart-hotzone" x="${cx - hotZoneHalfW}" y="${padding.top}" width="${hotZoneHalfW * 2}" height="${plotHeight}" fill="transparent" />
         <circle class="chart-indicator" cx="${cx}" cy="${height - padding.bottom + 5}" r="4" />
       </g>`;
@@ -255,8 +324,8 @@ function buildAndAnimateIn(view, points, truncated) {
         <line class="${gridClass}" x1="${padding.left}" y1="${tickY}" x2="${width - padding.right}" y2="${tickY}"></line>
         <line class="chart-tick-mark" x1="${padding.left - 5}" y1="${tickY}" x2="${padding.left}" y2="${tickY}"></line>
         <line class="chart-tick-mark" x1="${width - padding.right}" y1="${tickY}" x2="${width - padding.right + 5}" y2="${tickY}"></line>
-        <text class="chart-axis-label left" x="${padding.left - 10}" y="${tickY + 4}">${formatAxisTick(balanceValue, balanceAxis.step)}</text>
-        <text class="chart-axis-label right" x="${width - padding.right + 10}" y="${tickY + 4}">${formatAxisTick(usageValue, usageAxis.step)}</text>
+        <text class="chart-axis-label left" x="${padding.left - 10}" y="${tickY + 4}">${fmt.fmtAxisTick(balanceValue, balanceAxis.step)}</text>
+        <text class="chart-axis-label right" x="${width - padding.right + 10}" y="${tickY + 4}">${fmt.fmtAxisTick(usageValue, usageAxis.step)}</text>
       </g>`;
   }).join("");
 
@@ -280,8 +349,8 @@ function buildAndAnimateIn(view, points, truncated) {
         </g>
         <text class="chart-label" x="${padding.left}" y="${height - 16}">${escapeHtml(firstDate)}</text>
         <text class="chart-label" x="${width - padding.right}" y="${height - 16}" text-anchor="end">${escapeHtml(lastDate)}</text>
-        <text class="chart-label chart-title-label" x="${padding.left}" y="20">${t("chart.balanceLabel")}</text>
-        <text class="chart-label chart-title-label" x="${width - padding.right}" y="20" text-anchor="end">${t("chart.dailyUseLabel")}</text>
+        <text class="chart-label chart-title-label" x="${padding.left}" y="20">${escapeHtml(fmt.balTitle)}</text>
+        <text class="chart-label chart-title-label" x="${width - padding.right}" y="20" text-anchor="end">${escapeHtml(fmt.useTitle)}</text>
       </svg>
       <div class="chart-tooltip" role="status" aria-live="polite"></div>
     </div>
@@ -299,7 +368,7 @@ function buildAndAnimateIn(view, points, truncated) {
     canvas.classList.remove("chart-enter");
     canvas.removeAttribute("style");
     const svgEl = view.trendChart.querySelector("svg");
-    attachTrendInteractions(points, svgEl, view, { width, height, padding, x, y, barWidth, selectedIndex });
+    attachTrendInteractions(points, svgEl, view, { width, height, padding, x, y, barWidth, selectedIndex }, fmt);
   });
 }
 
@@ -308,7 +377,7 @@ function computeSvgScale(svgEl, viewBoxSize) {
   return { sx: rect.width / viewBoxSize.width, sy: rect.height / viewBoxSize.height };
 }
 
-function attachTrendInteractions(points, svgEl, view, geometry) {
+function attachTrendInteractions(points, svgEl, view, geometry, fmt) {
   const zones = Array.from(svgEl.querySelectorAll(".chart-zone"));
   const tooltip = view.trendChart.querySelector(".chart-tooltip");
   if (!zones.length || !tooltip) return;
@@ -321,7 +390,7 @@ function attachTrendInteractions(points, svgEl, view, geometry) {
     const scale = computeSvgScale(svgEl, vbSize);
     const pixelX = geometry.x(index) * scale.sx;
     const pixelY = geometry.y(Number(item.remaining)) * scale.sy;
-    tooltip.innerHTML = chartTooltipMarkup(item);
+    tooltip.innerHTML = chartTooltipMarkup(item, fmt);
     tooltip.style.left = `${pixelX}px`;
     tooltip.style.top = `${pixelY}px`;
     // Flip tooltip below the dot when too close to chart top edge,
@@ -361,15 +430,15 @@ function attachTrendInteractions(points, svgEl, view, geometry) {
   });
 }
 
-function chartTooltipMarkup(item) {
+function chartTooltipMarkup(item, fmt) {
   return `
     <strong>${escapeHtml(item.date || "--")}</strong>
-    <span>${escapeHtml(t("chart.tooltipBalance"))}: ${formatNumber(item.remaining)} kWh</span>
-    <span>${escapeHtml(t("chart.tooltipUsage"))}: ${formatNumber(item.daily_used_kwh || 0)} kWh</span>`;
+    <span>${escapeHtml(t("chart.tooltipBalance"))}: ${fmt.fmtBalTooltip(item.remaining)}</span>
+    <span>${escapeHtml(t("chart.tooltipUsage"))}: ${fmt.fmtUseTooltip(item.daily_used_kwh || 0)}</span>`;
 }
 
-function chartPointLabel(item) {
-  return `${item.date || "--"}, ${t("chart.tooltipBalance")} ${formatNumber(item.remaining)} kWh, ${t("chart.tooltipUsage")} ${formatNumber(item.daily_used_kwh || 0)} kWh`;
+function chartPointLabel(item, fmt) {
+  return `${item.date || "--"}, ${t("chart.tooltipBalance")} ${fmt.fmtBalTooltip(item.remaining)}, ${t("chart.tooltipUsage")} ${fmt.fmtUseTooltip(item.daily_used_kwh || 0)}`;
 }
 
 // ── Usage level controls ──────────────────────────────────────────
@@ -437,4 +506,24 @@ function setHeroStatusRaw(text, status) {
   if (!heroStatus) return;
   heroStatus.querySelector("span:last-child").textContent = text;
   heroStatus.querySelector(".pulse").style.background = statusColor(status);
+}
+
+function renderBuildingRank(data) {
+  const rankRow = document.querySelector("#rankRow");
+  const rankEl = document.querySelector("#buildingRank");
+  if (!rankRow || !rankEl) return;
+  if (data.building_percentile != null) {
+    rankRow.hidden = false;
+    rankEl.innerHTML =
+      t("format.ranking", {
+        percentile: data.building_percentile,
+        rank: data.building_rank,
+        total: data.building_rank_total,
+      }) +
+      ' <small class="rank-note">' +
+      t("details.rankNote") +
+      "</small>";
+  } else {
+    rankRow.hidden = true;
+  }
 }

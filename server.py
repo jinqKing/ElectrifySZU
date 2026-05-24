@@ -978,40 +978,60 @@ def _merge_apartment_into_lihu(data: list[dict[str, object]]) -> None:
     })
 
 
+def _demo_percentile_for_building(client: str, building_id: str, total_used_kwh: float | None) -> dict:
+    """从排行缓存中计算 demo 数据的百分位。"""
+    try:
+        ranking_data = cached_ranking_for(
+            _get_ranking_cache(), client=client, building_id=building_id
+        )
+        if ranking_data and ranking_data.get("ranking") and total_used_kwh is not None:
+            rows = ranking_data["ranking"]
+            below = sum(1 for r in rows if r["total_used_kwh"] < total_used_kwh)
+            total = len(rows)
+            percentile = round(below / total * 100) if total > 0 else 0
+            return {
+                "building_percentile": percentile,
+                "building_rank": below + 1,
+                "building_rank_total": total,
+            }
+    except Exception:
+        pass
+    return {}
+
+
 def demo_status() -> dict[str, object]:
-    return {
-        "ok": True,
-        "data": {
-            "building_id": "7126",
-            "client": "192.168.84.87",
-            "campus_name": "粤海",
-            "building_name": "风槐斋",
-            "room_id": "7322",
-            "room_name": "713",
-            "period": {"begin": "2026-04-20", "end": "2026-05-20", "days": 30},
-            "records": 30,
-            "threshold_kwh": 20,
-            "status": "low",
-            "remaining": 18.6,
-            "total_used_kwh": 42.8,
-            "daily_avg_kwh": 1.43,
-            "est_days_left": 13.0,
-            "last_record": "2026-05-20",
-            "trend": [
-                {"date": "2026-05-14", "remaining": 27.8, "daily_used_kwh": 1.5},
-                {"date": "2026-05-15", "remaining": 26.1, "daily_used_kwh": 1.7},
-                {"date": "2026-05-16", "remaining": 24.9, "daily_used_kwh": 1.2},
-                {"date": "2026-05-17", "remaining": 23.0, "daily_used_kwh": 1.9},
-                {"date": "2026-05-18", "remaining": 21.4, "daily_used_kwh": 1.6},
-                {"date": "2026-05-19", "remaining": 20.0, "daily_used_kwh": 1.4},
-                {"date": "2026-05-20", "remaining": 18.6, "daily_used_kwh": 1.4},
-            ],
-            "recharges": [
-                {"time": "2026-05-08", "kwh": 50, "yuan": 30.5, "method": "微信支付"},
-                {"time": "2026-04-19", "kwh": 30, "yuan": 18.3, "method": "支付宝"},
-            ],
-        },
+    data = {
+        "building_id": "7126",
+        "client": "192.168.84.87",
+        "campus_name": "粤海",
+        "building_name": "风槐斋",
+        "room_id": "7322",
+        "room_name": "713",
+        "period": {"begin": "2026-04-20", "end": "2026-05-20", "days": 30},
+        "records": 30,
+        "threshold_kwh": 20,
+        "status": "low",
+        "remaining": 18.6,
+        "total_used_kwh": 42.8,
+        "daily_avg_kwh": 1.43,
+        "est_days_left": 13.0,
+        "last_record": "2026-05-20",
+        "trend": [
+            {"date": "2026-05-14", "remaining": 27.8, "daily_used_kwh": 1.5},
+            {"date": "2026-05-15", "remaining": 26.1, "daily_used_kwh": 1.7},
+            {"date": "2026-05-16", "remaining": 24.9, "daily_used_kwh": 1.2},
+            {"date": "2026-05-17", "remaining": 23.0, "daily_used_kwh": 1.9},
+            {"date": "2026-05-18", "remaining": 21.4, "daily_used_kwh": 1.6},
+            {"date": "2026-05-19", "remaining": 20.0, "daily_used_kwh": 1.4},
+            {"date": "2026-05-20", "remaining": 18.6, "daily_used_kwh": 1.4},
+        ],
+        "recharges": [
+            {"time": "2026-05-08", "kwh": 50, "yuan": 30.5, "method": "微信支付"},
+            {"time": "2026-04-19", "kwh": 30, "yuan": 18.3, "method": "支付宝"},
+        ],
     }
+    data.update(_demo_percentile_for_building(data["client"], data["building_id"], data.get("total_used_kwh")))
+    return {"ok": True, "data": data}
 
 
 

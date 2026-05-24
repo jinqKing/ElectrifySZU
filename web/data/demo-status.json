@@ -6,7 +6,11 @@
     "building_name": "风槐斋",
     "room_id": "7322",
     "room_name": "713",
-    "period": { "begin": "2026-04-24", "end": "2026-05-24", "days": 30 },
+    "period": {
+      "begin": "2026-04-24",
+      "end": "2026-05-24",
+      "days": 30
+    },
     "records": 30,
     "threshold_kwh": 20,
     "status": "ok",
@@ -16,18 +20,59 @@
     "est_days_left": 42.6,
     "last_record": "2026-05-24",
     "trend": [
-      { "date": "2026-05-18", "remaining": 97.2, "daily_used_kwh": 2.1 },
-      { "date": "2026-05-19", "remaining": 95.0, "daily_used_kwh": 2.2 },
-      { "date": "2026-05-20", "remaining": 93.1, "daily_used_kwh": 1.9 },
-      { "date": "2026-05-21", "remaining": 90.8, "daily_used_kwh": 2.3 },
-      { "date": "2026-05-22", "remaining": 88.7, "daily_used_kwh": 2.1 },
-      { "date": "2026-05-23", "remaining": 86.9, "daily_used_kwh": 1.8 },
-      { "date": "2026-05-24", "remaining": 85.2, "daily_used_kwh": 1.7 }
+      {
+        "date": "2026-05-18",
+        "remaining": 97.2,
+        "daily_used_kwh": 2.1
+      },
+      {
+        "date": "2026-05-19",
+        "remaining": 95.0,
+        "daily_used_kwh": 2.2
+      },
+      {
+        "date": "2026-05-20",
+        "remaining": 93.1,
+        "daily_used_kwh": 1.9
+      },
+      {
+        "date": "2026-05-21",
+        "remaining": 90.8,
+        "daily_used_kwh": 2.3
+      },
+      {
+        "date": "2026-05-22",
+        "remaining": 88.7,
+        "daily_used_kwh": 2.1
+      },
+      {
+        "date": "2026-05-23",
+        "remaining": 86.9,
+        "daily_used_kwh": 1.8
+      },
+      {
+        "date": "2026-05-24",
+        "remaining": 85.2,
+        "daily_used_kwh": 1.7
+      }
     ],
     "recharges": [
-      { "time": "2026-05-22", "kwh": 100, "yuan": 61.0, "method": "微信支付" },
-      { "time": "2026-05-01", "kwh": 50, "yuan": 30.5, "method": "支付宝" }
-    ]
+      {
+        "time": "2026-05-22",
+        "kwh": 100,
+        "yuan": 61.0,
+        "method": "微信支付"
+      },
+      {
+        "time": "2026-05-01",
+        "kwh": 50,
+        "yuan": 30.5,
+        "method": "支付宝"
+      }
+    ],
+    "building_percentile": 33,
+    "building_rank": 20,
+    "building_rank_total": 57
   },
   {
     "client": "192.168.84.87",
@@ -36,7 +81,11 @@
     "building_name": "风槐斋",
     "room_id": "7322",
     "room_name": "713",
-    "period": { "begin": "2026-04-20", "end": "2026-05-20", "days": 30 },
+    "period": {
+      "begin": "2026-04-20",
+      "end": "2026-05-20",
+      "days": 30
+    },
     "records": 30,
     "threshold_kwh": 20,
     "status": "low",
@@ -46,18 +95,59 @@
     "est_days_left": 13.0,
     "last_record": "2026-05-20",
     "trend": [
-      { "date": "2026-05-14", "remaining": 27.8, "daily_used_kwh": 1.5 },
-      { "date": "2026-05-15", "remaining": 26.1, "daily_used_kwh": 1.7 },
-      { "date": "2026-05-16", "remaining": 24.9, "daily_used_kwh": 1.2 },
-      { "date": "2026-05-17", "remaining": 23.0, "daily_used_kwh": 1.9 },
-      { "date": "2026-05-18", "remaining": 21.4, "daily_used_kwh": 1.6 },
-      { "date": "2026-05-19", "remaining": 20.0, "daily_used_kwh": 1.4 },
-      { "date": "2026-05-20", "remaining": 18.6, "daily_used_kwh": 1.4 }
+      {
+        "date": "2026-05-14",
+        "remaining": 27.8,
+        "daily_used_kwh": 1.5
+      },
+      {
+        "date": "2026-05-15",
+        "remaining": 26.1,
+        "daily_used_kwh": 1.7
+      },
+      {
+        "date": "2026-05-16",
+        "remaining": 24.9,
+        "daily_used_kwh": 1.2
+      },
+      {
+        "date": "2026-05-17",
+        "remaining": 23.0,
+        "daily_used_kwh": 1.9
+      },
+      {
+        "date": "2026-05-18",
+        "remaining": 21.4,
+        "daily_used_kwh": 1.6
+      },
+      {
+        "date": "2026-05-19",
+        "remaining": 20.0,
+        "daily_used_kwh": 1.4
+      },
+      {
+        "date": "2026-05-20",
+        "remaining": 18.6,
+        "daily_used_kwh": 1.4
+      }
     ],
     "recharges": [
-      { "time": "2026-05-08", "kwh": 50, "yuan": 30.5, "method": "微信支付" },
-      { "time": "2026-04-19", "kwh": 30, "yuan": 18.3, "method": "支付宝" }
-    ]
+      {
+        "time": "2026-05-08",
+        "kwh": 50,
+        "yuan": 30.5,
+        "method": "微信支付"
+      },
+      {
+        "time": "2026-04-19",
+        "kwh": 30,
+        "yuan": 18.3,
+        "method": "支付宝"
+      }
+    ],
+    "building_percentile": 23,
+    "building_rank": 14,
+    "building_rank_total": 57
   },
   {
     "client": "192.168.84.87",
@@ -66,7 +156,11 @@
     "building_name": "风槐斋",
     "room_id": "7323",
     "room_name": "715",
-    "period": { "begin": "2026-04-24", "end": "2026-05-24", "days": 30 },
+    "period": {
+      "begin": "2026-04-24",
+      "end": "2026-05-24",
+      "days": 30
+    },
     "records": 30,
     "threshold_kwh": 20,
     "status": "critical",
@@ -76,18 +170,59 @@
     "est_days_left": 2.7,
     "last_record": "2026-05-24",
     "trend": [
-      { "date": "2026-05-18", "remaining": 16.0, "daily_used_kwh": 2.1 },
-      { "date": "2026-05-19", "remaining": 13.9, "daily_used_kwh": 2.1 },
-      { "date": "2026-05-20", "remaining": 11.8, "daily_used_kwh": 2.1 },
-      { "date": "2026-05-21", "remaining": 9.7, "daily_used_kwh": 2.1 },
-      { "date": "2026-05-22", "remaining": 7.6, "daily_used_kwh": 2.1 },
-      { "date": "2026-05-23", "remaining": 5.3, "daily_used_kwh": 2.3 },
-      { "date": "2026-05-24", "remaining": 5.3, "daily_used_kwh": 0.0 }
+      {
+        "date": "2026-05-18",
+        "remaining": 16.0,
+        "daily_used_kwh": 2.1
+      },
+      {
+        "date": "2026-05-19",
+        "remaining": 13.9,
+        "daily_used_kwh": 2.1
+      },
+      {
+        "date": "2026-05-20",
+        "remaining": 11.8,
+        "daily_used_kwh": 2.1
+      },
+      {
+        "date": "2026-05-21",
+        "remaining": 9.7,
+        "daily_used_kwh": 2.1
+      },
+      {
+        "date": "2026-05-22",
+        "remaining": 7.6,
+        "daily_used_kwh": 2.1
+      },
+      {
+        "date": "2026-05-23",
+        "remaining": 5.3,
+        "daily_used_kwh": 2.3
+      },
+      {
+        "date": "2026-05-24",
+        "remaining": 5.3,
+        "daily_used_kwh": 0.0
+      }
     ],
     "recharges": [
-      { "time": "2026-05-02", "kwh": 30, "yuan": 18.3, "method": "微信支付" },
-      { "time": "2026-04-10", "kwh": 50, "yuan": 30.5, "method": "支付宝" }
-    ]
+      {
+        "time": "2026-05-02",
+        "kwh": 30,
+        "yuan": 18.3,
+        "method": "微信支付"
+      },
+      {
+        "time": "2026-04-10",
+        "kwh": 50,
+        "yuan": 30.5,
+        "method": "支付宝"
+      }
+    ],
+    "building_percentile": 33,
+    "building_rank": 20,
+    "building_rank_total": 57
   },
   {
     "client": "192.168.84.87",
@@ -96,7 +231,11 @@
     "building_name": "风槐斋",
     "room_id": "7324",
     "room_name": "801",
-    "period": { "begin": "2026-04-24", "end": "2026-05-24", "days": 30 },
+    "period": {
+      "begin": "2026-04-24",
+      "end": "2026-05-24",
+      "days": 30
+    },
     "records": 30,
     "threshold_kwh": 20,
     "status": "critical",
@@ -106,18 +245,59 @@
     "est_days_left": -2.1,
     "last_record": "2026-05-24",
     "trend": [
-      { "date": "2026-05-18", "remaining": 10.0, "daily_used_kwh": 1.6 },
-      { "date": "2026-05-19", "remaining": 8.4, "daily_used_kwh": 1.6 },
-      { "date": "2026-05-20", "remaining": 6.9, "daily_used_kwh": 1.5 },
-      { "date": "2026-05-21", "remaining": 5.3, "daily_used_kwh": 1.6 },
-      { "date": "2026-05-22", "remaining": 3.1, "daily_used_kwh": 2.2 },
-      { "date": "2026-05-23", "remaining": 1.0, "daily_used_kwh": 2.1 },
-      { "date": "2026-05-24", "remaining": -3.2, "daily_used_kwh": 4.2 }
+      {
+        "date": "2026-05-18",
+        "remaining": 10.0,
+        "daily_used_kwh": 1.6
+      },
+      {
+        "date": "2026-05-19",
+        "remaining": 8.4,
+        "daily_used_kwh": 1.6
+      },
+      {
+        "date": "2026-05-20",
+        "remaining": 6.9,
+        "daily_used_kwh": 1.5
+      },
+      {
+        "date": "2026-05-21",
+        "remaining": 5.3,
+        "daily_used_kwh": 1.6
+      },
+      {
+        "date": "2026-05-22",
+        "remaining": 3.1,
+        "daily_used_kwh": 2.2
+      },
+      {
+        "date": "2026-05-23",
+        "remaining": 1.0,
+        "daily_used_kwh": 2.1
+      },
+      {
+        "date": "2026-05-24",
+        "remaining": -3.2,
+        "daily_used_kwh": 4.2
+      }
     ],
     "recharges": [
-      { "time": "2026-04-20", "kwh": 50, "yuan": 30.5, "method": "微信支付" },
-      { "time": "2026-04-01", "kwh": 30, "yuan": 18.3, "method": "支付宝" }
-    ]
+      {
+        "time": "2026-04-20",
+        "kwh": 50,
+        "yuan": 30.5,
+        "method": "微信支付"
+      },
+      {
+        "time": "2026-04-01",
+        "kwh": 30,
+        "yuan": 18.3,
+        "method": "支付宝"
+      }
+    ],
+    "building_percentile": 25,
+    "building_rank": 15,
+    "building_rank_total": 57
   },
   {
     "client": "192.168.84.87",
@@ -126,7 +306,11 @@
     "building_name": "风槐斋",
     "room_id": "7325",
     "room_name": "1002",
-    "period": { "begin": "2026-04-24", "end": "2026-05-24", "days": 30 },
+    "period": {
+      "begin": "2026-04-24",
+      "end": "2026-05-24",
+      "days": 30
+    },
     "records": 30,
     "threshold_kwh": 20,
     "status": "ok",
@@ -136,17 +320,53 @@
     "est_days_left": 66.7,
     "last_record": "2026-05-24",
     "trend": [
-      { "date": "2026-05-18", "remaining": 130.0, "daily_used_kwh": 1.2 },
-      { "date": "2026-05-19", "remaining": 128.7, "daily_used_kwh": 1.3 },
-      { "date": "2026-05-20", "remaining": 127.5, "daily_used_kwh": 1.2 },
-      { "date": "2026-05-21", "remaining": 126.3, "daily_used_kwh": 1.2 },
-      { "date": "2026-05-22", "remaining": 125.2, "daily_used_kwh": 1.1 },
-      { "date": "2026-05-23", "remaining": 123.0, "daily_used_kwh": 2.2 },
-      { "date": "2026-05-24", "remaining": 100.0, "daily_used_kwh": 23.0 }
+      {
+        "date": "2026-05-18",
+        "remaining": 130.0,
+        "daily_used_kwh": 1.2
+      },
+      {
+        "date": "2026-05-19",
+        "remaining": 128.7,
+        "daily_used_kwh": 1.3
+      },
+      {
+        "date": "2026-05-20",
+        "remaining": 127.5,
+        "daily_used_kwh": 1.2
+      },
+      {
+        "date": "2026-05-21",
+        "remaining": 126.3,
+        "daily_used_kwh": 1.2
+      },
+      {
+        "date": "2026-05-22",
+        "remaining": 125.2,
+        "daily_used_kwh": 1.1
+      },
+      {
+        "date": "2026-05-23",
+        "remaining": 123.0,
+        "daily_used_kwh": 2.2
+      },
+      {
+        "date": "2026-05-24",
+        "remaining": 100.0,
+        "daily_used_kwh": 23.0
+      }
     ],
     "recharges": [
-      { "time": "2026-05-24", "kwh": 100, "yuan": 61.0, "method": "微信支付" }
-    ]
+      {
+        "time": "2026-05-24",
+        "kwh": 100,
+        "yuan": 61.0,
+        "method": "微信支付"
+      }
+    ],
+    "building_percentile": 25,
+    "building_rank": 15,
+    "building_rank_total": 57
   },
   {
     "client": "192.168.84.87",
@@ -155,7 +375,11 @@
     "building_name": "风槐斋",
     "room_id": "7326",
     "room_name": "512",
-    "period": { "begin": "2026-04-24", "end": "2026-05-24", "days": 30 },
+    "period": {
+      "begin": "2026-04-24",
+      "end": "2026-05-24",
+      "days": 30
+    },
     "records": 30,
     "threshold_kwh": 20,
     "status": "low",
@@ -165,18 +389,64 @@
     "est_days_left": 4.4,
     "last_record": "2026-05-24",
     "trend": [
-      { "date": "2026-05-18", "remaining": 63.5, "daily_used_kwh": 6.5 },
-      { "date": "2026-05-19", "remaining": 57.0, "daily_used_kwh": 6.5 },
-      { "date": "2026-05-20", "remaining": 50.0, "daily_used_kwh": 7.0 },
-      { "date": "2026-05-21", "remaining": 43.0, "daily_used_kwh": 7.0 },
-      { "date": "2026-05-22", "remaining": 37.2, "daily_used_kwh": 5.8 },
-      { "date": "2026-05-23", "remaining": 33.0, "daily_used_kwh": 4.2 },
-      { "date": "2026-05-24", "remaining": 30.5, "daily_used_kwh": 2.5 }
+      {
+        "date": "2026-05-18",
+        "remaining": 63.5,
+        "daily_used_kwh": 6.5
+      },
+      {
+        "date": "2026-05-19",
+        "remaining": 57.0,
+        "daily_used_kwh": 6.5
+      },
+      {
+        "date": "2026-05-20",
+        "remaining": 50.0,
+        "daily_used_kwh": 7.0
+      },
+      {
+        "date": "2026-05-21",
+        "remaining": 43.0,
+        "daily_used_kwh": 7.0
+      },
+      {
+        "date": "2026-05-22",
+        "remaining": 37.2,
+        "daily_used_kwh": 5.8
+      },
+      {
+        "date": "2026-05-23",
+        "remaining": 33.0,
+        "daily_used_kwh": 4.2
+      },
+      {
+        "date": "2026-05-24",
+        "remaining": 30.5,
+        "daily_used_kwh": 2.5
+      }
     ],
     "recharges": [
-      { "time": "2026-05-10", "kwh": 100, "yuan": 61.0, "method": "微信支付" },
-      { "time": "2026-04-25", "kwh": 80, "yuan": 48.8, "method": "支付宝" },
-      { "time": "2026-04-15", "kwh": 60, "yuan": 36.6, "method": "微信支付" }
-    ]
+      {
+        "time": "2026-05-10",
+        "kwh": 100,
+        "yuan": 61.0,
+        "method": "微信支付"
+      },
+      {
+        "time": "2026-04-25",
+        "kwh": 80,
+        "yuan": 48.8,
+        "method": "支付宝"
+      },
+      {
+        "time": "2026-04-15",
+        "kwh": 60,
+        "yuan": 36.6,
+        "method": "微信支付"
+      }
+    ],
+    "building_percentile": 100,
+    "building_rank": 58,
+    "building_rank_total": 57
   }
 ]

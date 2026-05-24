@@ -219,6 +219,7 @@
               <span><i class="legend-bar medium"></i><span data-i18n="chart.mediumUseLegend">中用电</span></span>
               <span><i class="legend-bar high"></i><span data-i18n="chart.highUseLegend">高用电</span></span>
             </div>
+            <button type="button" id="chartUnitToggle" class="secondary compact" data-i18n="chart.unitToggle">金额/电量</button>
             <span id="chartRange" data-i18n="empty.noData">暂无数据</span>
           </div>
         </div>
@@ -263,6 +264,10 @@
             <div>
               <dt data-i18n="details.records">记录数</dt>
               <dd id="records">--</dd>
+            </div>
+            <div id="rankRow" hidden>
+              <dt data-i18n="details.buildingRank">楼内排行</dt>
+              <dd id="buildingRank">-- <small class="rank-note" data-i18n="details.rankNote">(测试数据，仅供参考)</small></dd>
             </div>
           </dl>
         </article>
