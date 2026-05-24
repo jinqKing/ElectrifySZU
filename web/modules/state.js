@@ -19,6 +19,7 @@ export const metricMode = {
   dailyAvg: "kwh",
   daysLeft: "days",
   totalUsed: "kwh",
+  chartArea: "kwh",
 };
 
 export let customUsageLevels = { medium: null, high: null };
