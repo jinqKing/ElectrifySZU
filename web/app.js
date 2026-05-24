@@ -1,8 +1,8 @@
 const form = document.querySelector("#queryForm");
 const subscriptionForm = document.querySelector("#subscriptionForm");
 const subscriptionTrigger = document.querySelector("#subscriptionTrigger");
-const subscriptionSummary = document.querySelector("#subscriptionSummary");
-const subscriptionCancelBtn = document.querySelector("#subscriptionCancelBtn");
+const subscriptionInner = document.querySelector(".subscription-inner");
+const starBadge = document.querySelector("#starBadge");
 const demoButton = document.querySelector("#demoButton");
 const message = document.querySelector("#message");
 const heroStatus = document.querySelector("#heroStatus");
@@ -331,6 +331,7 @@ syncEmailInputState();
 setupSubscriptionToggle();
 showPageNotice();
 initLike();
+loadGithubStars();
 
 // ── Like ──────────────────────────────────────────────────────────
 
@@ -770,53 +771,39 @@ function prepareSubscriptionDialog({ title, message, showCancel, confirmText }) 
   subscriptionDialogConfirm.textContent = confirmText;
 }
 
-// ---- Subscription Toggle (expand/collapse) ----
+/** @module Subscription Toggle — animated expand/collapse */
 
 function setupSubscriptionToggle() {
-  if (!subscriptionTrigger || !subscriptionForm || !subscriptionCancelBtn) {
+  if (!subscriptionTrigger || !subscriptionForm || !subscriptionInner) {
     return;
   }
-  subscriptionTrigger.addEventListener("click", expandSubscriptionForm);
-  subscriptionCancelBtn.addEventListener("click", collapseSubscriptionForm);
+  subscriptionTrigger.addEventListener("click", toggleSubscriptionPanel);
   if (subscriptionSummary) {
-    subscriptionSummary.addEventListener("click", expandSubscriptionForm);
+    subscriptionSummary.addEventListener("click", toggleSubscriptionPanel);
   }
 }
 
-function expandSubscriptionForm() {
-  if (!subscriptionTrigger || !subscriptionForm || !subscriptionCancelBtn) {
-    return;
-  }
+function toggleSubscriptionPanel() {
+  if (!subscriptionInner) return;
+  subscriptionInner.classList.toggle("open");
   subscriptionWasPending = false;
-  subscriptionTrigger.hidden = true;
-  subscriptionSummary.hidden = true;
-  subscriptionCancelBtn.hidden = false;
-  subscriptionForm.classList.remove("collapsed");
-}
-
-function collapseSubscriptionForm() {
-  if (!subscriptionTrigger || !subscriptionForm || !subscriptionCancelBtn) {
-    return;
-  }
-  subscriptionTrigger.hidden = false;
-  subscriptionCancelBtn.hidden = true;
-  subscriptionForm.classList.add("collapsed");
-  if (subscriptionSummary && !subscriptionSummary.hidden) {
-    subscriptionTrigger.hidden = true;
+  // Bounce the bell icon on click
+  const ring = subscriptionTrigger.querySelector(".ring-icon");
+  if (ring) {
+    ring.classList.remove("clicked");
+    void ring.offsetWidth; // force reflow to restart animation
+    ring.classList.add("clicked");
   }
 }
-
 function collapseToPendingVerification(email) {
-  if (!subscriptionSummary || !subscriptionTrigger || !subscriptionCancelBtn) {
+  if (!subscriptionSummary || !subscriptionInner) {
     return;
   }
   subscriptionWasPending = true;
   subscriptionSummary.innerHTML = `⏳ ${escapeHtml(email)} · ${t("subscribe.summaryPending")}`;
   subscriptionSummary.classList.add("pending-verification");
   subscriptionSummary.hidden = false;
-  subscriptionTrigger.hidden = true;
-  subscriptionCancelBtn.hidden = true;
-  subscriptionForm.classList.add("collapsed");
+  subscriptionInner.classList.remove("open");
 }
 
 function markAsVerified(email) {
@@ -830,14 +817,12 @@ function markAsVerified(email) {
 }
 
 function collapseToSubscribed(email) {
-  if (!subscriptionSummary || !subscriptionTrigger || !subscriptionCancelBtn) {
+  if (!subscriptionSummary || !subscriptionInner) {
     return;
   }
   subscriptionSummary.innerHTML = `✅ ${escapeHtml(email)} · ${t("subscribe.summaryActive")}`;
   subscriptionSummary.hidden = false;
-  subscriptionTrigger.hidden = true;
-  subscriptionCancelBtn.hidden = true;
-  subscriptionForm.classList.add("collapsed");
+  subscriptionInner.classList.remove("open");
 }
 
 function openSupportModal() {
@@ -1545,6 +1530,18 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+async function loadGithubStars() {
+  if (!starBadge || IS_STATIC_PAGE) return;
+  try {
+    const res = await fetchJson(apiUrl("/api/github-stars"));
+    const num = Number(res.stars) || 0;
+    const formatted = num >= 1000 ? `${(num / 1000).toFixed(1)}k+` : String(num);
+    starBadge.textContent = `★ ${formatted}`;
+  } catch (_) {
+    // silent fail — badge stays empty
+  }
 }
 
 function chooseDefaultBuildingForCampus() {

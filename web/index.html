@@ -41,6 +41,7 @@
                 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
               ></path>
             </svg>
+            <span class="star-badge" id="starBadge"></span>
             <span class="sr-only" data-i18n="brand.repo">GitHub Repository</span>
           </a>
           <button
@@ -52,7 +53,7 @@
             aria-controls="supportDialog"
             data-i18n="brand.sponsor"
           >
-            赞助我们
+            ☕ 赞助我们
           </button>
           <a
             class="secondary recharge-trigger"
@@ -112,41 +113,50 @@
         <p class="message query-hint" id="message" data-i18n="message.initial" aria-live="polite">
           连接校园网后查询真实余额，可先载入演示数据预览效果。
         </p>
-        <button type="button" class="subscription-toggle" id="subscriptionTrigger"
-            data-i18n="subscribe.triggerOpen">🔔 订阅电费预警邮件</button>
-        <div class="subscription-summary" id="subscriptionSummary" hidden></div>
-        <form id="subscriptionForm" class="subscription-form collapsed">
-          <label>
-            <span data-i18n="subscribe.email">预警邮箱</span>
-            <div class="email-input-group" data-default-domain="@email.szu.edu.cn">
-              <input
-                id="subscriberEmail"
-                name="email"
-                type="text"
-                inputmode="email"
-                placeholder="yourid"
-                data-i18n-placeholder="subscribe.emailPlaceholder"
-                autocomplete="email"
-                required
-              />
-              <span class="email-domain-hint" id="subscriberEmailDomainHint" aria-hidden="true">@email.szu.edu.cn</span>
+      </section>
+
+      <section class="subscription-panel" aria-label="订阅设置">
+        <div class="subscription-wrapper">
+          <div class="subscription-summary" id="subscriptionSummary" hidden></div>
+          <div class="subscription-body-wrap">
+            <div class="subscription-inner">
+              <form id="subscriptionForm" class="subscription-form">
+                <label>
+                  <span data-i18n="subscribe.email">预警邮箱</span>
+                  <div class="email-input-group" data-default-domain="@email.szu.edu.cn">
+                    <input
+                      id="subscriberEmail"
+                      name="email"
+                      type="text"
+                      inputmode="email"
+                      placeholder="yourid"
+                      data-i18n-placeholder="subscribe.emailPlaceholder"
+                      autocomplete="email"
+                      required
+                    />
+                    <span class="email-domain-hint" id="subscriberEmailDomainHint" aria-hidden="true">@email.szu.edu.cn</span>
+                  </div>
+                  <small class="field-hint" data-i18n="subscribe.emailHint">可只填写邮箱前缀，默认补全 @email.szu.edu.cn；提交后需到邮箱点击确认链接。</small>
+                </label>
+                <fieldset class="subscription-options" aria-label="订阅类型" data-i18n-aria-label="subscribe.optionsLabel">
+                  <label class="checkbox-option">
+                    <input id="subscribeAlert" name="alertEnabled" type="checkbox" checked />
+                    <span data-i18n="subscribe.alertOption">订阅电费预警</span>
+                  </label>
+                  <label class="checkbox-option">
+                    <input id="subscribeDailyReport" name="dailyReportEnabled" type="checkbox" />
+                    <span data-i18n="subscribe.dailyReportOption">每日电费报告</span>
+                  </label>
+                </fieldset>
+                <button class="secondary" type="submit" data-i18n="subscribe.submit">发送订阅</button>
+              </form>
             </div>
-            <small class="field-hint" data-i18n="subscribe.emailHint">可只填写邮箱前缀，默认补全 @email.szu.edu.cn；提交后需到邮箱点击确认链接。</small>
-          </label>
-          <fieldset class="subscription-options" aria-label="订阅类型" data-i18n-aria-label="subscribe.optionsLabel">
-            <label class="checkbox-option">
-              <input id="subscribeAlert" name="alertEnabled" type="checkbox" checked />
-              <span data-i18n="subscribe.alertOption">订阅电费预警</span>
-            </label>
-            <label class="checkbox-option">
-              <input id="subscribeDailyReport" name="dailyReportEnabled" type="checkbox" />
-              <span data-i18n="subscribe.dailyReportOption">每日电费报告</span>
-            </label>
-          </fieldset>
-          <button class="secondary" type="submit" data-i18n="subscribe.submit">订阅低电量预警</button>
-        </form>
-        <button type="button" class="subscription-cancel-btn" id="subscriptionCancelBtn" hidden
-          data-i18n="subscribe.cancelBack">✕ 返回</button>
+            <button type="button" class="subscription-toggle" id="subscriptionTrigger">
+              <span class="btn-primary-text"><span class="ring-icon">🔔</span> 订阅电费预警邮件</span>
+              <span class="btn-secondary-text">余额不足时收预警 / 每日电费报告</span>
+            </button>
+          </div>
+        </div>
       </section>
 
       <dialog class="subscription-dialog" id="subscriptionDialog" aria-labelledby="subscriptionDialogTitle">
