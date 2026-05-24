@@ -258,6 +258,8 @@ languageButtons.forEach((button) => {
     if (lastHeroStatus.raw != null) setHeroStatus(lastHeroStatus.raw, lastHeroStatus.status);
     else setHeroStatus(t(lastHeroStatus.key, lastHeroStatus.values), lastHeroStatus.status);
     syncEmailInputState();
+    const btn = document.querySelector("#chartUnitToggle");
+    if (btn) btn.textContent = t("chart.unitToggle");
     if (userCount && userCount.dataset.count) {
       const n = Number(userCount.dataset.count);
       if (Number.isFinite(n)) userCount.textContent = t("stats.usersFormat", { count: n.toLocaleString() });
@@ -284,6 +286,14 @@ resetUsageLevelsButton.addEventListener("click", async () => {
     renderTrend(currentStatusData.trend || [], view);
   }
 });
+
+const chartUnitToggle = document.querySelector("#chartUnitToggle");
+if (chartUnitToggle) {
+  chartUnitToggle.addEventListener("click", async () => {
+    const { toggleChartUnit } = await import('./modules/chart.js');
+    toggleChartUnit(view);
+  });
+}
 
 // ── Initialization ────────────────────────────────────────────────
 const initialLocale = resolveInitialLocale();
