@@ -901,6 +901,11 @@ button:disabled {
     transition: none;
     transform: none;
   }
+  .chart-canvas.chart-exit,
+  .chart-canvas.chart-enter {
+    transition: none;
+    opacity: 1;
+  }
 }
 
 .balance {
@@ -1148,6 +1153,21 @@ button:disabled {
 
 .chart-tooltip span {
   white-space: nowrap;
+}
+
+/* --- Fade-out / fade-in for chart replay transitions --- */
+.chart-canvas.chart-exit {
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.chart-canvas.chart-enter-init {
+  /* opacity forced inline, no transition yet */
+}
+
+.chart-canvas.chart-enter {
+  opacity: 1;
+  transition: opacity 280ms ease;
 }
 
 /* --- Tooltip direction-down: show below dot when near chart top --- */

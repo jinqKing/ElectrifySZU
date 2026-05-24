@@ -4,6 +4,42 @@ All notable changes to ElectrifySZU will be documented in this file.
 
 The format follows the spirit of Keep a Changelog, and this project uses an Euler-number-inspired version sequence that converges toward `e`.
 
+## [2.7182] - 2026-05-25
+
+### Highlights
+
+- **Online launch!** 🔗 Access the live system at [www.iotun.com](https://www.iotun.com) or directly via [129.204.227.179](http://129.204.227.179/).
+- Major frontend refactoring: modularized JS, lazy-loaded dependencies, improved performance and UX throughout.
+
+### Added
+
+- Added live demo badges to README linking to production deployments.
+- Redesigned subscription panel with cleaner layout and better form interaction.
+- Added GitHub star counter displayed in the page footer.
+- Added three-column action bar: GitHub repo link, sponsorship QR, and quick recharge shortcut.
+- Applied loading animation when submitting subscription forms.
+- Animated opening of building dropdown on first page visit for better discovery.
+- Hero status immediately shows "Loading..." placeholder on page load.
+- Multi-scenario rotation for demo data (more realistic preview scenarios).
+- Balance card color dynamically reflects power status (normal/warning/critical).
+- Auto-detect email domain based on student ID year (`@mail.szu.edu.cn` vs `@szu.edu.cn`).
+
+### Changed
+
+- Refactored monolithic `app.js` into ES Modules (`modules/app-core.js`, `modules/buildings.js`, `modules/chart.js`, `modules/subscription.js`).
+- Lazy-load chart.js library and subscription module only when needed, reducing initial bundle size.
+- Removed inline loading states from hero status element.
+- Cached building data in `localStorage` to avoid redundant network requests.
+- Cleaned up CSS: removed unnecessary `max-width` constraints causing premature line breaks.
+- Updated README with production URLs, clarified setup instructions, and bumped version badge to `2.7182`.
+
+### Fixed
+
+- Resolved three P0 bugs in the balance trend chart (tooltip clipping, axis overflow, rendering glitches).
+- Prevented building dropdown from auto-opening on initialization.
+- Supported alternate column names in purchase-series recharge records, fixing multi-building report parsing.
+- Clamped estimated remaining days to minimum of 0 (prevents negative display).
+
 ## [2.718] - 2026-05-22
 
 ### Security

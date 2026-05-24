@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.718-2563eb?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-2.7182-2563eb?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/python-3.11+-0f9f6e?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/license-MIT-617083?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/tests-19%20passed-0f9f6e?style=flat-square" alt="tests">
@@ -8,13 +8,22 @@
 <h1 align="center">ElectrifySZU</h1>
 
 <p align="center">
+  <a href="https://www.iotun.com"><img src="https://img.shields.io/badge/🚀 Live Demo-www.iotun.com-eab308?style=for-the-badge" alt="官网"></a>
+  <a href="http://129.204.227.179/"><img src="https://img.shields.io/badge/💻 Server-http%3A//129.204.227.179-eab308?style=for-the-badge" alt="直连"></a>
+</p>
+
+<p align="center">
+  <strong style="font-size: 1.3em;">👆 点击上方卡片立即体验在线版 👆</strong>
+</p>
+
+<p align="center">
   <strong>深大宿舍电费，不再只有断电时才知道。</strong><br>
   一次查询看到余额、趋势和预警，把校园电费系统变成一个真正的管家。
 </p>
 
----
+***
 
-## 这个项目解决什么问题
+## 📖 概览
 
 深圳大学宿舍的电费查询系统分散在校园内网网页、企业微信小程序等多个入口。每个入口都需要校园网环境，且查不到余额趋势、没有低电量提醒。
 

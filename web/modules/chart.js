@@ -12,6 +12,8 @@ import {
 const DEFAULT_YUAN_PER_KWH = 0.61;
 const MONEY_UNIT = "￥";
 const MAX_CHART_POINTS = 60;
+const CHART_EXIT_MS  = 220;
+const CHART_ENTER_MS = 280;
 
 export { MAX_CHART_POINTS };
 
@@ -144,11 +146,35 @@ function renderRecharges(recharges, view) {
 
 // ── Trend chart ───────────────────────────────────────────────────
 
+/** Resolve when a CSS transition ends on `el`, with a safety timeout */
+function waitTransition(el, ms) {
+  return new Promise(r => {
+    const h = () => { el.removeEventListener('transitionend', h); r(); };
+    el.addEventListener('transitionend', h);
+    setTimeout(r, ms + 40);
+  });
+}
+
 export function renderTrend(trend, view) {
   const validPoints = trend.filter((item) => numberOrNull(item.remaining) != null);
   const truncated = validPoints.length > MAX_CHART_POINTS;
   const points = validPoints.slice(-(truncated ? MAX_CHART_POINTS : validPoints.length));
-  view.trendChart.innerHTML = "";
+
+  // ── Phase 1: fade-out old chart if present ──
+  const oldCanvas = view.trendChart.querySelector(".chart-canvas");
+  if (oldCanvas) {
+    oldCanvas.classList.add("chart-exit");
+    waitTransition(oldCanvas, CHART_EXIT_MS).then(() => {
+      view.trendChart.innerHTML = "";
+      buildAndAnimateIn(view, points, truncated);
+    });
+  } else {
+    buildAndAnimateIn(view, points, truncated);
+  }
+}
+
+/** Build SVG markup, write DOM with invisible start, animate in, then wire events */
+function buildAndAnimateIn(view, points, truncated) {
   view.trendChart.classList.toggle("empty", points.length < 2);
 
   if (points.length < 2) {
@@ -239,7 +265,7 @@ export function renderTrend(trend, view) {
     : "";
 
   view.trendChart.innerHTML = `
-    <div class="chart-canvas">
+    <div class="chart-canvas chart-enter-init" style="opacity:0">
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${t("chart.svgLabel")}">
         <line class="chart-axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
         <line class="chart-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
@@ -261,8 +287,20 @@ export function renderTrend(trend, view) {
     </div>
     ${truncationNotice}`;
 
-  const svgEl = view.trendChart.querySelector("svg");
-  attachTrendInteractions(points, svgEl, view, { width, height, padding, x, y, barWidth, selectedIndex });
+  const canvas = view.trendChart.querySelector(".chart-canvas");
+  // Force reflow so the browser locks in opacity:0 as the starting paint
+  void canvas.offsetHeight;
+  // Flip class → CSS transition kicks in
+  canvas.classList.remove("chart-enter-init");
+  canvas.classList.add("chart-enter");
+
+  // Wire interactions only after the enter animation settles
+  waitTransition(canvas, CHART_ENTER_MS).then(() => {
+    canvas.classList.remove("chart-enter");
+    canvas.removeAttribute("style");
+    const svgEl = view.trendChart.querySelector("svg");
+    attachTrendInteractions(points, svgEl, view, { width, height, padding, x, y, barWidth, selectedIndex });
+  });
 }
 
 function computeSvgScale(svgEl, viewBoxSize) {
