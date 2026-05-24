@@ -1,38 +1,44 @@
+// ── ElectrifySZU — Entry point (ES Module) ─────────────────────────
+import { setLanguage, resolveInitialLocale, t } from './modules/i18n.js';
+import { setState, currentLocale, currentStatusData, customUsageLevels,
+         buildingActiveIndex, allBuildings, buildingChoices, metricMode } from './modules/state.js';
+import { escapeHtml, debounce, numberOrNull } from './modules/utils.js';
+import { canUseBackend, apiUrl, fetchJson } from './modules/api.js';
+import {
+  loadBuildings, renderBuildingOptions, renderBuildingOptionsForList,
+  renderCampusOptions, chooseDefaultBuildingForCampus, syncSelectedBuilding,
+  updateBuildingFeedback, closeBuildingOptions, updateActiveDescendant,
+  mergeBuildingChoices, flattenBuildings, normalizeCampuses, staticCampuses,
+  staticDemoStatus, loadStaticBuildings,
+} from './modules/buildings.js';
+import { renderStatus, renderTrend, toggleMetricMode,
+  loadUsageLevelSettings, saveUsageLevelSettings, readUsageLevelInputs } from './modules/chart.js';
+import { setupSubscriptionToggle, syncEmailInputState, saveSubscription,
+  markAsVerified } from './modules/subscription.js';
+import { initLike, handleLike } from './modules/likes.js';
+import { setupSponsor, setupSponsorKeyboard } from './modules/sponsor.js';
+import { loadGithubStars } from './modules/github.js';
+
+// ── DOM references ────────────────────────────────────────────────
 const form = document.querySelector("#queryForm");
 const subscriptionForm = document.querySelector("#subscriptionForm");
 const subscriptionTrigger = document.querySelector("#subscriptionTrigger");
 const subscriptionInner = document.querySelector(".subscription-inner");
+const subscriptionSummary = document.querySelector("#subscriptionSummary");
 const starBadge = document.querySelector("#starBadge");
 const demoButton = document.querySelector("#demoButton");
 const message = document.querySelector("#message");
 const heroStatus = document.querySelector("#heroStatus");
 const languageButtons = document.querySelectorAll("[data-lang]");
-const emailInputGroup = document.querySelector(".email-input-group");
-const emailDomainHint = document.querySelector("#subscriberEmailDomainHint");
 const subscriptionDialog = document.querySelector("#subscriptionDialog");
 const subscriptionDialogMessage = document.querySelector("#subscriptionDialogMessage");
 const subscriptionDialogCancel = document.querySelector("#subscriptionDialogCancel");
 const subscriptionDialogConfirm = document.querySelector("#subscriptionDialogConfirm");
-
-let subscriptionWasPending = false;
 const likeButton = document.querySelector("#likeButton");
 const likeCount = document.querySelector("#likeCount");
 const userCount = document.querySelector("#userCount");
 const usageLevelForm = document.querySelector("#usageLevelForm");
 const resetUsageLevelsButton = document.querySelector("#resetUsageLevels");
-const sponsorButton = document.querySelector("#sponsorButton");
-const supportModal = document.querySelector("#supportModal");
-const supportDialog = document.querySelector("#supportDialog");
-const supportCloseButton = document.querySelector("#supportClose");
-const supportBackdrop = document.querySelector("[data-support-close]");
-const supportFocusableSelector = [
-  "a[href]",
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  "[tabindex]:not([tabindex='-1'])",
-].join(",");
 
 const fields = {
   campusGroup: document.querySelector("#campusGroup"),
@@ -76,123 +82,21 @@ const view = {
   chartRange: document.querySelector("#chartRange"),
 };
 
-let campuses = [];
-let allBuildings = [];
-let buildingChoices = [];
-let buildingActiveIndex = -1;
-let currentStatusData = null;
+// ── State ─────────────────────────────────────────────────────────
+const pageQuery = new URLSearchParams(location.search);
 let lastMessage = { key: "message.initial", values: {}, isError: false, raw: null };
 let lastHeroStatus = { key: "status.waiting", values: {}, status: "unknown", raw: null };
-let lastFocusedElement = null;
 
-const LIKE_ID_KEY = "electrifyszu.likeId";
-const API_BASE = window.ELECTRIFYSZU_API_BASE || "";
-const IS_STATIC_PAGE =
-  location.protocol === "file:" ||
-  location.hostname.endsWith(".github.io") ||
-  location.hostname === "github.io";
-const DEFAULT_LOCALE = "zh-CN";
+const loadingStatusController =
+  window.ElectrifySZULoadingStatus?.createController(message, loadingStatusOptions()) || null;
 
-const DEFAULT_YUAN_PER_KWH = 0.61;
-const MONEY_UNIT = "￥";
-const USAGE_LEVEL_STORAGE_KEY = "electrifyszu.usageLevels";
-let customUsageLevels = loadUsageLevelSettings();
-const translations = window.ElectrifySZUI18n?.translations || {};
-translations["zh-CN"] ||= {};
-translations["en-US"] ||= {};
-translations["zh-CN"]["subscribe.emailPlaceholder"] ||= "学号或邮箱前缀";
-translations["zh-CN"]["subscribe.emailHint"] ||=
-  "自动补全 @email.szu.edu.cn；支持输入其他完整邮箱。";
-translations["zh-CN"]["subscribe.invalidEmail"] ||= "请输入有效邮箱，或仅填写默认邮箱前缀。";
-translations["zh-CN"]["subscribe.chooseOne"] ||= "请至少选择一种订阅类型。";
-translations["zh-CN"]["subscribe.dialogResultTitle"] ||= "订阅已提交";
-translations["zh-CN"]["subscribe.triggerOpen"] ||= "🔔 订阅电费预警邮件";
-translations["zh-CN"]["subscribe.cancelBack"] ||= "✕ 返回";
-translations["zh-CN"]["subscribe.summaryActive"] ||= "已订阅预警";
-  translations["zh-CN"]["subscribe.summaryPending"] ||= "待验证";
-translations["en-US"]["subscribe.triggerOpen"] ||= "🔔 Setup alerts";
-translations["en-US"]["subscribe.cancelBack"] ||= "✕ Back";
-translations["en-US"]["subscribe.summaryActive"] ||= "alerts subscribed";
-  translations["en-US"]["subscribe.summaryPending"] ||= "awaiting verification";
-translations["en-US"]["subscribe.emailPlaceholder"] ||= "NetID or email prefix";
-translations["en-US"]["subscribe.emailHint"] ||=
-  "Auto append @email.szu.edu.cn, support other emails";
-translations["en-US"]["subscribe.invalidEmail"] ||=
-  "Enter a valid email address, or only the default mailbox prefix.";
-translations["en-US"]["subscribe.chooseOne"] ||= "Choose at least one subscription type.";
-translations["en-US"]["subscribe.dialogResultTitle"] ||= "Subscription submitted";
-const LOCALE_QUERY = {
-  zh: "zh-CN",
-  "zh-CN": "zh-CN",
-  en: "en-US",
-  "en-US": "en-US",
-};
-const pageQuery = new URLSearchParams(location.search);
-const campusLabels = {
-  粤海: "粤海 / Yuehai",
-  丽湖: "丽湖 / Lihu",
-};
-const sourceCampusLabels = {
-  北校区: "北校区",
-  南校区: "南校区",
-  丽湖校区: "丽湖校区",
-  深大新斋区: "深大新斋区",
-};
-const buildingEnglishNames = {
-  "乔林阁": "Qiaolin Hall",
-  "乔木阁": "Qiaomu Hall",
-  "乔森阁": "Qiaosen Hall",
-  "乔相阁": "Qiaoxiang Hall",
-  "乔梧阁": "Qiaowu Hall",
-  "山茶斋": "Shancha Zhai",
-  "红榴斋": "Hongliu Zhai",
-  "米兰斋": "Milan Zhai",
-  "海桐斋": "Haitong Zhai",
-  "桃李斋": "Taoli Zhai",
-  "凌霄斋": "Lingxiao Zhai",
-  "银桦斋": "Yinhua Zhai",
-  "木犀轩": "Muxi Xuan",
-  "丹枫轩": "Danfeng Xuan",
-  "紫檀轩": "Zitan Xuan",
-  "石楠轩": "Shinan Xuan",
-  "苏铁轩": "Sutie Xuan",
-  "芸香阁": "Yunxiang Hall",
-  "丁香阁": "Dingxiang Hall",
-  "文杏阁": "Wenxing Hall",
-  "海棠阁": "Haitang Hall",
-  "疏影阁": "Shuying Hall",
-  "杜衡阁": "Duheng Hall",
-  "辛夷阁": "Xinyi Hall",
-  "韵竹阁": "Yunzhu Hall",
-  "云杉轩": "Yunshan Xuan",
-  "紫藤轩": "Ziteng Xuan",
-  "留学生公寓": "International Student Apartment",
-  "春笛": "Chundi",
-  "夏筝": "Xiazheng",
-  "秋瑟": "Qiuse",
-  "冬筑": "Dongzhu",
-  "A栋风信子": "Building A Hyacinth",
-  "B栋山楂树": "Building B Hawthorn",
-  "C栋胡杨林": "Building C Poplar",
-  "风槐斋": "Fenghuai Zhai",
-  "雨鹃斋": "Yujuan Zhai",
-  "蓬莱客舍": "Penglai House",
-  "聚翰斋": "Juhan Zhai",
-  "紫薇斋": "Ziwei Zhai",
-  "红豆斋": "Hongdou Zhai",
-};
-let currentLocale = resolveInitialLocale();
-const loadingStatusController = window.ElectrifySZULoadingStatus?.createController(message, loadingStatusOptions()) || null;
-const metricMode = {
-  remaining: "kwh",
-  dailyAvg: "kwh",
-  daysLeft: "days",
-  totalUsed: "kwh",
-};
+setState("customUsageLevels", loadUsageLevelSettings());
+
+// ── Event listeners ───────────────────────────────────────────────
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  syncSelectedBuilding();
+  syncSelectedBuilding(fields);
   if (!canUseBackend()) {
     setMessageKey("message.staticPage", {}, true);
     setHeroStatusKey("status.needBackend", {}, "critical");
@@ -203,7 +107,7 @@ form.addEventListener("submit", async (event) => {
 
 subscriptionForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  syncSelectedBuilding();
+  syncSelectedBuilding(fields);
   if (!canUseBackend()) {
     setMessageKey("subscribe.needsBackend", {}, true);
     setHeroStatusKey("status.needBackend", {}, "critical");
@@ -213,101 +117,84 @@ subscriptionForm.addEventListener("submit", async (event) => {
 });
 
 fields.campusGroup.addEventListener("change", () => {
-  chooseDefaultBuildingForCampus();
-  renderBuildingOptions();
-  syncSelectedBuilding();
+  chooseDefaultBuildingForCampus(fields);
+  renderBuildingOptions(fields);
+  syncSelectedBuilding(fields);
 });
 
 const debouncedBuildingInput = debounce((value) => {
-  buildingActiveIndex = -1;
-  renderBuildingOptions(value);
-  updateBuildingFeedback(value);
+  setState("buildingActiveIndex", -1);
+  renderBuildingOptions(fields, value);
+  updateBuildingFeedback(fields);
 }, 150);
 
-fields.buildingSearch.addEventListener("change", syncSelectedBuilding);
+fields.buildingSearch.addEventListener("change", () => syncSelectedBuilding(fields));
 fields.buildingSearch.addEventListener("input", () => {
   debouncedBuildingInput(fields.buildingSearch.value);
 });
 fields.buildingSearch.addEventListener("focus", () => {
   fields.buildingSearch.select();
-  /* scope to current campus on focus to avoid overwhelming the user */
   const campusVal = fields.campusGroup.value;
   if (campusVal) {
     const campusBuildings = buildingChoices.filter((c) => c.campusGroup === campusVal);
-    renderBuildingOptionsForList(campusBuildings, "");
+    renderBuildingOptionsForList(fields, campusBuildings, "");
   } else {
-    renderBuildingOptions("");
+    renderBuildingOptions(fields, "");
   }
 });
-fields.buildingSearch.addEventListener("blur", () => {
-  updateBuildingFeedback(fields.buildingSearch.value);
-});
+fields.buildingSearch.addEventListener("blur", () => updateBuildingFeedback(fields));
 fields.buildingSearch.addEventListener("keydown", (e) => {
   const list = document.querySelector("#buildingOptions");
   const options = list.querySelectorAll(".combo-option");
   if (!list.classList.contains("open") || options.length === 0) return;
-
   switch (e.key) {
     case "ArrowDown":
       e.preventDefault();
-      buildingActiveIndex = Math.min(buildingActiveIndex + 1, options.length - 1);
-      updateActiveDescendant(options);
+      setState("buildingActiveIndex", Math.min(buildingActiveIndex + 1, options.length - 1));
+      updateActiveDescendant(fields, options);
       break;
     case "ArrowUp":
       e.preventDefault();
-      buildingActiveIndex = Math.max(buildingActiveIndex - 1, 0);
-      updateActiveDescendant(options);
+      setState("buildingActiveIndex", Math.max(buildingActiveIndex - 1, 0));
+      updateActiveDescendant(fields, options);
       break;
     case "Enter":
       e.preventDefault();
-      if (buildingActiveIndex >= 0 && buildingActiveIndex < options.length) {
-        options[buildingActiveIndex].click();
-      }
+      if (buildingActiveIndex >= 0 && buildingActiveIndex < options.length) options[buildingActiveIndex].click();
       break;
     case "Escape":
       e.preventDefault();
-      closeBuildingOptions();
+      closeBuildingOptions(fields);
       break;
   }
 });
 
-fields.roomName.addEventListener("focus", () => {
-  fields.roomName.select();
-});
+fields.roomName.addEventListener("focus", () => fields.roomName.select());
 fields.subscriberEmail.addEventListener("input", syncEmailInputState);
 
 document.querySelectorAll("[data-metric-card]").forEach((card) => {
-  card.addEventListener("click", () => toggleMetricMode(card.dataset.metricKey));
+  card.addEventListener("click", () => toggleMetricMode(card.dataset.metricKey, view));
   card.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      toggleMetricMode(card.dataset.metricKey);
-    }
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleMetricMode(card.dataset.metricKey, view); }
   });
 });
 
 document.addEventListener("click", (event) => {
-  if (!event.target.closest(".combo")) {
-    closeBuildingOptions();
-  }
+  if (!event.target.closest(".combo")) closeBuildingOptions(fields);
 });
 
-demoButton.addEventListener("click", async () => {
-  renderStatus(staticDemoStatus());
+demoButton.addEventListener("click", () => {
+  renderStatus(staticDemoStatus(), view);
   setMessageKey("message.demoLoaded");
 });
 
+// Block F5 / Ctrl+R reload (SPA behavior)
 window.addEventListener("keydown", (event) => {
   const key = String(event.key || "").toLowerCase();
-  const isRefreshShortcut =
-    event.key === "F5" ||
-    ((event.ctrlKey || event.metaKey) && key === "r");
-  if (!isRefreshShortcut) {
-    return;
+  if (event.key === "F5" || ((event.ctrlKey || event.metaKey) && key === "r")) {
+    event.preventDefault();
+    event.stopPropagation();
   }
-
-  event.preventDefault();
-  event.stopPropagation();
 });
 
 window.addEventListener("beforeunload", (event) => {
@@ -315,854 +202,69 @@ window.addEventListener("beforeunload", (event) => {
   event.returnValue = "";
 });
 
-window.addEventListener("keydown", (event) => {
-  if (!supportModal || supportModal.hidden) {
-    return;
-  }
-
-  if (event.key === "Escape") {
-    closeSupportModal();
-    return;
-  }
-
-  if (event.key === "Tab") {
-    trapSupportFocus(event);
-  }
-});
-
 languageButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setLanguage(button.dataset.lang);
+    document.title = t("meta.title");
+    if (currentStatusData) renderStatus(currentStatusData, view);
+    else view.rechargeCount.textContent = t("format.records", { count: 0 });
+    if (lastMessage.raw != null) setMessage(lastMessage.raw, lastMessage.isError);
+    else setMessage(t(lastMessage.key, lastMessage.values), lastMessage.isError);
+    if (lastHeroStatus.raw != null) setHeroStatus(lastHeroStatus.raw, lastHeroStatus.status);
+    else setHeroStatus(t(lastHeroStatus.key, lastHeroStatus.values), lastHeroStatus.status);
+    syncEmailInputState();
+    if (userCount && userCount.dataset.count) {
+      const n = Number(userCount.dataset.count);
+      if (Number.isFinite(n)) userCount.textContent = t("stats.usersFormat", { count: n.toLocaleString() });
+    }
   });
 });
 
-if (likeButton) {
-  likeButton.addEventListener("click", handleLike);
-}
+likeButton?.addEventListener("click", handleLike);
 
 usageLevelForm.addEventListener("input", () => {
-  customUsageLevels = readUsageLevelInputs();
+  setState("customUsageLevels", readUsageLevelInputs());
   saveUsageLevelSettings(customUsageLevels);
-  if (currentStatusData) {
-    renderTrend(currentStatusData.trend || []);
-  }
+  if (currentStatusData) renderTrend(currentStatusData.trend || [], view);
 });
 
 resetUsageLevelsButton.addEventListener("click", () => {
-  customUsageLevels = { medium: null, high: null };
+  setState("customUsageLevels", { medium: null, high: null });
   saveUsageLevelSettings(customUsageLevels);
-  if (currentStatusData) {
-    renderTrend(currentStatusData.trend || []);
-  } else {
-    syncUsageLevelInputs([]);
-  }
+  if (currentStatusData) renderTrend(currentStatusData.trend || [], view);
 });
 
-sponsorButton?.addEventListener("click", openSupportModal);
-supportCloseButton?.addEventListener("click", closeSupportModal);
-supportBackdrop?.addEventListener("click", closeSupportModal);
+// ── Initialization ────────────────────────────────────────────────
+const initialLocale = resolveInitialLocale();
+setLanguage(initialLocale, { persist: false });
+document.title = t("meta.title");
 
-supportDialog?.addEventListener("click", (event) => {
-  event.stopPropagation();
-});
+loadBuildings(fields, { setMessageKey, loadStaticBuildings });
 
-setLanguage(currentLocale, { persist: false });
-loadBuildings();
 syncEmailInputState();
 setupSubscriptionToggle();
 showPageNotice();
-initLike();
 loadGithubStars();
 
-// ── Like ──────────────────────────────────────────────────────────
-
-async function initLike() {
-  if (!canUseBackend() || !likeButton || !likeCount) {
-    return;
-  }
-
-  // 加载点赞数和总使用人数
-  try {
-    const payload = await fetchJson(apiUrl("/api/stats"));
-    updateLikeCount(payload.data.likes);
-    updateUserCount(payload.data.users);
-  } catch {
-    // 静默失败，不影响页面
-  }
-
-  // 检查当前用户是否已点过赞
-  const likeId = localStorage.getItem(LIKE_ID_KEY);
-  if (!likeId) {
-    likeButton.disabled = false;
-    return;
-  }
-  try {
-    const payload = await fetchJson(apiUrl(`/api/like/my?userId=${encodeURIComponent(likeId)}`));
-    if (payload.data.liked) {
-      likeButton.classList.add("liked");
-      likeButton.disabled = true;
-    } else {
-      likeButton.disabled = false;
-    }
-  } catch {
-    likeButton.disabled = false;
-  }
+// Lazy-loaded: likes (deferred with requestIdleCallback)
+if ('requestIdleCallback' in window) {
+  requestIdleCallback(() => { initLike(); }, { timeout: 2000 });
+} else {
+  setTimeout(() => { initLike(); }, 1000);
 }
 
-async function handleLike() {
-  if (!canUseBackend() || !likeButton || !likeCount) {
-    return;
-  }
+setupSponsor();
+setupSponsorKeyboard();
 
-  likeButton.disabled = true;
-
-  try {
-    let likeId = localStorage.getItem(LIKE_ID_KEY);
-    if (!likeId) {
-      // 首次点赞，向服务端申请 ID
-      const initPayload = await postJson(apiUrl("/api/like/init"), {});
-      likeId = initPayload.id;
-      localStorage.setItem(LIKE_ID_KEY, likeId);
-    }
-
-    const payload = await postJson(apiUrl("/api/like"), { id: likeId });
-    if (!payload.already_liked) {
-      likeButton.classList.add("liked");
-    }
-    // 用返回的数据直接更新，避免多一次请求
-    updateLikeCount(payload.count);
-    if (payload.users != null) {
-      updateUserCount(payload.users);
-    }
-    // 再从 /api/stats 同步一次确保数据最新
-    try {
-      const statsPayload = await fetchJson(apiUrl("/api/stats"));
-      updateLikeCount(statsPayload.data.likes);
-      updateUserCount(statsPayload.data.users);
-    } catch {
-      // 静默
-    }
-    likeButton.disabled = true;
-  } catch {
-    setMessageKey("like.error", {}, true);
-    likeButton.disabled = false;
-  }
-}
-
-function updateLikeCount(count) {
-  if (!likeCount) {
-    return;
-  }
-  const number = Number(count);
-  if (Number.isFinite(number)) {
-    likeCount.textContent = number.toLocaleString();
-    likeCount.dataset.count = String(number);
-  }
-}
-
-function updateUserCount(count) {
-  if (!userCount) {
-    return;
-  }
-  const number = Number(count);
-  if (Number.isFinite(number)) {
-    userCount.textContent = t("stats.usersFormat", { count: number.toLocaleString() });
-    userCount.dataset.count = String(number);
-  }
-}
-
-async function loadBuildings() {
-  if (!canUseBackend()) {
-    loadStaticBuildings();
-    setMessageKey("message.staticPage");
-    return;
-  }
-
-  try {
-    const payload = await fetchJson(apiUrl("/api/buildings"));
-    if (Array.isArray(payload.data) && payload.data.length > 0) {
-      campuses = normalizeCampuses(payload.data);
-      allBuildings = flattenBuildings(campuses);
-      buildingChoices = mergeBuildingChoices(allBuildings);
-      renderCampusOptions();
-      chooseDefaultBuildingForCampus();
-      renderBuildingOptions();
-      syncSelectedBuilding();
-    }
-  } catch {
-    loadStaticBuildings();
-    setMessageKey("message.staticMode");
-  }
-}
-
-function canUseBackend() {
-  return Boolean(API_BASE) || !IS_STATIC_PAGE;
-}
-
-function apiUrl(path) {
-  if (!API_BASE) {
-    return path;
-  }
-  return new URL(path, API_BASE).toString();
-}
-
-function showPageNotice() {
-  const notice = pageQuery.get("notice");
-  if (!notice) {
-    return;
-  }
-
-  const values = {
-    email: pageQuery.get("email") || "",
-    campus: pageQuery.get("campus") || "",
-    building: pageQuery.get("building") || "",
-    room: pageQuery.get("room") || "",
-  };
-  const mapping = {
-    verified: "notice.verified",
-    already_verified: "notice.alreadyVerified",
-    verify_expired: "notice.verifyExpired",
-    verify_invalid: "notice.verifyInvalid",
-    unsubscribed: "notice.unsubscribed",
-    already_unsubscribed: "notice.alreadyUnsubscribed",
-    unsubscribe_invalid: "notice.unsubscribeInvalid",
-  };
-  const key = mapping[notice];
-  if (!key) {
-    return;
-  }
-
-  // If detail fields are empty, use a generic message for unsubscribe notices
-  const hasDetails = values.email || values.campus || values.building || values.room;
-  if (!hasDetails && notice.includes("unsubscribed")) {
-    setMessageKey("notice.unsubscribedGeneric", {}, notice.endsWith("invalid"));
-  } else {
-    setMessageKey(key, values, notice.endsWith("invalid"));
-  }
-  if (notice.includes("unsubscribed")) {
-    setHeroStatusKey("status.waiting", {}, "unknown");
-  }
-
-  pageQuery.delete("notice");
-  pageQuery.delete("email");
-  pageQuery.delete("campus");
-  pageQuery.delete("building");
-  pageQuery.delete("room");
-  const nextQuery = pageQuery.toString();
-  const nextUrl = `${location.pathname}${nextQuery ? `?${nextQuery}` : ""}${location.hash}`;
-  history.replaceState({}, "", nextUrl);
-
-  // Swap the orange ⏳ badge to green ✅ when verification completes
-  if (notice === "verified" || notice === "already_verified") {
-    if (values.email) {
-      markAsVerified(values.email);
-    }
-  }
-
-  // Show a popup dialog for positive outcomes so the user sees it even if attention is elsewhere
-  if (["verified", "already_verified", "unsubscribed", "already_unsubscribed"].includes(notice)) {
-    showVerificationNotice(notice, values);
-  }
-}
-
-function showVerificationNotice(notice, values) {
-  const titleMapping = {
-    verified:           "notice.title.verified",
-    already_verified:   "notice.title.alreadyVerified",
-    unsubscribed:       "notice.title.unsubscribed",
-    already_unsubscribed: "notice.title.alreadyUnsubscribed",
-  };
-  const messageMapping = {
-    verified:           "notice.verified",
-    already_verified:   "notice.alreadyVerified",
-    unsubscribed:       "notice.unsubscribed",
-    already_unsubscribed: "notice.alreadyUnsubscribed",
-  };
-  const titleKey = titleMapping[notice];
-  const msgKey = messageMapping[notice];
-  if (!titleKey || !msgKey) {
-    return;
-  }
-  // Fallback: if detail fields are empty, use a generic message instead of showing blanks
-  const hasDetails = values.email || values.campus || values.building || values.room;
-  const safeValues = hasDetails ? values : {};
-  const messageText = hasDetails
-    ? t(msgKey, values)
-    : (notice.includes("unsubscribed")
-        ? t("notice.unsubscribedGeneric", {}) || t("notice.unsubscribed", safeValues)
-        : t(msgKey, safeValues));
-  prepareSubscriptionDialog({
-    title: t(titleKey),
-    message: messageText,
-    showCancel: false,
-    confirmText: t("subscribe.dialogDone"),
-  });
-  if (typeof subscriptionDialog.showModal === "function") {
-    subscriptionDialog.showModal();
-    return;
-  }
-  window.alert(`${t(titleKey)}\n${messageText}`);
-}
-
-async function fetchJson(url) {
-  const response = await fetch(url);
-  const contentType = (response.headers.get("content-type") || "").toLowerCase();
-  if (!contentType.includes("application/json")) {
-    throw new Error(t("error.nonJson"));
-  }
-
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.hint || payload.error || t("error.requestFailed"));
-  }
-  return payload;
-}
-
-async function postJson(url, data) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  const contentType = (response.headers.get("content-type") || "").toLowerCase();
-  if (!contentType.includes("application/json")) {
-    throw new Error(t("error.nonJson"));
-  }
-
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.hint || payload.error || t("error.requestFailed"));
-  }
-  return payload;
-}
-
-async function saveSubscription() {
-  const normalizedEmail = normalizeSubscriberEmail(fields.subscriberEmail.value);
-  if (!normalizedEmail) {
-    setMessageKey("subscribe.invalidEmail", {}, true);
-    fields.subscriberEmail.focus();
-    return;
-  }
-  if (!fields.subscribeAlert.checked && !fields.subscribeDailyReport.checked) {
-    setMessageKey("subscribe.chooseOne", {}, true);
-    fields.subscribeAlert.focus();
-    return;
-  }
-
-  const subscriptionPayload = {
-    email: normalizedEmail,
-    client: fields.client.value,
-    campusName: fields.campusName.value,
-    buildingId: fields.buildingId.value,
-    buildingName: fields.buildingName.value,
-    roomName: fields.roomName.value,
-    alertEnabled: fields.subscribeAlert.checked,
-    dailyReportEnabled: fields.subscribeDailyReport.checked,
-  };
-
-  const confirmed = await confirmSubscription(subscriptionPayload);
-  if (!confirmed) {
-    return;
-  }
-
-  setSubscriptionBusy(true);
-  setMessageKey("subscribe.saving");
-  try {
-    const payload = await postJson(apiUrl("/api/subscriptions"), subscriptionPayload);
-    const confirmationMessage = payload.message || t("subscribe.saved");
-    if (payload.verification_required) {
-      fields.subscriberEmail.value = normalizedEmail;
-      syncEmailInputState();
-    }
-    showSubscriptionResult(confirmationMessage);
-    setMessageRaw(confirmationMessage);
-    if (payload.verification_required) {
-      collapseToPendingVerification(normalizedEmail);
-    } else {
-      collapseToSubscribed(normalizedEmail);
-    }
-  } catch (error) {
-    setMessageRaw(error.message, true);
-  } finally {
-    setSubscriptionBusy(false);
-  }
-}
-
-/** 根据学号前缀推断正确的深大邮箱后缀 */
-function inferEmailDomain(prefix) {
-  const yearMatch = String(prefix).match(/^(\d{4})/);
-  if (!yearMatch) return null;
-  const year = parseInt(yearMatch[1]);
-  if (year >= 2024) return "@mails.szu.edu.cn";
-  return "@email.szu.edu.cn";
-}
-
-function normalizeSubscriberEmail(value) {
-  const trimmed = String(value || "").trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  if (!trimmed.includes("@")) {
-    const inferred = inferEmailDomain(trimmed);
-    const domain = inferred || "@email.szu.edu.cn";
-    return `${trimmed}${domain}`.toLowerCase();
-  }
-
-  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
-    return trimmed.toLowerCase();
-  }
-
-  return "";
-}
-
-function syncEmailInputState() {
-  if (!emailInputGroup) {
-    return;
-  }
-
-  const value = fields.subscriberEmail.value.trim();
-  const hasCustomDomain = value.includes("@");
-  emailInputGroup.classList.toggle("has-custom-domain", hasCustomDomain);
-  fields.subscriberEmail.placeholder = hasCustomDomain ? "you@example.com" : t("subscribe.emailPlaceholder");
-  fields.subscriberEmail.setCustomValidity("");
-  if (emailDomainHint) {
-    if (value.length >= 4) {
-      const inferred = inferEmailDomain(value);
-      emailDomainHint.textContent = inferred || "@email.szu.edu.cn";
-    } else {
-      emailDomainHint.textContent = "@";
-    }
-  }
-}
-
-function confirmSubscription(payload) {
-  const message = t("subscribe.dialogConfirmMessage", {
-    email: payload.email,
-    dorm: `${payload.campusName} ${payload.buildingName} ${payload.roomName}`,
-    types: selectedSubscriptionTypeLabels(payload).join("、"),
-  });
-  if (!subscriptionDialog || !subscriptionDialogMessage) {
-    return Promise.resolve(window.confirm(message));
-  }
-
-  prepareSubscriptionDialog({
-    title: t("subscribe.dialogTitle"),
-    message,
-    showCancel: true,
-    confirmText: t("subscribe.dialogConfirm"),
-  });
-
-  if (typeof subscriptionDialog.showModal !== "function") {
-    return Promise.resolve(window.confirm(message));
-  }
-
-  return new Promise((resolve) => {
-    subscriptionDialog.addEventListener(
-      "close",
-      () => {
-        resolve(subscriptionDialog.returnValue === "confirm");
-      },
-      { once: true }
-    );
-    subscriptionDialog.showModal();
-  });
-}
-
-function selectedSubscriptionTypeLabels(payload) {
-  const labels = [];
-  if (payload.alertEnabled) {
-    labels.push(t("subscribe.alertOption"));
-  }
-  if (payload.dailyReportEnabled) {
-    labels.push(t("subscribe.dailyReportOption"));
-  }
-  return labels;
-}
-
-function showSubscriptionResult(text) {
-  if (!subscriptionDialog || !subscriptionDialogMessage) {
-    window.alert(text);
-    return;
-  }
-
-  prepareSubscriptionDialog({
-    title: t("subscribe.dialogResultTitle"),
-    message: text,
-    showCancel: false,
-    confirmText: t("subscribe.dialogDone"),
-  });
-
-  if (typeof subscriptionDialog.showModal === "function") {
-    subscriptionDialog.showModal();
-    return;
-  }
-  window.alert(text);
-}
-
-function prepareSubscriptionDialog({ title, message, showCancel, confirmText }) {
-  const titleElement = document.querySelector("#subscriptionDialogTitle");
-  if (titleElement) {
-    titleElement.textContent = title;
-  }
-  subscriptionDialogMessage.textContent = message;
-  subscriptionDialog.returnValue = "";
-  subscriptionDialogCancel.hidden = !showCancel;
-  subscriptionDialogConfirm.value = showCancel ? "confirm" : "done";
-  subscriptionDialogConfirm.textContent = confirmText;
-}
-
-/** @module Subscription Toggle — animated expand/collapse */
-
-function setupSubscriptionToggle() {
-  if (!subscriptionTrigger || !subscriptionForm || !subscriptionInner) {
-    return;
-  }
-  subscriptionTrigger.addEventListener("click", toggleSubscriptionPanel);
-  if (subscriptionSummary) {
-    subscriptionSummary.addEventListener("click", toggleSubscriptionPanel);
-  }
-}
-
-function toggleSubscriptionPanel() {
-  if (!subscriptionInner) return;
-  subscriptionInner.classList.toggle("open");
-  subscriptionWasPending = false;
-  // Bounce the bell icon on click
-  const ring = subscriptionTrigger.querySelector(".ring-icon");
-  if (ring) {
-    ring.classList.remove("clicked");
-    void ring.offsetWidth; // force reflow to restart animation
-    ring.classList.add("clicked");
-  }
-}
-function collapseToPendingVerification(email) {
-  if (!subscriptionSummary || !subscriptionInner) {
-    return;
-  }
-  subscriptionWasPending = true;
-  subscriptionSummary.innerHTML = `⏳ ${escapeHtml(email)} · ${t("subscribe.summaryPending")}`;
-  subscriptionSummary.classList.add("pending-verification");
-  subscriptionSummary.hidden = false;
-  subscriptionInner.classList.remove("open");
-}
-
-function markAsVerified(email) {
-  /* Called after email verification succeeds – swap the orange ⏳ badge to green ✅ */
-  if (!subscriptionSummary || !(subscriptionSummary.classList.contains("pending-verification"))) {
-    return;
-  }
-  subscriptionWasPending = false;
-  subscriptionSummary.classList.remove("pending-verification");
-  subscriptionSummary.innerHTML = `✅ ${escapeHtml(email)} · ${t("subscribe.summaryActive")}`;
-}
-
-function collapseToSubscribed(email) {
-  if (!subscriptionSummary || !subscriptionInner) {
-    return;
-  }
-  subscriptionSummary.innerHTML = `✅ ${escapeHtml(email)} · ${t("subscribe.summaryActive")}`;
-  subscriptionSummary.hidden = false;
-  subscriptionInner.classList.remove("open");
-}
-
-function openSupportModal() {
-  if (!supportModal || !supportDialog || !sponsorButton) {
-    return;
-  }
-
-  lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : sponsorButton;
-  supportModal.hidden = false;
-  sponsorButton.setAttribute("aria-expanded", "true");
-  document.body.classList.add("modal-open");
-  supportDialog.focus();
-}
-
-function closeSupportModal() {
-  if (!supportModal || !sponsorButton) {
-    return;
-  }
-
-  supportModal.hidden = true;
-  sponsorButton.setAttribute("aria-expanded", "false");
-  document.body.classList.remove("modal-open");
-  if (lastFocusedElement instanceof HTMLElement && document.contains(lastFocusedElement)) {
-    lastFocusedElement.focus();
-  } else {
-    sponsorButton.focus();
-  }
-  lastFocusedElement = null;
-}
-
-function getSupportFocusableElements() {
-  if (!supportDialog) {
-    return [];
-  }
-
-  return Array.from(supportDialog.querySelectorAll(supportFocusableSelector)).filter(
-    (element) => element instanceof HTMLElement && element.offsetParent !== null,
-  );
-}
-
-function trapSupportFocus(event) {
-  if (!supportDialog) {
-    return;
-  }
-
-  const focusableElements = getSupportFocusableElements();
-  if (!focusableElements.length) {
-    event.preventDefault();
-    supportDialog.focus();
-    return;
-  }
-
-  const firstElement = focusableElements[0];
-  const lastElement = focusableElements[focusableElements.length - 1];
-  const activeElement = document.activeElement;
-
-  if (activeElement === supportDialog) {
-    event.preventDefault();
-    (event.shiftKey ? lastElement : firstElement).focus();
-    return;
-  }
-
-  if (!supportDialog.contains(activeElement)) {
-    event.preventDefault();
-    firstElement.focus();
-    return;
-  }
-
-  if (event.shiftKey && activeElement === firstElement) {
-    event.preventDefault();
-    lastElement.focus();
-    return;
-  }
-
-  if (!event.shiftKey && activeElement === lastElement) {
-    event.preventDefault();
-    firstElement.focus();
-  }
-}
-
-function loadStaticBuildings() {
-  campuses = staticCampuses();
-  allBuildings = flattenBuildings(campuses);
-  buildingChoices = mergeBuildingChoices(allBuildings);
-  renderCampusOptions();
-  chooseDefaultBuildingForCampus();
-  renderBuildingOptions();
-  syncSelectedBuilding();
-}
-
-function normalizeCampuses(data) {
-  if (data[0]?.client && Array.isArray(data[0]?.buildings)) {
-    return data;
-  }
-  return [
-    {
-      client: "192.168.84.87",
-      name: "粤海",
-      buildings: data.map((building) => ({
-        id: building.id,
-        name: building.name,
-      })),
-    },
-  ];
-}
-
-function flattenBuildings(campusData) {
-  return campusData.flatMap((campus) => {
-    const uiCampus = campus.client === "172.21.101.11" ? "丽湖" : "粤海";
-    const campusGroup = campus.client === "172.21.101.11" ? "lihu" : "yuehai";
-    return (campus.buildings || []).map((building) => ({
-      id: building.id,
-      name: building.name,
-      ...floorRange(building.name),
-      client: campus.client,
-      campusName: uiCampus,
-      campusGroup,
-      sourceCampusName: campus.name,
-    }));
-  });
-}
-
-function mergeBuildingChoices(buildings) {
-  const groups = new Map();
-  for (const building of buildings) {
-    const key = `${building.campusGroup}:${baseBuildingName(building.name)}`;
-    const current = groups.get(key) || {
-      displayName: baseBuildingName(building.name),
-      displayLabel: bilingualBuildingName(baseBuildingName(building.name)),
-      searchText: "",
-      campusGroup: building.campusGroup,
-      campusName: building.campusName,
-      sourceCampusNames: new Set(),
-      variants: [],
-    };
-    current.sourceCampusNames.add(building.sourceCampusName);
-    current.variants.push(building);
-    groups.set(key, current);
-  }
-
-  return [...groups.values()].map((group) => ({
-    ...group,
-    sourceCampusName: [...group.sourceCampusNames].join(" / "),
-    sourceCampusLabel: [...group.sourceCampusNames].map(bilingualSourceCampusName).join(" / "),
-    searchText: [
-      group.displayName,
-      group.displayLabel,
-      buildingEnglishName(group.displayName),
-      group.campusName,
-      bilingualCampusName(group.campusName),
-      ...group.sourceCampusNames,
-      ...[...group.sourceCampusNames].map(bilingualSourceCampusName),
-      ...group.variants.map((building) => building.name),
-      ...group.variants.map((building) => bilingualBuildingName(building.name)),
-    ].join(" ").toLowerCase(),
-    variants: group.variants.sort((a, b) => (a.minFloor || 0) - (b.minFloor || 0)),
-  }));
-}
-
-function baseBuildingName(name) {
-  const base = name
-    .replace(/\d+\s*-\s*\d+\s*楼/g, "")
-    .replace(/\d+\s*-\s*\d+\s*层/g, "")
-    .replace(/\d+\s*-\s*\d+$/g, "")
-    .trim();
-  if (base.startsWith("乔") && !base.endsWith("阁")) {
-    return `${base}阁`;
-  }
-  return base;
-}
-
-function renderCampusOptions() {
-  const preferredCampus = fields.campusGroup.value || "yuehai";
-  const campusGroups = [
-    { value: "yuehai", labelKey: "campus.yuehai" },
-    { value: "lihu", labelKey: "campus.lihu" },
-  ].filter((group) => allBuildings.some((building) => building.campusGroup === group.value));
-
-  fields.campusGroup.innerHTML = "";
-  for (const campus of campusGroups) {
-    const option = document.createElement("option");
-    option.value = campus.value;
-    option.dataset.i18n = campus.labelKey;
-    option.textContent = t(campus.labelKey);
-    if (campus.value === preferredCampus) {
-      option.selected = true;
-    }
-    fields.campusGroup.append(option);
-  }
-}
-
-function renderBuildingOptions(filter = "") {
-  const keyword = filter.trim().toLowerCase();
-  const options = buildingChoices.filter((choice) => {
-    if (!keyword) return true;
-    return choice.searchText.includes(keyword);
-  });
-  renderBuildingOptionsForList(options, filter.trim());
-}
-
-function renderBuildingOptionsForList(options, rawKeyword = "") {
-  const list = document.querySelector("#buildingOptions");
-  list.innerHTML = "";
-  buildingActiveIndex = -1;
-  fields.buildingSearch.removeAttribute("aria-activedescendant");
-
-  if (options.length === 0 && rawKeyword) {
-    /* ── No-results state ── */
-    const empty = document.createElement("div");
-    empty.className = "combo-empty";
-    empty.textContent = t("form.buildingNoResults");
-    list.append(empty);
-    list.classList.add("open");
-    return;
-  }
-
-  if (options.length === 0) {
-    list.classList.remove("open");
-    return;
-  }
-
-  /* Only auto-open when user is interacting (input focused or typing) */
-  if (rawKeyword || document.activeElement === fields.buildingSearch) {
-    list.classList.add("open");
-  } else {
-    list.classList.remove("open");
-  }
-
-  const keywordLower = rawKeyword.toLowerCase();
-
-  for (let i = 0; i < options.length; i++) {
-    const choice = options[i];
-    const div = document.createElement("div");
-    div.className = "combo-option";
-    div.setAttribute("role", "option");
-    div.id = `building-opt-${i}`;
-    div.setAttribute("aria-selected", "false");
-
-    /* highlight matched text in label */
-    const label = keywordLower
-      ? highlightBuildingText(choice.displayLabel, rawKeyword)
-      : choice.displayLabel;
-    const campusInfo = `${bilingualCampusName(choice.campusName)} · ${choice.sourceCampusLabel}`;
-    div.innerHTML = `${label}<small>${campusInfo}</small>`;
-
-    /* pointerdown fires BEFORE blur — preventDefault keeps focus on input */
-    div.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      fields.buildingSearch.value = choice.displayLabel;
-      syncSelectedBuilding();
-      closeBuildingOptions();
-      updateBuildingFeedback(choice.displayLabel);
-    });
-
-    list.append(div);
-  }
-}
-
-function highlightBuildingText(text, rawKeyword) {
-  if (!rawKeyword) return text;
-  const escaped = rawKeyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return text.replace(new RegExp(`(${escaped})`, "gi"), "<mark>$1</mark>");
-}
-
-function updateActiveDescendant(options) {
-  if (!options) {
-    options = document.querySelectorAll("#buildingOptions .combo-option");
-  }
-  options.forEach((opt, i) => {
-    const isActive = i === buildingActiveIndex;
-    opt.classList.toggle("active", isActive);
-    opt.setAttribute("aria-selected", String(isActive));
-  });
-  const active = options[buildingActiveIndex];
-  if (active) {
-    fields.buildingSearch.setAttribute("aria-activedescendant", active.id);
-    active.scrollIntoView({ block: "nearest" });
-  } else {
-    fields.buildingSearch.removeAttribute("aria-activedescendant");
-  }
-}
-
-function debounce(fn, delay) {
-  let timer;
-  return function (...args) {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(this, args), delay);
-  };
-}
+// ── Helper functions ──────────────────────────────────────────────
 
 async function loadStatus(url) {
   setBusy(true);
   startLoadingMessage();
   try {
     const payload = await fetchJson(url);
-    if (!payload.ok) {
-      throw new Error(payload.hint || payload.error || t("error.queryFailed"));
-    }
-    renderStatus(payload.data);
+    if (!payload.ok) throw new Error(payload.hint || payload.error || t("error.queryFailed"));
+    renderStatus(payload.data, view);
     setMessageKey("message.complete");
   } catch (error) {
     setMessageRaw(error.message, true);
@@ -1173,687 +275,8 @@ async function loadStatus(url) {
   }
 }
 
-function renderStatus(data) {
-  revealResultsContainer();
-  currentStatusData = data;
-  const remaining = numberOrNull(data.remaining);
-  renderMetricCards(data);
-  view.roomLabel.textContent = `${bilingualCampusName(data.campus_name) || "--"} ${bilingualBuildingName(data.building_name) || "--"} ${data.room_name || "--"}`;
-  view.lastRecord.textContent = data.last_record || "--";
-  view.records.textContent = formatRecordCount(data.records ?? 0);
-
-  if (data.period) {
-    view.period.textContent = t("format.dateRange", {
-      begin: data.period.begin,
-      end: data.period.end,
-    });
-  } else {
-    view.period.textContent = "--";
-  }
-
-  const status = data.status || "unknown";
-  view.statusBadge.className = `badge ${status}`;
-  view.statusBadge.textContent = statusText(status);
-  setHeroStatusRaw(statusText(status), status);
-  updateBalanceCardStatus(status);
-
-  const threshold = Number(data.threshold_kwh || 20);
-  const meterMax = Math.max(threshold * 3, 60);
-  const percent = remaining == null ? 0 : Math.max(0, Math.min(100, (remaining / meterMax) * 100));
-  view.meterFill.style.width = `${percent}%`;
-  view.meterFill.style.background = statusColor(status);
-
-  renderRecharges(data.recharges || []);
-  renderTrend(data.trend || []);
-}
-
-function renderMetricCards(data) {
-  const rate = yuanPerKwh(data);
-  const dailyAvg = numberOrNull(data.daily_avg_kwh);
-  const daysLeft = numberOrNull(data.est_days_left);
-  const totalUsed = numberOrNull(data.total_used_kwh);
-
-  setPowerMetric("remaining", numberOrNull(data.remaining), rate, {
-    kwhUnit: "kWh",
-    yuanUnit: MONEY_UNIT,
-  });
-  setPowerMetric("dailyAvg", dailyAvg, rate, {
-    kwhUnit: "kWh / day",
-    yuanUnit: `${MONEY_UNIT} / day`,
-  });
-  setDaysMetric(daysLeft, data.last_record);
-  setPowerMetric("totalUsed", totalUsed, rate, {
-    kwhUnit: "kWh",
-    yuanUnit: MONEY_UNIT,
-  });
-}
-
-function setPowerMetric(key, kwhValue, rate, units) {
-  const isYuanMode = metricMode[key] === "yuan";
-  const yuanValue = kwhValue == null ? null : kwhValue * rate;
-  const primaryValue = isYuanMode ? yuanValue : kwhValue;
-  const secondaryValue = isYuanMode ? kwhValue : yuanValue;
-  const primaryUnit = isYuanMode ? units.yuanUnit : units.kwhUnit;
-  const secondaryUnit = isYuanMode ? units.kwhUnit : units.yuanUnit;
-
-  view[key].textContent = isYuanMode ? formatMoneyNumber(primaryValue) : formatNumber(primaryValue);
-  view[`${key}Unit`].textContent = primaryUnit;
-  view[`${key}Alt`].textContent = secondaryValue == null
-    ? "--"
-    : isYuanMode
-      ? `${formatNumber(secondaryValue)} ${secondaryUnit}`
-      : formatMoney(secondaryValue);
-}
-
-function setDaysMetric(daysLeft, lastRecord) {
-  const isDateMode = metricMode.daysLeft === "date";
-  const estimatedDate = estimateAvailableUntilDate(lastRecord, daysLeft);
-  const dateText = estimatedDate ? formatDisplayDate(estimatedDate) : "--";
-  const daysText = daysLeft == null ? "--" : `${formatNumber(daysLeft)} ${t("unit.days")}`;
-
-  document.querySelector('[data-metric-key="daysLeft"] .metric-label').textContent = isDateMode
-    ? daysLeftDateLabel()
-    : t("metrics.daysLeft");
-  view.daysLeft.textContent = isDateMode ? dateText : formatNumber(daysLeft);
-  view.daysLeftUnit.textContent = isDateMode ? "" : t("unit.days");
-  view.daysLeftUnit.hidden = isDateMode;
-  view.daysLeftDate.textContent = isDateMode
-    ? daysText
-    : formatEstimatedDateText(lastRecord, daysLeft);
-}
-
-function toggleMetricMode(key) {
-  if (!key || !metricMode[key]) {
-    return;
-  }
-  const card = document.querySelector(`[data-metric-key="${key}"]`);
-  animateMetricSwitch(card);
-  metricMode[key] = metricMode[key] === "yuan" || metricMode[key] === "date"
-    ? (key === "daysLeft" ? "days" : "kwh")
-    : (key === "daysLeft" ? "date" : "yuan");
-  if (currentStatusData) {
-    renderMetricCards(currentStatusData);
-  }
-}
-
-function animateMetricSwitch(card) {
-  if (!card) {
-    return;
-  }
-  card.classList.remove("is-switching");
-  void card.offsetWidth;
-  card.classList.add("is-switching");
-  window.setTimeout(() => card.classList.remove("is-switching"), 360);
-}
-
-function renderRecharges(recharges) {
-  view.rechargeCount.textContent = formatRecordCount(recharges.length);
-  view.rechargeList.innerHTML = "";
-  view.rechargeList.classList.toggle("empty", recharges.length === 0);
-
-  if (recharges.length === 0) {
-    view.rechargeList.textContent = t("empty.noData");
-    return;
-  }
-
-  for (const item of recharges.slice(0, 5)) {
-    const row = document.createElement("div");
-    row.className = "recharge-item";
-    row.innerHTML = `
-      <div>
-        <strong>+${formatNumber(item.kwh)} kWh</strong>
-        <span>${item.time || t("empty.unknownTime")} · ${paymentMethodText(item.method)}</span>
-      </div>
-      <strong>${formatNumber(item.yuan)} ${t("unit.yuan")}</strong>
-    `;
-    view.rechargeList.append(row);
-  }
-}
-
-// Maximum data points shown in the trend chart
-const MAX_CHART_POINTS = 60;
-
-function renderTrend(trend) {
-  const validPoints = trend.filter((item) => numberOrNull(item.remaining) != null);
-  const truncated = validPoints.length > MAX_CHART_POINTS;
-  const points = validPoints.slice(-(truncated ? MAX_CHART_POINTS : validPoints.length));
-  view.trendChart.innerHTML = "";
-  view.trendChart.classList.toggle("empty", points.length < 2);
-
-  if (points.length < 2) {
-    view.trendChart.textContent = t("empty.noTrend");
-    view.chartRange.textContent = t("empty.noData");
-    return;
-  }
-
-  const width = 920;
-  const height = 320;
-  const padding = { top: 36, right: 72, bottom: 52, left: 70 };
-  const plotWidth = width - padding.left - padding.right;
-  const plotHeight = height - padding.top - padding.bottom;
-  const remainingValues = points.map((item) => Number(item.remaining));
-  const usedValues = points.map((item) => Math.max(0, Number(item.daily_used_kwh || 0)));
-  const maxRemaining = Math.max(...remainingValues, 1);
-  const minRemaining = Math.min(...remainingValues);
-  const maxUsed = Math.max(...usedValues, 0);
-  const balanceAxis = chartAxisRange(minRemaining, maxRemaining, 5);
-  const usageAxis = chartAxis(maxUsed, 5, 1.12);
-  const usageLevels = resolveUsageLevels(usedValues);
-  syncUsageLevelInputs(usedValues);
-  const x = (index) => padding.left + (index / (points.length - 1)) * plotWidth;
-  const y = (value) => {
-    const range = Math.max(balanceAxis.max - balanceAxis.min, 1);
-    const ratio = Math.max(0, Math.min(1, (value - balanceAxis.min) / range));
-    return height - padding.bottom - ratio * plotHeight;
-  };
-  const usageY = (value) => {
-    const ratio = Math.max(0, Math.min(1, value / usageAxis.max));
-    return height - padding.bottom - ratio * plotHeight;
-  };
-  const barWidth = Math.max(8, Math.min(24, plotWidth / points.length / 2));
-  const line = points.map((item, index) => `${x(index)},${y(Number(item.remaining))}`).join(" ");
-  const area = `${padding.left},${height - padding.bottom} ${line} ${width - padding.right},${height - padding.bottom}`;
-  const selectedIndex = points.length - 1;
-
-  const usageClass = (value) => {
-    if (value >= usageLevels.high) {
-      return "high";
-    }
-    if (value >= usageLevels.medium) {
-      return "medium";
-    }
-    return "low";
-  };
-
-  const bars = points.map((item, index) => {
-    const used = Math.max(0, Number(item.daily_used_kwh || 0));
-    const barHeight = used > 0 ? Math.max(4, height - padding.bottom - usageY(used)) : 0;
-    const bx = x(index) - barWidth / 2;
-    const by = height - padding.bottom - barHeight;
-    return `<rect class="chart-bar ${usageClass(used)}" x="${bx}" y="${by}" width="${barWidth}" height="${barHeight}" rx="4"></rect>`;
-  }).join("");
-
-  const dots = points.map((item, index) => (
-    `<circle class="chart-dot" cx="${x(index)}" cy="${y(Number(item.remaining))}" r="4"></circle>`
-  )).join("");
-
-  // Interaction zones live inside the SVG so they map perfectly regardless of container size
-  const hotZoneHalfW = Math.max(14, barWidth / 2 + 9);
-  const interactions = points.map((item, index) => {
-    const cx = x(index);
-    const activeAttr = index === selectedIndex ? " active" : "";
-    return `
-      <g class="chart-zone${activeAttr}" data-chart-index="${index}" tabindex="0" role="button" aria-label="${escapeHtml(chartPointLabel(item))}">
-        <!-- invisible wide rectangle for easy hover/touch targeting -->
-        <rect class="chart-hotzone" x="${cx - hotZoneHalfW}" y="${padding.top}" width="${hotZoneHalfW * 2}" height="${plotHeight}" fill="transparent" />
-        <!-- visible indicator dot pinned to the baseline -->
-        <circle class="chart-indicator" cx="${cx}" cy="${height - padding.bottom + 5}" r="4" />
-      </g>`;
-  }).join("");
-
-  const firstDate = shortDate(points[0].date);
-  const lastDate = shortDate(points[points.length - 1].date);
-  view.chartRange.textContent = t("format.dateRange", {
-    begin: firstDate,
-    end: lastDate,
-  });
-
-  const ticks = balanceAxis.ticks.map((balanceValue, index) => {
-    const fraction = index / balanceAxis.intervals;
-    const tickY = height - padding.bottom - fraction * plotHeight;
-    const usageValue = usageAxis.max * fraction;
-    const gridClass = index === 0 ? "chart-grid baseline" : "chart-grid";
-    return `
-      <g class="chart-tick">
-        <line class="${gridClass}" x1="${padding.left}" y1="${tickY}" x2="${width - padding.right}" y2="${tickY}"></line>
-        <line class="chart-tick-mark" x1="${padding.left - 5}" y1="${tickY}" x2="${padding.left}" y2="${tickY}"></line>
-        <line class="chart-tick-mark" x1="${width - padding.right}" y1="${tickY}" x2="${width - padding.right + 5}" y2="${tickY}"></line>
-        <text class="chart-axis-label left" x="${padding.left - 10}" y="${tickY + 4}">${formatAxisTick(balanceValue, balanceAxis.step)}</text>
-        <text class="chart-axis-label right" x="${width - padding.right + 10}" y="${tickY + 4}">${formatAxisTick(usageValue, usageAxis.step)}</text>
-      </g>
-    `;
-  }).join("");
-
-  const truncationNotice = truncated
-    ? `<div class="chart-truncation"><span data-i18n-fallback="chart.truncatedInfo">⚠ 仅显示最近 ${MAX_CHART_POINTS} 天趋势，共 ${validPoints.length} 条记录</span></div>`
-    : "";
-
-  view.trendChart.innerHTML = `
-    <div class="chart-canvas">
-      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${t("chart.svgLabel")}">
-        <line class="chart-axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
-        <line class="chart-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
-        <line class="chart-axis" x1="${width - padding.right}" y1="${padding.top}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
-        ${ticks}
-        ${bars}
-        <polygon class="chart-area" points="${area}"></polygon>
-        <polyline class="chart-line" points="${line}"></polyline>
-        ${dots}
-        <g class="chart-interaction" aria-label="${t("chart.tooltipHint")}">
-          ${interactions}
-        </g>
-        <text class="chart-label" x="${padding.left}" y="${height - 16}">${escapeHtml(firstDate)}</text>
-        <text class="chart-label" x="${width - padding.right}" y="${height - 16}" text-anchor="end">${escapeHtml(lastDate)}</text>
-        <text class="chart-label chart-title-label" x="${padding.left}" y="20">${t("chart.balanceLabel")}</text>
-        <text class="chart-label chart-title-label" x="${width - padding.right}" y="20" text-anchor="end">${t("chart.dailyUseLabel")}</text>
-      </svg>
-      <div class="chart-tooltip" role="status" aria-live="polite"></div>
-    </div>
-    ${truncationNotice}
-  `;
-
-  const svgEl = view.trendChart.querySelector("svg");
-  attachTrendInteractions(points, svgEl, { width, height, padding, x, y, barWidth, selectedIndex });
-}
-
-function chartAxis(maxValue, intervals = 5, headroom = 1) {
-  const safeMax = Math.max(0, numberOrNull(maxValue) ?? 0);
-  const target = safeMax > 0 ? safeMax * headroom : 1;
-  const step = niceAxisStep(target / intervals);
-  const max = step * intervals;
-  const ticks = Array.from({ length: intervals + 1 }, (_, index) => step * index);
-  return { intervals, min: 0, max, step, ticks };
-}
-
-function chartAxisRange(minValue, maxValue, intervals = 5) {
-  const safeMin = Math.max(0, numberOrNull(minValue) ?? 0);
-  const safeMax = Math.max(safeMin, numberOrNull(maxValue) ?? safeMin);
-  if (safeMax === safeMin) {
-    let step = niceAxisStep(Math.max(Math.abs(safeMax), 1) / 10);
-    let min = 0;
-    let max = 0;
-    do {
-      min = Math.max(0, Math.floor((safeMin - step * 2) / step) * step);
-      max = min + step * intervals;
-      if (max <= safeMax) {
-        step = niceAxisStep(step * 1.01);
-      }
-    } while (max <= safeMax);
-    const ticks = Array.from({ length: intervals + 1 }, (_, index) => min + step * index);
-    return { intervals, min, max, step, ticks };
-  }
-
-  let step = niceAxisStep((safeMax - safeMin) / intervals);
-  let min = Math.floor(safeMin / step) * step;
-  let max = min + step * intervals;
-  while (max < safeMax) {
-    step = niceAxisStep(step * 1.01);
-    min = Math.floor(safeMin / step) * step;
-    max = min + step * intervals;
-  }
-  if (min < 0) {
-    min = 0;
-    max = step * intervals;
-    while (max < safeMax) {
-      step = niceAxisStep(step * 1.01);
-      max = step * intervals;
-    }
-  }
-  const ticks = Array.from({ length: intervals + 1 }, (_, index) => min + step * index);
-  return { intervals, min, max, step, ticks };
-}
-
-function niceAxisStep(value) {
-  const number = Math.max(Number(value) || 0, 0);
-  if (number <= 0) {
-    return 1;
-  }
-
-  const magnitude = 10 ** Math.floor(Math.log10(number));
-  const normalized = number / magnitude;
-  const steps = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
-  const matched = steps.find((step) => normalized <= step) ?? 10;
-  return matched * magnitude;
-}
-
-function formatAxisTick(value, step) {
-  const absStep = Math.abs(step);
-  let maximumFractionDigits = 0;
-  if (absStep < 1) {
-    maximumFractionDigits = absStep < 0.1 ? 2 : 1;
-  } else if (!Number.isInteger(absStep)) {
-    maximumFractionDigits = 1;
-  }
-
-  return Number(value).toLocaleString(currentLocale, {
-    maximumFractionDigits,
-  });
-}
-
-function computeSvgScale(svgEl, viewBoxSize) {
-  const rect = svgEl.getBoundingClientRect();
-  return { sx: rect.width / viewBoxSize.width, sy: rect.height / viewBoxSize.height };
-}
-
-function attachTrendInteractions(points, svgEl, geometry) {
-  const zones = Array.from(svgEl.querySelectorAll(".chart-zone"));
-  const tooltip = view.trendChart.querySelector(".chart-tooltip");
-  if (!zones.length || !tooltip) {
-    return;
-  }
-
-  const vbSize = { width: geometry.width, height: geometry.height };
-
-  const showPoint = (index) => {
-    const item = points[index];
-    if (!item) {
-      return;
-    }
-    const scale = computeSvgScale(svgEl, vbSize);
-    // Position tooltip in px relative to .chart-canvas
-    const pixelX = geometry.x(index) * scale.sx;
-    const pixelY = geometry.y(Number(item.remaining)) * scale.sy;
-    tooltip.innerHTML = chartTooltipMarkup(item);
-    tooltip.style.left = `${pixelX}px`;
-    tooltip.style.top = `${pixelY}px`;
-    tooltip.classList.add("visible");
-    zones.forEach((zone, zi) => {
-      zone.classList.toggle("active", zi === index);
-    });
-  };
-
-  const hidePoint = () => {
-    tooltip.classList.remove("visible");
-    zones.forEach((zone) => zone.classList.remove("active"));
-  };
-
-  showPoint(geometry.selectedIndex);
-
-  zones.forEach((zone, index) => {
-    zone.addEventListener("pointerenter", () => showPoint(index));
-    zone.addEventListener("focus", () => showPoint(index));
-    zone.addEventListener("click", () => showPoint(index));
-    zone.addEventListener("keydown", (event) => {
-      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
-        return;
-      }
-      event.preventDefault();
-      const direction = event.key === "ArrowLeft" ? -1 : 1;
-      const nextIndex = Math.max(0, Math.min(points.length - 1, index + direction));
-      zones[nextIndex].focus();
-    });
-  });
-
-  // Hide tooltip when leaving both the SVG AND the tooltip itself
-  const canvas = view.trendChart.querySelector(".chart-canvas");
-  canvas.addEventListener("mouseleave", () => {
-    // Only hide if pointer isn't entering the tooltip
-    setTimeout(() => {
-      if (!tooltip.matches(":hover")) {
-        hidePoint();
-      }
-    }, 50);
-  });
-}
-
-function chartTooltipMarkup(item) {
-  return `
-    <strong>${escapeHtml(item.date || "--")}</strong>
-    <span>${escapeHtml(t("chart.tooltipBalance"))}: ${formatNumber(item.remaining)} kWh</span>
-    <span>${escapeHtml(t("chart.tooltipUsage"))}: ${formatNumber(item.daily_used_kwh || 0)} kWh</span>
-  `;
-}
-
-function chartPointLabel(item) {
-  return `${item.date || "--"}, ${t("chart.tooltipBalance")} ${formatNumber(item.remaining)} kWh, ${t("chart.tooltipUsage")} ${formatNumber(item.daily_used_kwh || 0)} kWh`;
-}
-
-function resolveUsageLevels(usedValues) {
-  const maxUsed = Math.max(...usedValues, 1);
-  const automatic = {
-    medium: roundUsageThreshold(maxUsed * 0.42),
-    high: roundUsageThreshold(maxUsed * 0.72),
-  };
-  const medium = customUsageLevels.medium ?? automatic.medium;
-  const high = customUsageLevels.high ?? automatic.high;
-  return normalizeUsageLevels(medium, high);
-}
-
-function syncUsageLevelInputs(usedValues) {
-  const levels = resolveUsageLevels(usedValues.length ? usedValues : [1]);
-  fields.mediumUseThreshold.value = formatThresholdInput(levels.medium);
-  fields.highUseThreshold.value = formatThresholdInput(levels.high);
-  fields.mediumUseThreshold.classList.toggle("auto", customUsageLevels.medium == null);
-  fields.highUseThreshold.classList.toggle("auto", customUsageLevels.high == null);
-}
-
-function readUsageLevelInputs() {
-  const medium = numberOrNull(fields.mediumUseThreshold.value);
-  const high = numberOrNull(fields.highUseThreshold.value);
-  if (medium == null && high == null) {
-    return { medium: null, high: null };
-  }
-  const normalized = normalizeUsageLevels(medium ?? 0, high ?? medium ?? 0);
-  return {
-    medium: normalized.medium,
-    high: normalized.high,
-  };
-}
-
-function normalizeUsageLevels(medium, high) {
-  const normalizedMedium = Math.max(0, numberOrNull(medium) ?? 0);
-  const normalizedHigh = Math.max(normalizedMedium, numberOrNull(high) ?? normalizedMedium);
-  return {
-    medium: roundUsageThreshold(normalizedMedium),
-    high: roundUsageThreshold(normalizedHigh),
-  };
-}
-
-function roundUsageThreshold(value) {
-  return Math.round(Math.max(0, Number(value) || 0) * 10) / 10;
-}
-
-function formatThresholdInput(value) {
-  return roundUsageThreshold(value).toFixed(1);
-}
-
-function loadUsageLevelSettings() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(USAGE_LEVEL_STORAGE_KEY) || "{}");
-    const medium = numberOrNull(parsed.medium);
-    const high = numberOrNull(parsed.high);
-    if (medium == null && high == null) {
-      return { medium: null, high: null };
-    }
-    return normalizeUsageLevels(medium ?? 0, high ?? medium ?? 0);
-  } catch {
-    return { medium: null, high: null };
-  }
-}
-
-function saveUsageLevelSettings(levels) {
-  try {
-    if (levels.medium == null && levels.high == null) {
-      localStorage.removeItem(USAGE_LEVEL_STORAGE_KEY);
-      return;
-    }
-    localStorage.setItem(USAGE_LEVEL_STORAGE_KEY, JSON.stringify(levels));
-  } catch {
-    // The chart still updates for the current session.
-  }
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-async function loadGithubStars() {
-  if (!starBadge || IS_STATIC_PAGE) return;
-  try {
-    const res = await fetchJson(apiUrl("/api/github-stars"));
-    const num = Number(res.stars) || 0;
-    const formatted = num >= 1000 ? `${(num / 1000).toFixed(1)}k+` : String(num);
-    starBadge.textContent = `★ ${formatted}`;
-  } catch (_) {
-    // silent fail — badge stays empty
-  }
-}
-
-function chooseDefaultBuildingForCampus() {
-  const defaultChoice = preferredChoice() || choicesForCurrentCampus()[0] || buildingChoices[0];
-  if (defaultChoice) {
-    fields.buildingSearch.value = defaultChoice.displayLabel;
-  }
-}
-
-function syncSelectedBuilding() {
-  const selected = selectedBuilding();
-  if (!selected) {
-    return;
-  }
-  fields.client.value = selected.client;
-  fields.campusName.value = selected.campusName;
-  fields.buildingId.value = selected.id;
-  fields.buildingName.value = selected.name;
-  fields.campusGroup.value = selected.campusGroup;
-}
-
-// Resolve whether a free-text input matches any known building.
-// Returns { matched: boolean, source: "exact" | "fuzzy" | "none", choice: object|null }
-function resolveBuildingMatch(text, campusValue) {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return { matched: false, source: "none", choice: null };
-  }
-  const lower = trimmed.toLowerCase();
-  const exactChoice = buildingChoices.find(
-    (item) => item.displayName === trimmed || item.displayLabel === trimmed || buildingEnglishName(item.displayName) === lower
-  );
-  if (exactChoice) {
-    /* respect campus filter when picking */
-    const filtered = (campusValue && campusValue !== "") ? [exactChoice].filter(c => c.campusGroup === campusValue) : [exactChoice];
-    return { matched: true, source: "exact", choice: filtered[0] || exactChoice };
-  }
-  const scope = campusValue ? buildingChoices.filter((c) => c.campusGroup === campusValue) : buildingChoices;
-  const fuzzyHit = scope.find((item) => item.searchText.includes(lower));
-  if (fuzzyHit) {
-    return { matched: true, source: "fuzzy", choice: fuzzyHit };
-  }
-  return { matched: false, source: "none", choice: null };
-}
-
-/* Update visual feedback beneath the building input */
-function updateBuildingFeedback(text) {
-  const fbEl = fields.buildingFeedback;
-  if (!fbEl) return;
-  const result = resolveBuildingMatch(text, fields.campusGroup?.value);
-  const comboWrap = fbEl.parentElement;
-
-  /* reset previous modifiers */
-  comboWrap.classList.remove("has-match-exact", "has-match-fuzzy", "has-no-match");
-
-  if (!result.matched) {
-    if (text.trim().length > 0) {
-      comboWrap.classList.add("has-no-match");
-      fbEl.textContent = t("form.buildingNoMatch");
-    } else {
-      fbEl.textContent = "";
-    }
-  } else if (result.source === "exact") {
-    comboWrap.classList.add("has-match-exact");
-    fbEl.textContent = "";
-  } else {
-    comboWrap.classList.add("has-match-fuzzy");
-    fbEl.textContent = t("form.buildingFuzzyMatch");
-  }
-}
-
-function selectedBuilding() {
-  const text = fields.buildingSearch.value.trim();
-  const normalizedText = text.toLowerCase();
-  const exactChoice = buildingChoices.find(
-    (item) => item.displayName === text || item.displayLabel === text || buildingEnglishName(item.displayName) === normalizedText
-  );
-  if (exactChoice) {
-    return pickVariantForRoom(exactChoice.variants);
-  }
-
-  const choices = choicesForCurrentCampus();
-  const choice =
-    choices.find((item) => item.displayName === text || item.displayLabel === text) ||
-    choices.find((item) => item.searchText.includes(normalizedText)) ||
-    preferredChoice() ||
-    choices[0] ||
-    buildingChoices[0];
-
-  if (!choice) {
-    return null;
-  }
-
-  return pickVariantForRoom(choice.variants);
-}
-
-function pickVariantForRoom(variants) {
-  const floor = roomFloor(fields.roomName.value);
-  if (floor != null) {
-    const matched = variants.find((building) => {
-      if (building.minFloor == null || building.maxFloor == null) {
-        return false;
-      }
-      return floor >= building.minFloor && floor <= building.maxFloor;
-    });
-    if (matched) {
-      return matched;
-    }
-  }
-  return variants[0];
-}
-
-function preferredChoice() {
-  return buildingChoices.find(
-    (choice) => choice.variants.some((building) => building.client === "192.168.84.87" && building.id === "7126")
-  );
-}
-
-function choicesForCurrentCampus() {
-  return buildingChoices.filter((choice) => choice.campusGroup === fields.campusGroup.value);
-}
-
-function closeBuildingOptions() {
-  document.querySelector("#buildingOptions").classList.remove("open");
-  buildingActiveIndex = -1;
-  fields.buildingSearch.removeAttribute("aria-activedescendant");
-}
-
-function roomFloor(roomName) {
-  const match = String(roomName || "").match(/\d+/);
-  if (!match) {
-    return null;
-  }
-  const digits = match[0];
-  if (digits.length < 3) {
-    return null;
-  }
-  return Number(digits.slice(0, -2));
-}
-
-function floorRange(name) {
-  const match = name.match(/(\d+)\s*-\s*(\d+)(?:层|楼)?/);
-  if (!match) {
-    return { minFloor: null, maxFloor: null };
-  }
-  return { minFloor: Number(match[1]), maxFloor: Number(match[2]) };
-}
-
-function revealResultsContainer() {
-  const rc = document.querySelector(".results-container");
-  if (rc) rc.classList.add("visible");
-}
-
 function setBusy(isBusy) {
-  form.querySelectorAll("button, input, select").forEach((element) => {
-    element.disabled = isBusy;
-  });
-}
-
-function setSubscriptionBusy(isBusy) {
-  subscriptionForm.querySelectorAll("button, input").forEach((element) => {
-    element.disabled = isBusy;
-  });
+  form.querySelectorAll("button, input, select").forEach((el) => { el.disabled = isBusy; });
 }
 
 function setMessageKey(key, values = {}, isError = false) {
@@ -1887,419 +310,110 @@ function setHeroStatus(text, status = "unknown") {
   heroStatus.querySelector(".pulse").style.background = statusColor(status);
 }
 
-function statusText(status) {
-  return {
-    ok: t("powerStatus.ok"),
-    low: t("powerStatus.low"),
-    critical: t("powerStatus.critical"),
-    unknown: t("powerStatus.unknown"),
-  }[status] || t("powerStatus.unknown");
+function statusColor(status) {
+  return { ok: "#0f9f6e", low: "#d98616", critical: "#d73939", unknown: "#657386" }[status] || "#657386";
 }
 
 function updateBalanceCardStatus(status) {
-  const balanceCard = document.querySelector(".metric.balance");
-  if (!balanceCard) return;
-  balanceCard.classList.remove("status-ok", "status-low", "status-critical");
-  if (["ok", "low", "critical"].includes(status)) {
-    balanceCard.classList.add(`status-${status}`);
-  }
-}
-
-function statusColor(status) {
-  return {
-    ok: "#0f9f6e",
-    low: "#d98616",
-    critical: "#d73939",
-    unknown: "#657386",
-  }[status] || "#657386";
-}
-
-function numberOrNull(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-function formatNumber(value) {
-  const number = numberOrNull(value);
-  if (number == null) {
-    return "--";
-  }
-  return number.toLocaleString(currentLocale, {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: Number.isInteger(number) ? 0 : 1,
-  });
-}
-
-function formatMoney(value) {
-  const text = formatMoneyNumber(value);
-  return text === "--" ? text : `${MONEY_UNIT}${text}`;
-}
-
-function formatMoneyNumber(value) {
-  const number = numberOrNull(value);
-  if (number == null) {
-    return "--";
-  }
-  return number.toLocaleString(currentLocale, {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-  });
-}
-
-function yuanPerKwh(data) {
-  const rates = (data.recharges || [])
-    .map((item) => {
-      const yuan = numberOrNull(item.yuan);
-      const kwh = numberOrNull(item.kwh);
-      return yuan != null && kwh > 0 ? yuan / kwh : null;
-    })
-    .filter((rate) => rate != null && Number.isFinite(rate) && rate > 0);
-
-  if (rates.length === 0) {
-    return DEFAULT_YUAN_PER_KWH;
-  }
-
-  return rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
-}
-
-function formatRecordCount(count) {
-  return t("format.records", { count });
-}
-
-function paymentMethodText(method) {
-  if (!method) {
-    return t("empty.unknownMethod");
-  }
-  return {
-    微信支付: t("payment.wechat"),
-    支付宝: t("payment.alipay"),
-  }[method] || method;
-}
-
-function bilingualCampusName(name) {
-  return campusLabels[name] || name || "";
-}
-
-function bilingualSourceCampusName(name) {
-  return sourceCampusLabels[name] || name || "";
-}
-
-function bilingualBuildingName(name) {
-  if (!name) {
-    return "";
-  }
-  const english = buildingEnglishName(name);
-  return english ? `${name} / ${english}` : name;
-}
-
-function buildingEnglishName(name) {
-  if (!name) {
-    return "";
-  }
-  const base = baseBuildingName(name);
-  return buildingEnglishNames[base] || "";
-}
-
-function resolveInitialLocale() {
-  const requested = new URLSearchParams(location.search).get("lang");
-  const queryLocale = LOCALE_QUERY[requested];
-  if (queryLocale) {
-    return queryLocale;
-  }
-
-  try {
-    const stored = localStorage.getItem("electrifyszu.locale");
-    if (translations[stored]) {
-      return stored;
-    }
-  } catch {
-    // localStorage may be unavailable on some static hosts.
-  }
-
-  return DEFAULT_LOCALE;
-}
-
-function setLanguage(locale, options = {}) {
-  if (!translations[locale]) {
-    locale = DEFAULT_LOCALE;
-  }
-  currentLocale = locale;
-  document.documentElement.lang = locale;
-  document.title = t("meta.title");
-
-  if (options.persist !== false) {
-    try {
-      localStorage.setItem("electrifyszu.locale", locale);
-    } catch {
-      // The language switch still works for the current page.
-    }
-  }
-
-  languageButtons.forEach((button) => {
-    const isSelected = button.dataset.lang === locale;
-    button.classList.toggle("active", isSelected);
-    button.setAttribute("aria-pressed", String(isSelected));
-  });
-
-  document.querySelectorAll("[data-i18n]").forEach((element) => {
-    element.textContent = t(element.dataset.i18n);
-  });
-  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
-    element.setAttribute("placeholder", t(element.dataset.i18nPlaceholder));
-  });
-  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
-    element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
-  });
-  document.querySelectorAll("[data-i18n-alt]").forEach((element) => {
-    element.setAttribute("alt", t(element.dataset.i18nAlt));
-  });
-  document.querySelectorAll(".field-hint[data-i18n]").forEach((element) => {
-    element.textContent = t(element.dataset.i18n);
-  });
-
-  if (buildingChoices.length > 0) {
-    renderCampusOptions();
-  }
-  if (currentStatusData) {
-    renderStatus(currentStatusData);
-  } else {
-    view.rechargeCount.textContent = formatRecordCount(0);
-  }
-
-  if (loadingStatusController?.isActive() && lastMessage.key === "message.loading") {
-    loadingStatusController.updateConfig(loadingStatusOptions());
-  } else if (lastMessage.raw != null) {
-    setMessage(lastMessage.raw, lastMessage.isError);
-  } else {
-    setMessage(t(lastMessage.key, lastMessage.values), lastMessage.isError);
-  }
-
-  if (lastHeroStatus.raw != null) {
-    setHeroStatus(lastHeroStatus.raw, lastHeroStatus.status);
-  } else {
-    setHeroStatus(t(lastHeroStatus.key, lastHeroStatus.values), lastHeroStatus.status);
-  }
-
-  syncEmailInputState();
-  // 语言切换后重新渲染使用人数（从 dataset 读取数字）
-  if (userCount && userCount.dataset.count) {
-    updateUserCount(Number(userCount.dataset.count));
-  }
-}
-
-function t(key, values = {}) {
-  const dictionary = translations[currentLocale] || translations[DEFAULT_LOCALE];
-  const fallback =
-    Object.prototype.hasOwnProperty.call(translations[DEFAULT_LOCALE], key)
-      ? translations[DEFAULT_LOCALE][key]
-      : key;
-  const copy =
-    Object.prototype.hasOwnProperty.call(dictionary, key)
-      ? dictionary[key]
-      : fallback;
-  return copy.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
-}
-
-function loadingStatusOptions() {
-  return {
-    locale: currentLocale,
-    mainText: t("message.loading"),
-  };
+  const card = document.querySelector(".metric.balance");
+  if (!card) return;
+  card.classList.remove("status-ok", "status-low", "status-critical");
+  if (["ok", "low", "critical"].includes(status)) card.classList.add(`status-${status}`);
 }
 
 function startLoadingMessage() {
   lastMessage = { key: "message.loading", values: {}, isError: false, raw: null };
-  if (!loadingStatusController) {
-    setMessage(t("message.loading"));
-    return;
-  }
+  if (!loadingStatusController) { setMessage(t("message.loading")); return; }
   message.classList.remove("error");
   loadingStatusController.start(loadingStatusOptions());
 }
 
-function shortDate(value) {
-  const text = String(value || "");
-  return text.length >= 10 ? text.slice(5, 10) : text || "--";
+function loadingStatusOptions() {
+  return { locale: currentLocale, mainText: t("message.loading") };
 }
 
-function formatEstimatedDateText(lastRecord, daysLeft) {
-  const estimatedDate = estimateAvailableUntilDate(lastRecord, daysLeft);
-  if (!estimatedDate) {
-    return currentLocale === "zh-CN" ? "暂无预计日期" : "No estimated date";
-  }
-  return currentLocale === "zh-CN"
-    ? `预计到 ${formatDisplayDate(estimatedDate)}`
-    : `Until ${formatDisplayDate(estimatedDate)}`;
-}
+function showPageNotice() {
+  const notice = pageQuery.get("notice");
+  if (!notice) return;
 
-function daysLeftDateLabel() {
-  return currentLocale === "zh-CN" ? "预计到" : "Until";
-}
-
-function estimateAvailableUntilDate(lastRecord, daysLeft) {
-  const baseDate = parseIsoDate(lastRecord);
-  const days = numberOrNull(daysLeft);
-  if (!baseDate || days == null || days < 0) {
-    return null;
-  }
-  const estimatedDate = new Date(baseDate);
-  estimatedDate.setDate(estimatedDate.getDate() + Math.ceil(days));
-  return estimatedDate;
-}
-
-function parseIsoDate(value) {
-  if (value == null || value === "") {
-    return null;
-  }
-
-  if (typeof value === "number" && Number.isFinite(value)) {
-    const excelEpoch = new Date(1899, 11, 30);
-    const date = new Date(excelEpoch);
-    date.setDate(date.getDate() + Math.floor(value));
-    return date;
-  }
-
-  const text = String(value).trim();
-  const matchedDate = text.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-  if (matchedDate) {
-    const [, yearText, monthText, dayText] = matchedDate;
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
-    const date = new Date(year, month - 1, day);
-    if (
-      date.getFullYear() === year &&
-      date.getMonth() === month - 1 &&
-      date.getDate() === day
-    ) {
-      return date;
-    }
-  }
-
-  const parsed = new Date(text);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
-}
-
-function formatDisplayDate(date) {
-  return new Intl.DateTimeFormat(currentLocale, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function staticCampuses() {
-  return [
-    {
-      client: "192.168.84.1",
-      name: "北校区",
-      buildings: [
-        { id: "6363", name: "乔林11-12层" },
-        { id: "6364", name: "乔木11-12层" },
-        { id: "6875", name: "乔森阁2-10层" },
-        { id: "6876", name: "乔森11-20层" },
-        { id: "6877", name: "乔相阁2-10层" },
-        { id: "6878", name: "乔相11-20层" },
-        { id: "6121", name: "乔林阁1-10层" },
-        { id: "6122", name: "乔木阁1-10层" },
-        { id: "7724", name: "乔梧阁2-10层" },
-        { id: "7725", name: "乔梧阁11-20" },
-        { id: "54", name: "山茶斋" },
-        { id: "55", name: "红榴斋" },
-        { id: "56", name: "米兰斋" },
-        { id: "57", name: "海桐斋" },
-        { id: "58", name: "桃李斋" },
-        { id: "59", name: "凌霄斋" },
-        { id: "61", name: "银桦斋" },
-        { id: "63", name: "木犀轩" },
-        { id: "64", name: "丹枫轩" },
-        { id: "65", name: "紫檀轩" },
-        { id: "66", name: "石楠轩" },
-        { id: "67", name: "苏铁轩" },
-        { id: "68", name: "芸香阁" },
-        { id: "69", name: "丁香阁" },
-        { id: "70", name: "文杏阁" },
-        { id: "71", name: "海棠阁" },
-        { id: "72", name: "疏影阁" },
-        { id: "73", name: "杜衡阁" },
-        { id: "74", name: "辛夷阁" },
-        { id: "75", name: "韵竹阁" },
-        { id: "76", name: "云杉轩" },
-        { id: "77", name: "紫藤轩" },
-        { id: "8147", name: "留学生公寓" },
-      ],
-    },
-    {
-      client: "192.168.84.110",
-      name: "南校区",
-      buildings: [
-        { id: "6875", name: "春笛3-8楼" },
-        { id: "6876", name: "夏筝3-17楼" },
-        { id: "6877", name: "秋瑟3-8楼" },
-        { id: "6878", name: "冬筑3-6楼" },
-        { id: "7119", name: "春笛9-17楼" },
-        { id: "7828", name: "秋瑟9-17楼" },
-        { id: "8240", name: "冬筑7-10楼" },
-        { id: "8241", name: "冬筑11-14楼" },
-        { id: "8242", name: "冬筑15-17楼" },
-      ],
-    },
-    {
-      client: "172.21.101.11",
-      name: "丽湖校区",
-      buildings: [
-        { id: "10057", name: "A栋风信子" },
-        { id: "10934", name: "B栋山楂树" },
-        { id: "10935", name: "C栋胡杨林" },
-      ],
-    },
-    {
-      client: "192.168.84.87",
-      name: "深大新斋区",
-      buildings: [
-        { id: "7126", name: "风槐斋" },
-        { id: "7603", name: "雨鹃斋" },
-        { id: "17887", name: "蓬莱客舍" },
-        { id: "18118", name: "聚翰斋" },
-        { id: "18119", name: "紫薇斋" },
-        { id: "18120", name: "红豆斋" },
-      ],
-    },
-  ];
-}
-
-function staticDemoStatus() {
-  return {
-    client: "192.168.84.87",
-    campus_name: "粤海",
-    building_id: "7126",
-    building_name: "风槐斋",
-    room_id: "7322",
-    room_name: "713",
-    period: { begin: "2026-04-20", end: "2026-05-20", days: 30 },
-    records: 30,
-    threshold_kwh: 20,
-    status: "low",
-    remaining: 18.6,
-    total_used_kwh: 42.8,
-    daily_avg_kwh: 1.43,
-    est_days_left: 13.0,
-    last_record: "2026-05-20",
-    trend: [
-      { date: "2026-05-14", remaining: 27.8, daily_used_kwh: 1.5 },
-      { date: "2026-05-15", remaining: 26.1, daily_used_kwh: 1.7 },
-      { date: "2026-05-16", remaining: 24.9, daily_used_kwh: 1.2 },
-      { date: "2026-05-17", remaining: 23.0, daily_used_kwh: 1.9 },
-      { date: "2026-05-18", remaining: 21.4, daily_used_kwh: 1.6 },
-      { date: "2026-05-19", remaining: 20.0, daily_used_kwh: 1.4 },
-      { date: "2026-05-20", remaining: 18.6, daily_used_kwh: 1.4 },
-    ],
-    recharges: [
-      { time: "2026-05-08", kwh: 50, yuan: 30.5, method: "微信支付" },
-      { time: "2026-04-19", kwh: 30, yuan: 18.3, method: "支付宝" },
-    ],
+  const values = {
+    email: pageQuery.get("email") || "",
+    campus: pageQuery.get("campus") || "",
+    building: pageQuery.get("building") || "",
+    room: pageQuery.get("room") || "",
   };
+  const mapping = {
+    verified: "notice.verified",
+    already_verified: "notice.alreadyVerified",
+    verify_expired: "notice.verifyExpired",
+    verify_invalid: "notice.verifyInvalid",
+    unsubscribed: "notice.unsubscribed",
+    already_unsubscribed: "notice.alreadyUnsubscribed",
+    unsubscribe_invalid: "notice.unsubscribeInvalid",
+  };
+  const key = mapping[notice];
+  if (!key) return;
+
+  const hasDetails = values.email || values.campus || values.building || values.room;
+  if (!hasDetails && notice.includes("unsubscribed")) {
+    setMessageKey("notice.unsubscribedGeneric", {}, notice.endsWith("invalid"));
+  } else {
+    setMessageKey(key, values, notice.endsWith("invalid"));
+  }
+  if (notice.includes("unsubscribed")) setHeroStatusKey("status.waiting", {}, "unknown");
+
+  pageQuery.delete("notice");
+  pageQuery.delete("email");
+  pageQuery.delete("campus");
+  pageQuery.delete("building");
+  pageQuery.delete("room");
+  const nextQuery = pageQuery.toString();
+  const nextUrl = `${location.pathname}${nextQuery ? `?${nextQuery}` : ""}${location.hash}`;
+  history.replaceState({}, "", nextUrl);
+
+  if ((notice === "verified" || notice === "already_verified") && values.email) {
+    markAsVerified(values.email);
+  }
+
+  if (["verified", "already_verified", "unsubscribed", "already_unsubscribed"].includes(notice)) {
+    showVerificationNotice(notice, values);
+  }
+}
+
+function showVerificationNotice(notice, values) {
+  const titleMap = {
+    verified: "notice.title.verified",
+    already_verified: "notice.title.alreadyVerified",
+    unsubscribed: "notice.title.unsubscribed",
+    already_unsubscribed: "notice.title.alreadyUnsubscribed",
+  };
+  const msgMap = {
+    verified: "notice.verified",
+    already_verified: "notice.alreadyVerified",
+    unsubscribed: "notice.unsubscribed",
+    already_unsubscribed: "notice.alreadyUnsubscribed",
+  };
+  const titleKey = titleMap[notice];
+  const msgKey = msgMap[notice];
+  if (!titleKey || !msgKey) return;
+
+  const hasDetails = values.email || values.campus || values.building || values.room;
+  const safeValues = hasDetails ? values : {};
+  const messageText = hasDetails
+    ? t(msgKey, values)
+    : (notice.includes("unsubscribed") ? t("notice.unsubscribedGeneric", {}) : t(msgKey, safeValues));
+
+  const titleEl = document.querySelector("#subscriptionDialogTitle");
+  if (titleEl) titleEl.textContent = t(titleKey);
+  subscriptionDialogMessage.textContent = messageText;
+  subscriptionDialog.returnValue = "";
+  subscriptionDialogCancel.hidden = true;
+  subscriptionDialogConfirm.value = "done";
+  subscriptionDialogConfirm.textContent = t("subscribe.dialogDone");
+
+  if (typeof subscriptionDialog.showModal === "function") {
+    subscriptionDialog.showModal();
+  } else {
+    window.alert(`${t(titleKey)}\n${messageText}`);
+  }
 }
