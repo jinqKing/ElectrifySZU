@@ -1150,6 +1150,15 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* --- Tooltip direction-down: show below dot when near chart top --- */
+.chart-tooltip.direction-down {
+  transform: translate(-50%, 10px);
+}
+
+.chart-tooltip.direction-down.visible {
+  transform: translate(-50%, 10px);
+}
+
 .chart-axis {
   stroke: #cfd8e3;
   stroke-width: 1;
