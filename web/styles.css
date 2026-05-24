@@ -120,17 +120,30 @@ select {
   display: block;
 }
 
-.sponsor-trigger {
+.sponsor-trigger,
+.recharge-trigger {
   min-height: 36px;
   padding: 0 14px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.86);
   box-shadow: var(--shadow);
   font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  color: var(--text);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
 }
 
 .sponsor-trigger:hover,
-.sponsor-trigger:focus-visible {
+.sponsor-trigger:focus-visible,
+.recharge-trigger:hover,
+.recharge-trigger:focus-visible {
   border-color: rgba(37, 99, 235, 0.35);
   transform: translateY(-1px);
 }
@@ -1601,23 +1614,36 @@ body.modal-open {
 
   .hero-side {
     display: grid;
-    grid-template-columns: 1fr;
-    width: 100%;
-  }
-
-  .repo-link,
-  .sponsor-trigger,
-  .language-switcher,
-  .hero-status {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
     width: 100%;
   }
 
   .repo-link {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
     width: 36px;
+  }
+
+  .sponsor-trigger,
+  .recharge-trigger {
+    justify-content: center;
+  }
+
+  .language-switcher {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   .language-switcher button {
     flex: 1 1 0;
+  }
+
+  .hero-status {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-content: center;
   }
 
   .support-dialog {
