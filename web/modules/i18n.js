@@ -148,3 +148,32 @@ export function setLanguage(locale, options = {}) {
   // Re-render UI elements that embed text
   return { prevLocale }; // caller can use this to trigger re-renders
 }
+
+// ── Email helpers (moved from subscription for lazy loading) ──────
+
+export function inferEmailDomain(prefix) {
+  const m = String(prefix).match(/^(\d{4})/);
+  if (!m) return null;
+  const year = parseInt(m[1]);
+  return year >= 2024 ? "@mails.szu.edu.cn" : "@email.szu.edu.cn";
+}
+
+export function syncEmailInputState() {
+  const group = document.querySelector(".email-input-group");
+  const input = document.querySelector("#subscriberEmail");
+  const hint = document.querySelector("#subscriberEmailDomainHint");
+  if (!group || !input) return;
+  const value = input.value.trim();
+  const hasCustomDomain = value.includes("@");
+  group.classList.toggle("has-custom-domain", hasCustomDomain);
+  input.placeholder = hasCustomDomain ? "you@example.com" : t("subscribe.emailPlaceholder");
+  input.setCustomValidity("");
+  if (hint) {
+    if (value.length >= 4) {
+      const inferred = inferEmailDomain(value);
+      hint.textContent = inferred || "@email.szu.edu.cn";
+    } else {
+      hint.textContent = "@";
+    }
+  }
+}

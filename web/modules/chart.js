@@ -1,12 +1,12 @@
 // ── Chart — trend rendering ────────────────────────────────────────
 import { t, bilingualCampusName, bilingualBuildingName } from './i18n.js';
-import { setState, currentStatusData, metricMode, customUsageLevels,
-         USAGE_LEVEL_STORAGE_KEY } from './state.js';
+import { setState, currentStatusData, metricMode, customUsageLevels } from './state.js';
 import {
   numberOrNull, formatNumber, formatMoneyNumber, formatMoney, escapeHtml,
   shortDate, chartAxis, chartAxisRange, formatAxisTick,
   roundUsageThreshold, normalizeUsageLevels,
   yuanPerKwh, estimateAvailableUntilDate, formatDisplayDate,
+  loadUsageLevelSettings, saveUsageLevelSettings, readUsageLevelInputs,
 } from './utils.js';
 
 const DEFAULT_YUAN_PER_KWH = 0.61;
@@ -329,26 +329,6 @@ function chartPointLabel(item) {
 
 // ── Usage level controls ──────────────────────────────────────────
 
-export function loadUsageLevelSettings() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(USAGE_LEVEL_STORAGE_KEY) || "{}");
-    const medium = numberOrNull(parsed.medium);
-    const high = numberOrNull(parsed.high);
-    if (medium == null && high == null) return { medium: null, high: null };
-    return normalizeUsageLevels(medium ?? 0, high ?? medium ?? 0);
-  } catch { return { medium: null, high: null }; }
-}
-
-export function saveUsageLevelSettings(levels) {
-  try {
-    if (levels.medium == null && levels.high == null) {
-      localStorage.removeItem(USAGE_LEVEL_STORAGE_KEY);
-      return;
-    }
-    localStorage.setItem(USAGE_LEVEL_STORAGE_KEY, JSON.stringify(levels));
-  } catch { /* ignore */ }
-}
-
 function resolveUsageLevels(usedValues) {
   const maxUsed = Math.max(...usedValues, 1);
   const automatic = {
@@ -372,14 +352,6 @@ function syncUsageLevelInputs(usedValues) {
     highInput.value = roundUsageThreshold(levels.high).toFixed(1);
     highInput.classList.toggle("auto", customUsageLevels.high == null);
   }
-}
-
-export function readUsageLevelInputs() {
-  const medium = numberOrNull(document.querySelector("#mediumUseThreshold")?.value);
-  const high = numberOrNull(document.querySelector("#highUseThreshold")?.value);
-  if (medium == null && high == null) return { medium: null, high: null };
-  const normalized = normalizeUsageLevels(medium ?? 0, high ?? medium ?? 0);
-  return { medium: normalized.medium, high: normalized.high };
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
