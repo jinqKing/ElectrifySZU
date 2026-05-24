@@ -91,7 +91,7 @@ const IS_STATIC_PAGE =
   location.hostname.endsWith(".github.io") ||
   location.hostname === "github.io";
 const DEFAULT_LOCALE = "zh-CN";
-const DEFAULT_EMAIL_DOMAIN = "@email.szu.edu.cn";
+
 const DEFAULT_YUAN_PER_KWH = 0.61;
 const MONEY_UNIT = "￥";
 const USAGE_LEVEL_STORAGE_KEY = "electrifyszu.usageLevels";
@@ -646,6 +646,15 @@ async function saveSubscription() {
   }
 }
 
+/** 根据学号前缀推断正确的深大邮箱后缀 */
+function inferEmailDomain(prefix) {
+  const yearMatch = String(prefix).match(/^(\d{4})/);
+  if (!yearMatch) return null;
+  const year = parseInt(yearMatch[1]);
+  if (year >= 2024) return "@mails.szu.edu.cn";
+  return "@email.szu.edu.cn";
+}
+
 function normalizeSubscriberEmail(value) {
   const trimmed = String(value || "").trim();
   if (!trimmed) {
@@ -653,7 +662,9 @@ function normalizeSubscriberEmail(value) {
   }
 
   if (!trimmed.includes("@")) {
-    return `${trimmed}${DEFAULT_EMAIL_DOMAIN}`.toLowerCase();
+    const inferred = inferEmailDomain(trimmed);
+    const domain = inferred || "@email.szu.edu.cn";
+    return `${trimmed}${domain}`.toLowerCase();
   }
 
   if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
@@ -674,7 +685,12 @@ function syncEmailInputState() {
   fields.subscriberEmail.placeholder = hasCustomDomain ? "you@example.com" : t("subscribe.emailPlaceholder");
   fields.subscriberEmail.setCustomValidity("");
   if (emailDomainHint) {
-    emailDomainHint.textContent = DEFAULT_EMAIL_DOMAIN;
+    if (value.length >= 4) {
+      const inferred = inferEmailDomain(value);
+      emailDomainHint.textContent = inferred || "@email.szu.edu.cn";
+    } else {
+      emailDomainHint.textContent = "@";
+    }
   }
 }
 
