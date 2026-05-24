@@ -1,7 +1,9 @@
 // ── Subscription — email alerts ────────────────────────────────────
 import { t, syncEmailInputState, inferEmailDomain } from './i18n.js';
+import { currentLocale } from './state.js';
 import { escapeHtml } from './utils.js';
 import { canUseBackend, apiUrl, postJson } from './api.js';
+import { loadingStatusController } from '../app.js';
 
 const $ = (sel) => document.querySelector(sel);
 const messageEl = () => $("#message");
@@ -50,7 +52,7 @@ export async function saveSubscription() {
   if (!confirmed) return;
 
   setBusy(true);
-  setMsg(t("subscribe.saving"));
+  loadingStatusController?.start({ locale: currentLocale, mainText: t("subscribe.saving") });
   try {
     const res = await postJson(apiUrl("/api/subscriptions"), payload);
     const msg = res.message || t("subscribe.saved");
@@ -65,6 +67,7 @@ export async function saveSubscription() {
   } catch (err) {
     setMsg(err.message, true);
   } finally {
+    loadingStatusController?.stop();
     setBusy(false);
   }
 }
