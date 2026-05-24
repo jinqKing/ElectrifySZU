@@ -1,36 +1,53 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from .store import Subscription
 
 
+def _signature() -> str:
+    sig = os.getenv("EMAIL_SIGNATURE")
+    return sig if sig and sig.strip() else ""
+
+
+def _subject_prefix() -> str:
+    pfx = os.getenv("EMAIL_SUBJECT_PREFIX")
+    return pfx if pfx and pfx.strip() else ""
+
+
 def verification_subject(subscription: Subscription) -> str:
-    return f"请确认 ElectrifySZU 预警订阅：{subscription.room_name}"
+    prefix = _subject_prefix()
+    subj = f"请确认 ElectrifySZU 预警订阅：{subscription.room_name}"
+    return f"{prefix}{subj}" if prefix else subj
 
 
 def verification_content(subscription: Subscription, confirmation_url: str) -> str:
-    return "\n".join(
-        [
-            "你好，",
-            "",
-            "我们收到了一个 ElectrifySZU 电费订阅请求。请点击下方链接完成邮箱验证：",
-            confirmation_url,
-            "",
-            f"宿舍：{subscription.campus_name} {subscription.building_name} {subscription.room_name}",
-            f"预警阈值：{subscription.threshold_kwh:g} kWh",
-            f"订阅电费预警：{'是' if subscription.alert_enabled else '否'}",
-            f"每日电费报告：{'是' if subscription.daily_report_enabled else '否'}",
-            "",
-            "如果这不是你的操作，可以直接忽略这封邮件。",
-        ]
-    )
+    lines = [
+        "你好，",
+        "",
+        "我们收到了一个 ElectrifySZU 电费订阅请求。请点击下方链接完成邮箱验证：",
+        confirmation_url,
+        "",
+        f"宿舍：{subscription.campus_name} {subscription.building_name} {subscription.room_name}",
+        f"预警阈值：{subscription.threshold_kwh:g} kWh",
+        f"订阅电费预警：{'是' if subscription.alert_enabled else '否'}",
+        f"每日电费报告：{'是' if subscription.daily_report_enabled else '否'}",
+        "",
+        "如果这不是你的操作，可以直接忽略这封邮件。",
+    ]
+    sig = _signature()
+    if sig:
+        lines.append(sig)
+    return "\n".join(lines)
 
 
 def alert_subject(result: dict[str, Any]) -> str:
+    prefix = _subject_prefix()
     room_name = result.get("room_name", "")
     remaining = result.get("remaining", "?")
-    return f"电费预警：{room_name} 当前余额 {remaining} kWh"
+    subj = f"电费预警：{room_name} 当前余额 {remaining} kWh"
+    return f"{prefix}{subj}" if prefix else subj
 
 
 def alert_content(
@@ -58,16 +75,21 @@ def alert_content(
                 f"{base_url.rstrip('/')}/api/unsubscribe?token={subscription.unsubscribe_token}",
             ]
         )
+    sig = _signature()
+    if sig:
+        lines.append(sig)
     return "\n".join(lines)
 
 
 def daily_report_subject(subscription: Subscription) -> str:
     from datetime import date
 
-    return (
+    prefix = _subject_prefix()
+    subj = (
         f"每日电费报告：{subscription.building_name} {subscription.room_name}"
         f" · {date.today().isoformat()}"
     )
+    return f"{prefix}{subj}" if prefix else subj
 
 
 def daily_report_content(
@@ -128,5 +150,9 @@ def daily_report_content(
         )
     if link_lines:
         lines.extend(link_lines)
+
+    sig = _signature()
+    if sig:
+        lines.append(sig)
 
     return "\n".join(lines)
