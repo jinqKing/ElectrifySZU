@@ -285,21 +285,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _handle_status(self, query: dict[str, list[str]]) -> None:
         try:
             client = _query_value(query, "client") or ""
-            if client == "apartment":
-                self._handle_apartment_status(query)
-                return
-            config = Config.from_env(str(ENV_FILE))
-            campus_name = _query_value(query, "campusName") or config.campus_name
-            building_id = _query_value(query, "buildingId") or config.building_id
-            building_name = _query_value(query, "buildingName") or config.building_name
-            room_name = _query_value(query, "roomName") or config.room_name
+            building_id = _query_value(query, "buildingId") or ""
+            campus_name = _query_value(query, "campusName") or ""
+            building_name = _query_value(query, "buildingName") or ""
+            room_name = _query_value(query, "roomName") or ""
             days = int(_query_value(query, "days") or "30")
 
-            config.client = client
+            # 丽湖校区内，公寓系统楼栋（编码01-06）走 ApartmentPowerApi
+            if client == "172.21.101.11" and building_id in ("01", "02", "03", "04", "05", "06"):
+                self._handle_apartment_status(building_id, room_name, days)
+                return
+
+            config = Config.from_env(str(ENV_FILE))
+            config.client = client or config.client
             room_id = discover_room_id(
-                building_id=building_id,
-                room_name=room_name,
-                client_ip=client,
+                building_id=building_id or config.building_id,
+                room_name=room_name or config.room_name,
+                client_ip=config.client,
                 base_url=config.base_url,
             )
             if not room_id:
@@ -307,14 +309,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
             result = DormApi(config).get_status(
                 room_id=room_id,
-                room_name=room_name,
+                room_name=room_name or config.room_name,
                 days=days,
                 threshold=config.low_power_threshold,
             )
-            result["client"] = client
-            result["campus_name"] = campus_name
-            result["building_id"] = building_id
-            result["building_name"] = building_name
+            result["client"] = client or config.client
+            result["campus_name"] = campus_name or config.campus_name
+            result["building_id"] = building_id or config.building_id
+            result["building_name"] = building_name or config.building_name
 
             # 楼栋排行百分位 — 与缓存中同楼样本对比
             try:
@@ -353,12 +355,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 status=502,
             )
 
-    def _handle_apartment_status(self, query: dict[str, list[str]]) -> None:
+    def _handle_apartment_status(self, building_code: str, room_name: str, days: int) -> None:
         try:
-            building_code = _query_value(query, "buildingId") or "01"
-            room_name = _query_value(query, "roomName") or "501"
-            days = int(_query_value(query, "days") or "30")
-
             config_mod = _apartment_mod("config")
             api_mod = _apartment_mod("api")
 
@@ -370,8 +368,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 days=days,
                 threshold=apt_config.low_power_threshold,
             )
-            result["client"] = "apartment"
-            result["campus_name"] = "丽湖公寓"
+            result["client"] = "172.21.101.11"
+            result["campus_name"] = "西丽校区"
             result["building_id"] = building_code
             self._send_json({"ok": True, "data": result})
         except LookupError as exc:
@@ -448,12 +446,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _handle_buildings(self) -> None:
         config = Config.from_env(str(ENV_FILE))
         data = merge_campuses(default_campuses(config), load_buildings_file())
-        # Add apartment buildings (丽湖公寓)
-        data.append({
-            "client": "apartment",
-            "name": "丽湖公寓",
-            "buildings": _apartment_buildings_list(),
-        })
+        # 公寓6栋楼归入丽湖校区 (client=172.21.101.11)，前端无感知
+        _merge_apartment_into_lihu(data)
         self._send_json({"ok": True, "data": data})
 
     def _handle_subscription(self) -> None:
@@ -945,17 +939,33 @@ def merge_campuses(*groups: list[dict[str, object]]) -> list[dict[str, object]]:
     return merged
 
 
-def _apartment_buildings_list() -> list[dict[str, str]]:
-    """Return apartment building list in API format (id=code, name=display name)."""
+def _merge_apartment_into_lihu(data: list[dict[str, object]]) -> None:
+    """Merge apartment 6 buildings into the 丽湖 campus (client=172.21.101.11)."""
     try:
         buildings_mod = _apartment_mod("buildings")
         apartments = buildings_mod.load_buildings()
-        return [
+        apt_list = [
             {"id": b.code, "name": b.name}
             for b in sorted(apartments.values(), key=lambda x: x.code)
         ]
     except Exception:
-        return []
+        return
+
+    for campus in data:
+        if campus.get("client") == "172.21.101.11":
+            seen = {b["id"] for b in campus.get("buildings", [])}
+            for building in apt_list:
+                if building["id"] not in seen:
+                    campus["buildings"].append(building)
+                    seen.add(building["id"])
+            return
+
+    # 如果没有找到丽湖校区，追加
+    data.append({
+        "client": "172.21.101.11",
+        "name": "西丽校区",
+        "buildings": apt_list,
+    })
 
 
 def demo_status() -> dict[str, object]:
