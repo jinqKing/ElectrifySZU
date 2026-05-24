@@ -1085,7 +1085,12 @@ function renderBuildingOptionsForList(options, rawKeyword = "") {
     return;
   }
 
-  list.classList.add("open");
+  /* Only auto-open when user is interacting (input focused or typing) */
+  if (rawKeyword || document.activeElement === fields.buildingSearch) {
+    list.classList.add("open");
+  } else {
+    list.classList.remove("open");
+  }
 
   const keywordLower = rawKeyword.toLowerCase();
 
