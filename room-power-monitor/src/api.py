@@ -258,12 +258,17 @@ def _resolve_recharge_columns(row: dict[str, Any]) -> dict[str, str]:
         {
             "method": [
                 lambda header: _contains("\u65b9\u5f0f")(header)
-                or _contains("\u6e20\u9053")(header),
+                or _contains("\u6e20\u9053")(header)
+                or _contains("\u5f62\u5f0f")(header),
                 "\u5145\u503c\u65b9\u5f0f",
                 "\u652f\u4ed8\u65b9\u5f0f",
+                "\u8d2d\u4e70\u5f62\u5f0f",
             ],
             "kwh": [
-                lambda header: _contains("\u5145\u503c")(header)
+                lambda header: (
+                    _contains("\u5145\u503c")(header)
+                    or _contains("\u8d2d\u4e70")(header)
+                )
                 and (
                     _contains("\u7535")(header)
                     or _contains("\u91cf")(header)
@@ -272,10 +277,16 @@ def _resolve_recharge_columns(row: dict[str, Any]) -> dict[str, str]:
                 "\u5145\u503c\u7535\u91cf",
                 "\u5145\u503c\u6570\u91cf",
                 "\u5145\u503c\u5ea6\u6570",
+                "\u8d2d\u4e70\u7535\u91cf",
+                "\u8d2d\u4e70\u7535\u91cf\u5ea6",
             ],
             "yuan": [
                 lambda header: _contains("\u91d1\u989d")(header)
-                or (_contains("\u5145\u503c")(header) and _contains("\u5143")(header)),
+                or (
+                    _contains("\u5145\u503c")(header)
+                    or _contains("\u8d2d\u4e70")(header)
+                )
+                and _contains("\u5143")(header),
                 "\u5145\u503c\u91d1\u989d",
                 "\u652f\u4ed8\u91d1\u989d",
                 "\u91d1\u989d",
@@ -285,6 +296,7 @@ def _resolve_recharge_columns(row: dict[str, Any]) -> dict[str, str]:
                 or _contains("\u65e5\u671f")(header),
                 "\u5145\u503c\u65f6\u95f4",
                 "\u4ea4\u6613\u65f6\u95f4",
+                "\u8d2d\u4e70\u65e5\u671f",
                 "\u65e5\u671f",
             ],
         },
