@@ -10,9 +10,9 @@
 #   building=<code> name=<display_name> floors=<start>-<end> rooms_per_floor=<count>
 #   building=<code> name=<display_name> floors=<floor>:<count>,...
 
-building=01 name=梧桐树# floors=5-19 rooms_per_floor=31
-building=02 name=青冈栎# floors=5-19 rooms_per_floor=31
-building=03 name=三角梅# floors=4-19 rooms_per_floor=31
-building=04 name=冬青树# floors=4-19 rooms_per_floor=31
-building=05 name=紫罗兰# floors=3-19 rooms_per_floor=31
-building=06 name=B3文韬楼# floors=2:30,3:38,4:22
+building=01 name=梧桐树 floors=5-19 rooms_per_floor=31
+building=02 name=青冈栎 floors=5-19 rooms_per_floor=31
+building=03 name=三角梅 floors=4-19 rooms_per_floor=31
+building=04 name=冬青树 floors=4-19 rooms_per_floor=31
+building=05 name=紫罗兰 floors=3-19 rooms_per_floor=31
+building=06 name=B3文韬楼 floors=2:30,3:38,4:22
