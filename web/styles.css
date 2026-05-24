@@ -642,6 +642,36 @@ select:focus {
   font-weight: 700;
 }
 
+.combo-option.active {
+  background: #e8f0fe;
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+.combo-option mark {
+  background: #fde68a;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  font-weight: 800;
+}
+
+.combo-empty {
+  padding: 16px 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.combo-count {
+  padding: 4px 12px 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--line);
+}
+
 /* ── Building Input Feedback Indicators ─────────────── */
 
 .combo-feedback {
@@ -1028,44 +1058,44 @@ button:disabled {
   height: 320px;
 }
 
-.chart-hit-layer {
-  position: absolute;
-  inset: 0;
+// ---- Inline SVG interaction zones (replaces external .chart-hit-layer) ----
+
+.chart-interaction {
+  /* group wrapper inside SVG */
 }
 
-.chart-target {
-  position: absolute;
-  top: 36px;
-  bottom: 52px;
-  min-width: 28px;
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
+.chart-zone {
   cursor: pointer;
-  transform: translateX(-50%);
 }
 
-.chart-target::after {
-  position: absolute;
-  left: 50%;
-  bottom: -9px;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: transparent;
-  content: "";
-  transform: translateX(-50%);
+.chart-hotzone {
+  /* transparent rect providing generous hit area */
 }
 
-.chart-target:is(:hover, :focus-visible, .active)::after {
-  background: var(--surface-strong);
+.chart-indicator {
+  fill: transparent;
+  transition: fill 120ms ease;
 }
 
-.chart-target:focus-visible {
+.chart-zone:hover .chart-indicator,
+.chart-zone:focus-visible .chart-indicator,
+.chart-zone.active .chart-indicator {
+  fill: var(--blue);
+}
+
+.chart-zone:focus-visible {
   outline: 2px solid rgba(37, 99, 235, 0.45);
-  outline-offset: -2px;
+  outline-offset: 2px;
+}
+
+// ---- Truncation notice ----
+
+.chart-truncation {
+  text-align: center;
+  padding: 6px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--orange);
 }
 
 .chart-tooltip {
@@ -1084,7 +1114,7 @@ button:disabled {
   font-weight: 800;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, calc(-100% - 14px));
+  transform: translate(-50%, -110%);
   transition:
     opacity 140ms ease,
     transform 140ms ease;
