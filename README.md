@@ -80,6 +80,14 @@ ElectrifySZU 把查询、趋势、预警整合到一个页面里：
 │  ├── python -m src.cli status      宿舍电费状态           │
 │  ├── python -m src.cli json        JSON 输出             │
 │  └── python -m src.discover        发现 roomId           │
+├─────────────────────────────────────────────────────────┤
+│  丽湖公寓模块 (apartment-power-monitor/)                  │
+│  适配 http://172.25.100.105:8010/ 的 ASP.NET 公寓电费系统  │
+│  ├── python -m src.cli status      公寓电费状态 + 充值记录 │
+│  ├── python -m src.cli json        JSON 输出 + 趋势       │
+│  ├── python -m src.cli buildings   列出楼栋               │
+│  ├── python -m src.cli floors      列出楼层               │
+│  └── python -m src.cli rooms       列出房间               │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -112,6 +120,19 @@ uv run python -m src.cli status
 uv run python -m src.cli json
 uv run python -m src.discover <building_id> <room_name>
 ```
+
+### 丽湖公寓查询
+
+```bash
+cd apartment-power-monitor
+python -m src.cli buildings              # 列出已知楼栋
+python -m src.cli status 01 501          # 查询梧桐树#501 电费状态
+python -m src.cli json 01 501            # JSON 格式输出（含30天趋势）
+python -m src.cli usage 01 501 --begin 2026-05-01 --end 2026-05-20
+python -m src.cli recharge 01 501 --begin 2026-01-01 --end 2026-05-20
+```
+
+支持楼栋：梧桐树#、青冈栎#、三角梅#、冬青树#、紫罗兰#、B3文韬楼（丽湖）
 
 ### 运行测试
 

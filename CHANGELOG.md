@@ -4,6 +4,12 @@ All notable changes to ElectrifySZU will be documented in this file.
 
 The format follows the spirit of Keep a Changelog, and this project uses an Euler-number-inspired version sequence that converges toward `e`.
 
+## [2.7183] - 2026-05-25
+
+### Added
+
+- **丽湖公寓模块** (`apartment-power-monitor/`): 适配 `http://172.25.100.105:8010/` 的 ASP.NET 公寓电费系统，支持梧桐树、青冈栎、三角梅、冬青树、紫罗兰、B3文韬楼（丽湖）等6栋楼的楼栋-楼层-房间级联查询、电费状态、充值记录与30天用电趋势。
+
 ## [2.7182] - 2026-05-25
 
 ### Highlights
