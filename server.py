@@ -46,8 +46,8 @@ from building_power_ranking.cache import (  # noqa: E402
 )
 from building_power_ranking.ranking import mask_room_name  # noqa: E402
 
-# 排行缓存（惰性加载，只在启动后首次访问时读取一次，之后常驻内存）
-_RANKING_CACHE: dict | None = None
+# 排行缓存（模块加载时预读，避免首次请求的惰性加载开销）
+_RANKING_CACHE: dict = {}
 _RANKING_CACHE_LOADED: bool = False
 
 
@@ -57,6 +57,17 @@ def _get_ranking_cache() -> dict:
         _RANKING_CACHE = load_ranking_cache()
         _RANKING_CACHE_LOADED = True
     return _RANKING_CACHE or {}
+
+
+# 预加载排行缓存 & mimetypes 数据库，避免首次请求冷启动开销
+try:
+    _RANKING_CACHE = load_ranking_cache()
+    _RANKING_CACHE_LOADED = True
+except Exception:
+    logger.warning("排行缓存预加载失败，将使用惰性加载")
+    _RANKING_CACHE = {}
+    _RANKING_CACHE_LOADED = False
+mimetypes.guess_type("index.html")
 from subscription_alerts.alerts import (
     AlertRunner,
     AlertSettings,
