@@ -45,6 +45,18 @@ from building_power_ranking.cache import (  # noqa: E402
     load_ranking_cache,
 )
 from building_power_ranking.ranking import mask_room_name  # noqa: E402
+
+# 排行缓存（惰性加载，只在启动后首次访问时读取一次，之后常驻内存）
+_RANKING_CACHE: dict | None = None
+_RANKING_CACHE_LOADED: bool = False
+
+
+def _get_ranking_cache() -> dict:
+    global _RANKING_CACHE, _RANKING_CACHE_LOADED
+    if not _RANKING_CACHE_LOADED:
+        _RANKING_CACHE = load_ranking_cache()
+        _RANKING_CACHE_LOADED = True
+    return _RANKING_CACHE or {}
 from subscription_alerts.alerts import (
     AlertRunner,
     AlertSettings,
@@ -320,9 +332,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
             # 楼栋排行百分位 — 与缓存中同楼样本对比
             try:
-                cache = load_ranking_cache()
                 ranking_data = cached_ranking_for(
-                    cache, client=client, building_id=building_id
+                    _get_ranking_cache(), client=client, building_id=building_id
                 )
                 if ranking_data and ranking_data.get("ranking"):
                     rows = ranking_data["ranking"]
@@ -394,8 +405,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             client = _query_value(query, "client") or config.client
             building_id = _query_value(query, "buildingId") or config.building_id
 
-            cache = load_ranking_cache()
-            result = cached_ranking_for(cache, client=client, building_id=building_id)
+            result = cached_ranking_for(_get_ranking_cache(), client=client, building_id=building_id)
             if result is None:
                 self._send_json(
                     {"ok": False, "error": "未找到该楼栋的本地排行缓存。"},
