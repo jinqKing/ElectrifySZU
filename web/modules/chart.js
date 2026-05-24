@@ -286,6 +286,13 @@ function attachTrendInteractions(points, svgEl, view, geometry) {
     tooltip.innerHTML = chartTooltipMarkup(item);
     tooltip.style.left = `${pixelX}px`;
     tooltip.style.top = `${pixelY}px`;
+    // Flip tooltip below the dot when too close to chart top edge,
+    // so it doesn't get clipped by overflow-y: hidden on .trend-chart
+    if (pixelY < 120) {
+      tooltip.classList.add("direction-down");
+    } else {
+      tooltip.classList.remove("direction-down");
+    }
     tooltip.classList.add("visible");
     zones.forEach((zone, zi) => zone.classList.toggle("active", zi === index));
   };
