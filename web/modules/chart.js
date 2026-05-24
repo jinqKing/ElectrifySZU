@@ -90,16 +90,18 @@ function setPowerMetric(key, kwhValue, rate, view, units) {
 
 function setDaysMetric(daysLeft, lastRecord, view) {
   const isDateMode = metricMode.daysLeft === "date";
-  const estimatedDate = estimateAvailableUntilDate(lastRecord, daysLeft);
+  // 预计可用天数最小为 0，避免余额为 0 或已欠费时显示负数
+  const safeDaysLeft = daysLeft == null ? null : Math.max(0, daysLeft);
+  const estimatedDate = estimateAvailableUntilDate(lastRecord, safeDaysLeft);
   const dateText = estimatedDate ? formatDisplayDate(estimatedDate) : "--";
-  const daysText = daysLeft == null ? "--" : `${formatNumber(daysLeft)} ${t("unit.days")}`;
+  const daysText = safeDaysLeft == null ? "--" : `${formatNumber(safeDaysLeft)} ${t("unit.days")}`;
 
   const labelEl = document.querySelector('[data-metric-key="daysLeft"] .metric-label');
   if (labelEl) labelEl.textContent = isDateMode ? t("metrics.untilDate") : t("metrics.daysLeft");
-  view.daysLeft.textContent = isDateMode ? dateText : formatNumber(daysLeft);
+  view.daysLeft.textContent = isDateMode ? dateText : formatNumber(safeDaysLeft);
   view.daysLeftUnit.textContent = isDateMode ? "" : t("unit.days");
   view.daysLeftUnit.hidden = isDateMode;
-  view.daysLeftDate.textContent = isDateMode ? daysText : formatEstimatedDateText(lastRecord, daysLeft);
+  view.daysLeftDate.textContent = isDateMode ? daysText : formatEstimatedDateText(lastRecord, safeDaysLeft);
 }
 
 export function toggleMetricMode(key, view) {

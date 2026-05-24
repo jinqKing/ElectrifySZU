@@ -8,8 +8,7 @@ import {
   loadBuildings, renderBuildingOptions, renderBuildingOptionsForList,
   renderCampusOptions, chooseDefaultBuildingForCampus, syncSelectedBuilding,
   updateBuildingFeedback, closeBuildingOptions, updateActiveDescendant,
-  mergeBuildingChoices, flattenBuildings, normalizeCampuses, staticCampuses,
-  staticDemoStatus, loadStaticBuildings,
+  mergeBuildingChoices, flattenBuildings, normalizeCampuses, fetchDemoStatus,
 } from './modules/buildings.js';
 import { renderStatus, renderTrend, toggleMetricMode,
   loadUsageLevelSettings, saveUsageLevelSettings, readUsageLevelInputs } from './modules/chart.js';
@@ -183,9 +182,29 @@ document.addEventListener("click", (event) => {
   if (!event.target.closest(".combo")) closeBuildingOptions(fields);
 });
 
-demoButton.addEventListener("click", () => {
-  renderStatus(staticDemoStatus(), view);
+// ── 演示数据轮换 ─────────────────────────────────────────────
+let _demoList = [];
+let _demoIndex = 0;
+
+demoButton.addEventListener("click", async () => {
+  // 首次点击加载全部场景
+  if (_demoList.length === 0) {
+    const data = await fetchDemoStatus();
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      setMessageKey("message.demoFailed", {}, true);
+      return;
+    }
+    _demoList = data;
+  }
+
+  const scene = _demoList[_demoIndex % _demoList.length];
+  _demoIndex++;
+
+  renderStatus(scene, view);
+  // 显示当前场景序号，方便知道切换到第几个了
   setMessageKey("message.demoLoaded");
+  const sceneLabel = `场景 ${(_demoIndex - 1) % _demoList.length + 1}/${_demoList.length}`;
+  message.textContent += ` · ${sceneLabel}`;
 });
 
 // Block F5 / Ctrl+R reload (SPA behavior)
@@ -239,7 +258,7 @@ const initialLocale = resolveInitialLocale();
 setLanguage(initialLocale, { persist: false });
 document.title = t("meta.title");
 
-loadBuildings(fields, { setMessageKey, loadStaticBuildings });
+loadBuildings(fields, { setMessageKey });
 
 syncEmailInputState();
 setupSubscriptionToggle();
