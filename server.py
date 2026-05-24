@@ -52,6 +52,11 @@ from subscription_alerts.verification import (  # noqa: E402
 MAX_REQUEST_BODY_BYTES = 64 * 1024
 LIKE_ID_PATTERN = re.compile(r"^svr-[0-9a-f]{16}$")
 SENSITIVE_QUERY_KEYS = {"token", "email", "userId", "id"}
+# Cached GitHub star count (refreshed hourly)
+_GITHUB_STARS_CACHE: dict[str, object] = {}
+GITHUB_REPO_SLUG = "jinqKing/ElectrifySZU"
+GITHUB_STARS_TTL = 3600  # seconds
+
 ALLOWED_HOSTNAMES = {"127.0.0.1", "localhost", "::1"}
 
 
@@ -85,6 +90,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(
                 {"ok": True, "version": __version__, "python": sys.version.split()[0]}
             )
+            return
+        if parsed.path == "/api/github-stars":
+            self._handle_github_stars()
             return
         if parsed.path == "/api/health":
             self._send_json(
@@ -361,6 +369,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._redirect_to_dashboard({"notice": "verify_expired"})
             return
         self._redirect_to_dashboard({"notice": "verify_invalid"})
+
+    def _handle_github_stars(self) -> None:
+        global _GITHUB_STARS_CACHE
+        ts = _GITHUB_STARS_CACHE.get("ts", 0)
+        if time.time() - ts < GITHUB_STARS_TTL:
+            self._send_json({"ok": True, "stars": _GITHUB_STARS_CACHE["stars"]})
+            return
+        url = f"https://api.github.com/repos/{GITHUB_REPO_SLUG}"
+        try:
+            import httpx as _hx
+            resp = _hx.get(url, timeout=5)
+            stars = resp.json().get("stargazers_count", 0)
+        except Exception:
+            stars = _GITHUB_STARS_CACHE.get("stars", 0)
+        _GITHUB_STARS_CACHE.update(stars=int(stars), ts=time.time())
+        self._send_json({"ok": True, "stars": _GITHUB_STARS_CACHE["stars"]})
 
     def _handle_unsubscribe(self, query: dict[str, list[str]]) -> None:
         """GET /api/unsubscribe?token=xxx — 一键退订（token 一次性，用后即销毁）。"""
