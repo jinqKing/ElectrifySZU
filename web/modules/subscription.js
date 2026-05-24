@@ -1,52 +1,11 @@
 // ── Subscription — email alerts ────────────────────────────────────
-import { t } from './i18n.js';
+import { t, syncEmailInputState, inferEmailDomain } from './i18n.js';
 import { escapeHtml } from './utils.js';
 import { canUseBackend, apiUrl, postJson } from './api.js';
 
 const $ = (sel) => document.querySelector(sel);
 const messageEl = () => $("#message");
 const setMsg = (text, isError) => { const m = messageEl(); if (m) { m.textContent = text; m.classList.toggle("error", isError); } };
-
-export function setupSubscriptionToggle() {
-  const trigger = $("#subscriptionTrigger");
-  const inner = $(".subscription-inner");
-  const summary = $("#subscriptionSummary");
-  if (!trigger || !inner) return;
-  const toggle = () => {
-    inner.classList.toggle("open");
-    const ring = trigger.querySelector(".ring-icon");
-    if (ring) { ring.classList.remove("clicked"); void ring.offsetWidth; ring.classList.add("clicked"); }
-  };
-  trigger.addEventListener("click", toggle);
-  if (summary) summary.addEventListener("click", toggle);
-}
-
-export function syncEmailInputState() {
-  const group = $(".email-input-group");
-  const input = $("#subscriberEmail");
-  const hint = $("#subscriberEmailDomainHint");
-  if (!group || !input) return;
-  const value = input.value.trim();
-  const hasCustomDomain = value.includes("@");
-  group.classList.toggle("has-custom-domain", hasCustomDomain);
-  input.placeholder = hasCustomDomain ? "you@example.com" : t("subscribe.emailPlaceholder");
-  input.setCustomValidity("");
-  if (hint) {
-    if (value.length >= 4) {
-      const inferred = inferEmailDomain(value);
-      hint.textContent = inferred || "@email.szu.edu.cn";
-    } else {
-      hint.textContent = "@";
-    }
-  }
-}
-
-function inferEmailDomain(prefix) {
-  const m = String(prefix).match(/^(\d{4})/);
-  if (!m) return null;
-  const year = parseInt(m[1]);
-  return year >= 2024 ? "@mails.szu.edu.cn" : "@email.szu.edu.cn";
-}
 
 function normalizeEmail(value) {
   const t = String(value || "").trim();

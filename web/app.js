@@ -1,8 +1,9 @@
 // ── ElectrifySZU — Entry point (ES Module) ─────────────────────────
-import { setLanguage, resolveInitialLocale, t } from './modules/i18n.js';
+import { setLanguage, resolveInitialLocale, t, syncEmailInputState } from './modules/i18n.js';
 import { setState, currentLocale, currentStatusData, customUsageLevels,
          buildingActiveIndex, allBuildings, buildingChoices, metricMode } from './modules/state.js';
-import { escapeHtml, debounce, numberOrNull } from './modules/utils.js';
+import { escapeHtml, debounce, numberOrNull,
+  loadUsageLevelSettings, saveUsageLevelSettings, readUsageLevelInputs } from './modules/utils.js';
 import { canUseBackend, apiUrl, fetchJson } from './modules/api.js';
 import {
   loadBuildings, renderBuildingOptions, renderBuildingOptionsForList,
@@ -10,10 +11,6 @@ import {
   updateBuildingFeedback, closeBuildingOptions, updateActiveDescendant,
   mergeBuildingChoices, flattenBuildings, normalizeCampuses, fetchDemoStatus,
 } from './modules/buildings.js';
-import { renderStatus, renderTrend, toggleMetricMode,
-  loadUsageLevelSettings, saveUsageLevelSettings, readUsageLevelInputs } from './modules/chart.js';
-import { setupSubscriptionToggle, syncEmailInputState, saveSubscription,
-  markAsVerified } from './modules/subscription.js';
 import { initLike, handleLike } from './modules/likes.js';
 import { setupSponsor, setupSponsorKeyboard } from './modules/sponsor.js';
 import { loadGithubStars } from './modules/github.js';
@@ -104,6 +101,24 @@ form.addEventListener("submit", async (event) => {
   await loadStatus(apiUrl("/api/status") + "?" + new URLSearchParams(new FormData(form)));
 });
 
+async function loadStatus(url) {
+  setBusy(true);
+  startLoadingMessage();
+  try {
+    const payload = await fetchJson(url);
+    if (!payload.ok) throw new Error(payload.hint || payload.error || t("error.queryFailed"));
+    const { renderStatus } = await import('./modules/chart.js');
+    renderStatus(payload.data, view);
+    setMessageKey("message.complete");
+  } catch (error) {
+    setMessageRaw(error.message, true);
+    setHeroStatusKey("status.queryFailed", {}, "critical");
+    updateBalanceCardStatus("unknown");
+  } finally {
+    setBusy(false);
+  }
+}
+
 subscriptionForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   syncSelectedBuilding(fields);
@@ -112,6 +127,7 @@ subscriptionForm.addEventListener("submit", async (event) => {
     setHeroStatusKey("status.needBackend", {}, "critical");
     return;
   }
+  const { saveSubscription } = await import('./modules/subscription.js');
   await saveSubscription();
 });
 
@@ -172,9 +188,16 @@ fields.roomName.addEventListener("focus", () => fields.roomName.select());
 fields.subscriberEmail.addEventListener("input", syncEmailInputState);
 
 document.querySelectorAll("[data-metric-card]").forEach((card) => {
-  card.addEventListener("click", () => toggleMetricMode(card.dataset.metricKey, view));
-  card.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleMetricMode(card.dataset.metricKey, view); }
+  card.addEventListener("click", async () => {
+    const { toggleMetricMode } = await import('./modules/chart.js');
+    toggleMetricMode(card.dataset.metricKey, view);
+  });
+  card.addEventListener("keydown", async (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      const { toggleMetricMode } = await import('./modules/chart.js');
+      toggleMetricMode(card.dataset.metricKey, view);
+    }
   });
 });
 
@@ -200,6 +223,7 @@ demoButton.addEventListener("click", async () => {
   const scene = _demoList[_demoIndex % _demoList.length];
   _demoIndex++;
 
+  const { renderStatus } = await import('./modules/chart.js');
   renderStatus(scene, view);
   // 显示当前场景序号，方便知道切换到第几个了
   setMessageKey("message.demoLoaded");
@@ -222,11 +246,13 @@ window.addEventListener("beforeunload", (event) => {
 });
 
 languageButtons.forEach((button) => {
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     setLanguage(button.dataset.lang);
     document.title = t("meta.title");
-    if (currentStatusData) renderStatus(currentStatusData, view);
-    else view.rechargeCount.textContent = t("format.records", { count: 0 });
+    if (currentStatusData) {
+      const { renderStatus } = await import('./modules/chart.js');
+      renderStatus(currentStatusData, view);
+    } else view.rechargeCount.textContent = t("format.records", { count: 0 });
     if (lastMessage.raw != null) setMessage(lastMessage.raw, lastMessage.isError);
     else setMessage(t(lastMessage.key, lastMessage.values), lastMessage.isError);
     if (lastHeroStatus.raw != null) setHeroStatus(lastHeroStatus.raw, lastHeroStatus.status);
@@ -241,16 +267,22 @@ languageButtons.forEach((button) => {
 
 likeButton?.addEventListener("click", handleLike);
 
-usageLevelForm.addEventListener("input", () => {
+usageLevelForm.addEventListener("input", async () => {
   setState("customUsageLevels", readUsageLevelInputs());
   saveUsageLevelSettings(customUsageLevels);
-  if (currentStatusData) renderTrend(currentStatusData.trend || [], view);
+  if (currentStatusData) {
+    const { renderTrend } = await import('./modules/chart.js');
+    renderTrend(currentStatusData.trend || [], view);
+  }
 });
 
-resetUsageLevelsButton.addEventListener("click", () => {
+resetUsageLevelsButton.addEventListener("click", async () => {
   setState("customUsageLevels", { medium: null, high: null });
   saveUsageLevelSettings(customUsageLevels);
-  if (currentStatusData) renderTrend(currentStatusData.trend || [], view);
+  if (currentStatusData) {
+    const { renderTrend } = await import('./modules/chart.js');
+    renderTrend(currentStatusData.trend || [], view);
+  }
 });
 
 // ── Initialization ────────────────────────────────────────────────
@@ -261,7 +293,21 @@ document.title = t("meta.title");
 loadBuildings(fields, { setMessageKey });
 
 syncEmailInputState();
-setupSubscriptionToggle();
+// Inline subscription toggle (was in subscription.js, kept here to avoid static import)
+{
+  const trigger = document.querySelector("#subscriptionTrigger");
+  const inner = document.querySelector(".subscription-inner");
+  const summary = document.querySelector("#subscriptionSummary");
+  if (trigger && inner) {
+    const toggle = () => {
+      inner.classList.toggle("open");
+      const ring = trigger.querySelector(".ring-icon");
+      if (ring) { ring.classList.remove("clicked"); void ring.offsetWidth; ring.classList.add("clicked"); }
+    };
+    trigger.addEventListener("click", toggle);
+    if (summary) summary.addEventListener("click", toggle);
+  }
+}
 showPageNotice();
 loadGithubStars();
 
@@ -276,23 +322,6 @@ setupSponsor();
 setupSponsorKeyboard();
 
 // ── Helper functions ──────────────────────────────────────────────
-
-async function loadStatus(url) {
-  setBusy(true);
-  startLoadingMessage();
-  try {
-    const payload = await fetchJson(url);
-    if (!payload.ok) throw new Error(payload.hint || payload.error || t("error.queryFailed"));
-    renderStatus(payload.data, view);
-    setMessageKey("message.complete");
-  } catch (error) {
-    setMessageRaw(error.message, true);
-    setHeroStatusKey("status.queryFailed", {}, "critical");
-    updateBalanceCardStatus("unknown");
-  } finally {
-    setBusy(false);
-  }
-}
 
 function setBusy(isBusy) {
   form.querySelectorAll("button, input, select").forEach((el) => { el.disabled = isBusy; });
@@ -391,7 +420,7 @@ function showPageNotice() {
   history.replaceState({}, "", nextUrl);
 
   if ((notice === "verified" || notice === "already_verified") && values.email) {
-    markAsVerified(values.email);
+    import('./modules/subscription.js').then(mod => mod.markAsVerified(values.email));
   }
 
   if (["verified", "already_verified", "unsubscribed", "already_unsubscribed"].includes(notice)) {

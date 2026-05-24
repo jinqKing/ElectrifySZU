@@ -71,7 +71,7 @@
           </div>
           <div class="hero-status" id="heroStatus">
             <span class="pulse"></span>
-            <span data-i18n="status.waiting">加载中...</span>
+            <span data-i18n="status.waiting">等待查询</span>
           </div>
         </div>
       </section>
@@ -343,16 +343,6 @@
       </section>
     </div>
 
-    <script>
-      /* Show loading state immediately — replaced by app.js once modules init */
-      (function(){
-        var el=document.getElementById('heroStatus');
-        if(!el)return;
-        el.querySelector('span:last-child').textContent='加载中...';
-        var dot=el.querySelector('.pulse');
-        if(dot)dot.style.background='#2563eb';
-      })();
-    </script>
     <script src="i18n-data.js" defer></script>
     <script src="loading-status.js" defer></script>
     <script type="module" src="app.js"></script>

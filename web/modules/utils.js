@@ -195,3 +195,35 @@ export function debounce(fn, delay) {
     timer = setTimeout(() => fn.apply(this, args), delay);
   };
 }
+
+// ── Usage level settings (localStorage) ──────────────────────────
+
+const USAGE_LEVEL_STORAGE_KEY = "electrifyszu.usageLevels";
+
+export function loadUsageLevelSettings() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(USAGE_LEVEL_STORAGE_KEY) || "{}");
+    const medium = numberOrNull(parsed.medium);
+    const high = numberOrNull(parsed.high);
+    if (medium == null && high == null) return { medium: null, high: null };
+    return normalizeUsageLevels(medium ?? 0, high ?? medium ?? 0);
+  } catch { return { medium: null, high: null }; }
+}
+
+export function saveUsageLevelSettings(levels) {
+  try {
+    if (levels.medium == null && levels.high == null) {
+      localStorage.removeItem(USAGE_LEVEL_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(USAGE_LEVEL_STORAGE_KEY, JSON.stringify(levels));
+  } catch { /* ignore */ }
+}
+
+export function readUsageLevelInputs() {
+  const medium = numberOrNull(document.querySelector("#mediumUseThreshold")?.value);
+  const high = numberOrNull(document.querySelector("#highUseThreshold")?.value);
+  if (medium == null && high == null) return { medium: null, high: null };
+  const normalized = normalizeUsageLevels(medium ?? 0, high ?? medium ?? 0);
+  return { medium: normalized.medium, high: normalized.high };
+}
