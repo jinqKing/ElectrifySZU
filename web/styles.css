@@ -860,6 +860,7 @@ button:disabled {
 .balance {
   background: var(--surface-strong);
   color: #fff;
+  transition: background 300ms ease;
 }
 
 .balance .metric-label,
@@ -869,6 +870,19 @@ button:disabled {
 
 .balance .metric-alt {
   color: rgba(255, 255, 255, 0.86);
+}
+
+/* Balance card colour shifts synced with hero status */
+.balance.status-ok {
+  background: linear-gradient(135deg, #0f9f6e, #0a7a56);
+}
+
+.balance.status-low {
+  background: linear-gradient(135deg, #d98616, #b86e0e);
+}
+
+.balance.status-critical {
+  background: linear-gradient(135deg, #d73939, #ab2e2e);
 }
 
 .details-grid {

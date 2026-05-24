@@ -1054,6 +1054,7 @@ async function loadStatus(url) {
   } catch (error) {
     setMessageRaw(error.message, true);
     setHeroStatusKey("status.queryFailed", {}, "critical");
+    updateBalanceCardStatus("unknown");
   } finally {
     setBusy(false);
   }
@@ -1081,6 +1082,7 @@ function renderStatus(data) {
   view.statusBadge.className = `badge ${status}`;
   view.statusBadge.textContent = statusText(status);
   setHeroStatusRaw(statusText(status), status);
+  updateBalanceCardStatus(status);
 
   const threshold = Number(data.threshold_kwh || 20);
   const meterMax = Math.max(threshold * 3, 60);
@@ -1748,6 +1750,15 @@ function statusText(status) {
     critical: t("powerStatus.critical"),
     unknown: t("powerStatus.unknown"),
   }[status] || t("powerStatus.unknown");
+}
+
+function updateBalanceCardStatus(status) {
+  const balanceCard = document.querySelector(".metric.balance");
+  if (!balanceCard) return;
+  balanceCard.classList.remove("status-ok", "status-low", "status-critical");
+  if (["ok", "low", "critical"].includes(status)) {
+    balanceCard.classList.add(`status-${status}`);
+  }
 }
 
 function statusColor(status) {
