@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hmac
+import importlib.util
 import json
 import logging
 import mimetypes
@@ -23,8 +24,10 @@ from log_config import setup_logging
 
 ROOT = Path(__file__).resolve().parent
 MONITOR_DIR = ROOT / "room-power-monitor"
+APARTMENT_DIR = ROOT / "apartment-power-monitor"
 WEB_DIR = ROOT / "web"
 BUILDINGS_FILE = MONITOR_DIR / "data" / "buildings.txt"
+APARTMENT_BUILDINGS_FILE = APARTMENT_DIR / "data" / "buildings.txt"
 LIKES_FILE = ROOT / "data" / "likes.json"
 ENV_FILE = ROOT / ".env"
 sys.path.insert(0, str(MONITOR_DIR))
@@ -35,6 +38,64 @@ from src.api import DormApi  # noqa: E402
 from src.config import Config, _load_dotenv  # noqa: E402
 from src.discover import discover_room_id  # noqa: E402
 from src.version import __version__  # noqa: E402
+from building_power_ranking.cache import (  # noqa: E402
+    build_random_sample_plan,
+    cached_ranking_for,
+    demo_ranking_from_plan,
+    load_ranking_cache,
+)
+from building_power_ranking.ranking import mask_room_name  # noqa: E402
+from subscription_alerts.alerts import (
+    AlertRunner,
+    AlertSettings,
+    shutdown_alert_worker,
+    start_alert_worker,
+)  # noqa: E402
+from subscription_alerts.email_service import EmailDeliveryError  # noqa: E402
+from subscription_alerts.store import SubscriptionStore  # noqa: E402
+from subscription_alerts.unsubscribe import unsubscribe_subscription  # noqa: E402
+from subscription_alerts.verification import (  # noqa: E402
+    create_pending_subscription,
+    verify_subscription,
+)
+
+# Import apartment-power-monitor as a proper package (avoids 'src' name conflict)
+_APARTMENT_LOADED = False
+
+
+def _ensure_apartment_loaded() -> None:
+    """Load apartment-power-monitor/src as the '_apartment' package with proper relative imports."""
+    global _APARTMENT_LOADED
+    if _APARTMENT_LOADED:
+        return
+    src_path = APARTMENT_DIR / "src"
+    pkg_name = "_apartment"
+
+    init_path = src_path / "__init__.py"
+    if init_path.exists():
+        spec = importlib.util.spec_from_file_location(pkg_name, str(init_path))
+        pkg = importlib.util.module_from_spec(spec)
+        pkg.__path__ = [str(src_path)]
+        sys.modules[pkg_name] = pkg
+        spec.loader.exec_module(pkg)
+
+    for sub in ["version", "config", "buildings", "api"]:
+        file_path = src_path / f"{sub}.py"
+        if file_path.exists():
+            sub_name = f"{pkg_name}.{sub}"
+            spec = importlib.util.spec_from_file_location(sub_name, str(file_path))
+            mod = importlib.util.module_from_spec(spec)
+            mod.__package__ = pkg_name
+            sys.modules[sub_name] = mod
+            spec.loader.exec_module(mod)
+
+    _APARTMENT_LOADED = True
+
+
+def _apartment_mod(name: str) -> object:
+    """Return a loaded apartment submodule."""
+    _ensure_apartment_loaded()
+    return sys.modules.get(f"_apartment.{name}")
 from subscription_alerts.alerts import (
     AlertRunner,
     AlertSettings,
@@ -79,6 +140,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/demo-status":
             self._send_json(demo_status())
+            return
+        if parsed.path == "/api/building-ranking":
+            self._handle_building_ranking(query)
+            return
+        if parsed.path == "/api/apartment/floors":
+            self._handle_apartment_floors(query)
+            return
+        if parsed.path == "/api/apartment/rooms":
+            self._handle_apartment_rooms(query)
             return
         if parsed.path == "/api/unsubscribe":
             self._handle_unsubscribe(query)
@@ -214,8 +284,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _handle_status(self, query: dict[str, list[str]]) -> None:
         try:
+            client = _query_value(query, "client") or ""
+            if client == "apartment":
+                self._handle_apartment_status(query)
+                return
             config = Config.from_env(str(ENV_FILE))
-            client = _query_value(query, "client") or config.client
             campus_name = _query_value(query, "campusName") or config.campus_name
             building_id = _query_value(query, "buildingId") or config.building_id
             building_name = _query_value(query, "buildingName") or config.building_name
@@ -242,6 +315,28 @@ class DashboardHandler(BaseHTTPRequestHandler):
             result["campus_name"] = campus_name
             result["building_id"] = building_id
             result["building_name"] = building_name
+
+            # 楼栋排行百分位 — 与缓存中同楼样本对比
+            try:
+                cache = load_ranking_cache()
+                ranking_data = cached_ranking_for(
+                    cache, client=client, building_id=building_id
+                )
+                if ranking_data and ranking_data.get("ranking"):
+                    rows = ranking_data["ranking"]
+                    user_total = result.get("total_used_kwh")
+                    if user_total is not None:
+                        below = sum(
+                            1 for r in rows if r["total_used_kwh"] < user_total
+                        )
+                        total = len(rows)
+                        percentile = round(below / total * 100) if total > 0 else 0
+                        result["building_percentile"] = percentile
+                        result["building_rank"] = below + 1
+                        result["building_rank_total"] = total
+            except Exception:
+                pass  # 无缓存或解析失败时不阻塞
+
             self._send_json({"ok": True, "data": result})
         except LookupError as exc:
             self._error(
@@ -258,9 +353,107 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 status=502,
             )
 
+    def _handle_apartment_status(self, query: dict[str, list[str]]) -> None:
+        try:
+            building_code = _query_value(query, "buildingId") or "01"
+            room_name = _query_value(query, "roomName") or "501"
+            days = int(_query_value(query, "days") or "30")
+
+            config_mod = _apartment_mod("config")
+            api_mod = _apartment_mod("api")
+
+            apt_config = config_mod.Config.from_env(str(ENV_FILE))
+            api = api_mod.ApartmentPowerApi(apt_config)
+            result = api.get_status(
+                building_code=building_code,
+                room_name=room_name,
+                days=days,
+                threshold=apt_config.low_power_threshold,
+            )
+            result["client"] = "apartment"
+            result["campus_name"] = "丽湖公寓"
+            result["building_id"] = building_code
+            self._send_json({"ok": True, "data": result})
+        except LookupError as exc:
+            self._error(
+                "ROOM_NOT_FOUND",
+                str(exc),
+                "请确认楼栋与房间号是否正确。",
+                status=502,
+            )
+        except Exception as exc:
+            self._error(
+                "CAMPUS_NETWORK_ERROR",
+                str(exc),
+                "请确认已连接校园网，稍后重试。",
+                status=502,
+            )
+
+    def _handle_building_ranking(self, query: dict[str, list[str]]) -> None:
+        """GET /api/building-ranking?client=...&buildingId=... — 返回缓存中的楼栋排行。"""
+        try:
+            config = Config.from_env(str(ENV_FILE))
+            client = _query_value(query, "client") or config.client
+            building_id = _query_value(query, "buildingId") or config.building_id
+
+            cache = load_ranking_cache()
+            result = cached_ranking_for(cache, client=client, building_id=building_id)
+            if result is None:
+                self._send_json(
+                    {"ok": False, "error": "未找到该楼栋的本地排行缓存。"},
+                    status=404,
+                )
+                return
+            self._send_json({"ok": True, "data": result})
+        except Exception as exc:
+            self._send_json(
+                {"ok": False, "error": str(exc)},
+                status=502,
+            )
+
+    def _handle_apartment_floors(self, query: dict[str, list[str]]) -> None:
+        try:
+            building_code = _query_value(query, "building") or ""
+            buildings_mod = _apartment_mod("buildings")
+            building = buildings_mod.get_building(building_code)
+            floors = [
+                {"code": f"{building.code}{f:02d}", "label": building.floor_label(f)}
+                for f in building.floors
+            ]
+            self._send_json({"ok": True, "data": {"building_code": building.code, "building_name": building.name, "floors": floors}})
+        except LookupError as exc:
+            self._error("BUILDING_NOT_FOUND", str(exc), status=404)
+        except Exception as exc:
+            self._error("ERROR", str(exc), status=500)
+
+    def _handle_apartment_rooms(self, query: dict[str, list[str]]) -> None:
+        try:
+            building_code = _query_value(query, "building") or ""
+            floor_code = _query_value(query, "floor") or ""
+            buildings_mod = _apartment_mod("buildings")
+            building = buildings_mod.get_building(building_code)
+            # floor_code format: building_code + floor_number (e.g. "0105")
+            floor_num = int(floor_code[-2:]) if len(floor_code) >= 2 else 0
+            rooms = [
+                {"code": rc, "label": rl}
+                for rc, rl in building.iter_rooms()
+                if rc[:4] == floor_code[:4]
+            ]
+            self._send_json({"ok": True, "data": {"building_code": building.code, "building_name": building.name, "floor_code": floor_code, "rooms": rooms}})
+        except LookupError as exc:
+            self._error("BUILDING_NOT_FOUND", str(exc), status=404)
+        except Exception as exc:
+            self._error("ERROR", str(exc), status=500)
+
     def _handle_buildings(self) -> None:
         config = Config.from_env(str(ENV_FILE))
         data = merge_campuses(default_campuses(config), load_buildings_file())
+        # Add apartment buildings (丽湖公寓)
+        data.append({
+            "client": "apartment",
+            "name": "丽湖公寓",
+            "buildings": _apartment_buildings_list(),
+        })
         self._send_json({"ok": True, "data": data})
 
     def _handle_subscription(self) -> None:
@@ -750,6 +943,19 @@ def merge_campuses(*groups: list[dict[str, object]]) -> list[dict[str, object]]:
                     target["buildings"].append({"id": building_id, "name": building_name})
                     seen_buildings.add(building_id)
     return merged
+
+
+def _apartment_buildings_list() -> list[dict[str, str]]:
+    """Return apartment building list in API format (id=code, name=display name)."""
+    try:
+        buildings_mod = _apartment_mod("buildings")
+        apartments = buildings_mod.load_buildings()
+        return [
+            {"id": b.code, "name": b.name}
+            for b in sorted(apartments.values(), key=lambda x: x.code)
+        ]
+    except Exception:
+        return []
 
 
 def demo_status() -> dict[str, object]:

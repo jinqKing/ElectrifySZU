@@ -52,8 +52,8 @@ export function normalizeCampuses(data) {
 
 export function flattenBuildings(campusData) {
   return campusData.flatMap((campus) => {
-    const uiCampus = campus.client === "172.21.101.11" ? "丽湖" : "粤海";
-    const campusGroup = campus.client === "172.21.101.11" ? "lihu" : "yuehai";
+    const uiCampus = campus.client === "172.21.101.11" ? "丽湖" : campus.client === "apartment" ? "公寓" : "粤海";
+    const campusGroup = campus.client === "172.21.101.11" ? "lihu" : campus.client === "apartment" ? "apartment" : "yuehai";
     return (campus.buildings || []).map((building) => ({
       id: building.id,
       name: building.name,
@@ -118,6 +118,7 @@ export function renderCampusOptions(fields) {
   const campusGroups = [
     { value: "yuehai", labelKey: "campus.yuehai" },
     { value: "lihu", labelKey: "campus.lihu" },
+    { value: "apartment", labelKey: "campus.apartment" },
   ].filter((group) => allBuildings.some((b) => b.campusGroup === group.value));
   fields.campusGroup.innerHTML = "";
   for (const campus of campusGroups) {
