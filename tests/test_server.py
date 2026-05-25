@@ -1,6 +1,6 @@
 """测试 server.py 中的纯函数（无需校园网）。"""
 
-from server import demo_status, load_buildings_file, merge_campuses
+from server import demo_status, merge_campuses
 
 
 class TestDemoStatus:
