@@ -92,7 +92,7 @@ class DormApi:
         """Return a dashboard-friendly room power summary."""
         days = max(days, 1)
         today = datetime.now()
-        begin = (today - timedelta(days=days)).strftime("%Y-%m-%d")
+        begin = (today - timedelta(days=days + 1)).strftime("%Y-%m-%d")
         end = today.strftime("%Y-%m-%d")
 
         usage = parse_excel(self.get_usage(room_id, room_name, begin=begin, end=end))
@@ -102,7 +102,7 @@ class DormApi:
             "room_id": room_id,
             "room_name": room_name,
             "period": {"begin": begin, "end": end, "days": days},
-            "records": len(usage),
+            "records": max(len(usage) - 1, 0),
             "threshold_kwh": threshold,
             "status": "unknown",
             "recharges": [],
@@ -119,7 +119,7 @@ class DormApi:
                 - _to_float(first.get(usage_columns["total_used"])),
                 0,
             )
-            daily_avg = round(total_used / max(len(usage), 1), 2)
+            daily_avg = round(total_used / max(len(usage) - 1, 1), 2)
             result["trend"] = _build_trend(usage, usage_columns)
 
             result.update(
@@ -203,7 +203,7 @@ def _build_trend(
             }
         )
         previous_total = total
-    return trend
+    return trend[1:]
 
 
 def _clean_header(value: Any) -> str:
