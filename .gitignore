@@ -28,8 +28,14 @@ data/subscriptions.csv
 data/subscriptions.tmp
 .DS_Store
 
+# Generated cache files (never commit these)
+building_power_ranking/data/ranking_cache.json
+building_power_ranking/data/sample_plan.json
+
 # IDE
 .idea/
 .vscode/
 
+# Logs
 *.log
+logs/
