@@ -3,17 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Matrix 团队开发的 ElectrifySZU 项目工作介绍——一站式宿舍电费余额管家，支持实时查询、趋势分析和低电预警。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Matrix 团队 | ElectrifySZU 工作介绍" />
+    <meta property="og:description" content="从被动断电到主动预警，Matrix 团队的电费余额管家解决方案。" />
     <title>Matrix 团队 | ElectrifySZU 工作介绍</title>
     <link rel="stylesheet" href="work-intro.css" />
+    <script src="work-intro.js" defer></script>
   </head>
   <body>
     <div class="top-actions">
-    <button class="link-button" id="landscapeToggle" type="button" title="横屏查看" aria-label="切换横屏">↻ 横屏</button>
+    <button class="link-button" id="landscapeToggle" type="button" title="横屏查看" aria-label="切换横屏" hidden>↻ 横屏</button>
     <a class="link-button" href="index.html">返回主页</a>
   </div>
     <main class="deck" aria-label="ElectrifySZU 工作介绍幻灯片">
       <div class="slides" id="slides">
-        <section class="slide" aria-labelledby="slide-1-title">
+        <section class="slide" role="region" tabindex="-1" aria-labelledby="slide-1-title">
           <div class="slide-inner">
             <div class="slide-title">
               <p class="eyebrow">Matrix Team · ElectrifySZU</p>
@@ -57,7 +62,7 @@
           </div>
         </section>
 
-        <section class="slide" aria-labelledby="slide-2-title">
+        <section class="slide" role="region" tabindex="-1" aria-labelledby="slide-2-title">
           <div class="slide-inner">
             <div class="slide-title">
               <p class="eyebrow">痛点 · Problem</p>
@@ -99,7 +104,7 @@
         </section>
 
         <!-- Slide 3 — 产品亮相 Solution -->
-        <section class="slide" aria-labelledby="slide-3-title">
+        <section class="slide" role="region" tabindex="-1" aria-labelledby="slide-3-title">
           <div class="slide-inner">
             <div class="slide-title">
               <p class="eyebrow">方案 · Solution</p>
@@ -145,7 +150,7 @@
         </section>
 
         <!-- Slide 4 — 架构 Architecture -->
-        <section class="slide" aria-labelledby="slide-4-title">
+        <section class="slide" role="region" tabindex="-1" aria-labelledby="slide-4-title">
           <div class="slide-inner">
             <div class="slide-title">
               <p class="eyebrow">Architecture</p>
@@ -174,7 +179,7 @@
           </div>
         </section>
 
-        <section class="slide" aria-labelledby="slide-5-title">
+        <section class="slide" role="region" tabindex="-1" aria-labelledby="slide-5-title">
           <div class="slide-inner">
             <div class="slide-title">
               <p class="eyebrow">Features</p>
@@ -221,7 +226,7 @@
           </div>
         </section>
 
-        <section class="slide" aria-labelledby="slide-6-title">
+        <section class="slide" role="region" tabindex="-1" aria-labelledby="slide-6-title">
           <div class="slide-inner">
             <div class="slide-title">
               <p class="eyebrow">Killer Feature</p>
@@ -267,7 +272,7 @@
 
 
                 <!-- Slide 8 — 未来规划 + 支持 -->
-        <section class="slide" aria-labelledby="slide-8-title">
+        <section class="slide" role="region" tabindex="-1" aria-labelledby="slide-8-title">
           <div class="slide-inner">
             <div class="slide-title">
               <p class="eyebrow">What's Next</p>
@@ -304,7 +309,7 @@
       <nav class="nav" aria-label="幻灯片导航">
         <button id="prevSlide" type="button" aria-label="上一页">‹</button>
         <div class="dots" id="dots" aria-hidden="true"></div>
-        <span class="counter" id="counter"></span>
+        <span class="counter" id="counter" aria-live="polite"></span>
         <button id="nextSlide" type="button" aria-label="下一页">›</button>
       </nav>
       <div id="rotateHint" class="rotate-hint" hidden>
@@ -315,7 +320,5 @@
         </div>
       </div>
     </main>
-
-    <script src="work-intro.js" defer></script>
   </body>
 </html>
