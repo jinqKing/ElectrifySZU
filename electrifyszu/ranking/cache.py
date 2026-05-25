@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from electrifyszu.ranking.floor_probe import DEFAULT_FLOOR_RANGE_FILE, candidate_floor_range, floor_range_key, load_floor_ranges
-from electrifyszu.ranking.ranking import generate_sample_rooms, mask_room_name
+from electrifyszu.ranking.ranking import mask_room_name
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DEFAULT_RANKING_CACHE_FILE = DATA_DIR / "ranking_cache.json"
