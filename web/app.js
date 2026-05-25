@@ -13,6 +13,18 @@ import {
 } from './modules/buildings.js';
 import { initLike, handleLike } from './modules/likes.js';
 
+// ── Lazy module cache ──────────────────────────────────────────
+let _chartModule = null;
+async function getChart() {
+  if (!_chartModule) _chartModule = await import('./modules/chart.js');
+  return _chartModule;
+}
+let _subscriptionModule = null;
+async function getSubscription() {
+  if (!_subscriptionModule) _subscriptionModule = await import('./modules/subscription.js');
+  return _subscriptionModule;
+}
+
 // ── DOM references ────────────────────────────────────────────────
 const form = document.querySelector("#queryForm");
 const subscriptionForm = document.querySelector("#subscriptionForm");
@@ -105,7 +117,7 @@ async function loadStatus(url) {
   try {
     const payload = await fetchJson(url);
     if (!payload.ok) throw new Error(payload.hint || payload.error || t("error.queryFailed"));
-    const { renderStatus } = await import('./modules/chart.js');
+    const { renderStatus } = await getChart();
     renderStatus(payload.data, view);
     setMessageKey("message.complete");
   } catch (error) {
@@ -125,7 +137,7 @@ subscriptionForm.addEventListener("submit", async (event) => {
     setHeroStatusKey("status.needBackend", {}, "critical");
     return;
   }
-  const { saveSubscription } = await import('./modules/subscription.js');
+  const { saveSubscription } = await getSubscription();
   await saveSubscription();
 });
 
@@ -187,13 +199,13 @@ fields.subscriberEmail.addEventListener("input", syncEmailInputState);
 
 document.querySelectorAll("[data-metric-card]").forEach((card) => {
   card.addEventListener("click", async () => {
-    const { toggleMetricMode } = await import('./modules/chart.js');
+    const { toggleMetricMode } = await getChart();
     toggleMetricMode(card.dataset.metricKey, view);
   });
   card.addEventListener("keydown", async (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      const { toggleMetricMode } = await import('./modules/chart.js');
+      const { toggleMetricMode } = await getChart();
       toggleMetricMode(card.dataset.metricKey, view);
     }
   });
@@ -221,7 +233,7 @@ demoButton.addEventListener("click", async () => {
   const scene = _demoList[_demoIndex % _demoList.length];
   _demoIndex++;
 
-  const { renderStatus } = await import('./modules/chart.js');
+  const { renderStatus } = await getChart();
   renderStatus(scene, view);
   // 显示当前场景序号，方便知道切换到第几个了
   setMessageKey("message.demoLoaded");
@@ -235,7 +247,7 @@ languageButtons.forEach((button) => {
     setLanguage(button.dataset.lang);
     document.title = t("meta.title");
     if (currentStatusData) {
-      const { renderStatus } = await import('./modules/chart.js');
+      const { renderStatus } = await getChart();
       renderStatus(currentStatusData, view);
     } else view.rechargeCount.textContent = t("format.records", { count: 0 });
     if (lastMessage.raw != null) setMessage(lastMessage.raw, lastMessage.isError);
@@ -258,7 +270,7 @@ usageLevelForm.addEventListener("input", async () => {
   setState("customUsageLevels", readUsageLevelInputs());
   saveUsageLevelSettings(customUsageLevels);
   if (currentStatusData) {
-    const { renderTrend } = await import('./modules/chart.js');
+    const { renderTrend } = await getChart();
     renderTrend(currentStatusData.trend || [], view);
   }
 });
@@ -267,7 +279,7 @@ resetUsageLevelsButton.addEventListener("click", async () => {
   setState("customUsageLevels", { medium: null, high: null });
   saveUsageLevelSettings(customUsageLevels);
   if (currentStatusData) {
-    const { renderTrend } = await import('./modules/chart.js');
+    const { renderTrend } = await getChart();
     renderTrend(currentStatusData.trend || [], view);
   }
 });
@@ -275,7 +287,7 @@ resetUsageLevelsButton.addEventListener("click", async () => {
 const chartUnitToggle = document.querySelector("#chartUnitToggle");
 if (chartUnitToggle) {
   chartUnitToggle.addEventListener("click", async () => {
-    const { toggleChartUnit } = await import('./modules/chart.js');
+    const { toggleChartUnit } = await getChart();
     toggleChartUnit(view);
   });
 }
@@ -414,7 +426,7 @@ function showPageNotice() {
   history.replaceState({}, "", nextUrl);
 
   if ((notice === "verified" || notice === "already_verified") && values.email) {
-    import('./modules/subscription.js').then(mod => mod.markAsVerified(values.email));
+    getSubscription().then(mod => mod.markAsVerified(values.email));
   }
 
   if (["verified", "already_verified", "unsubscribed", "already_unsubscribed"].includes(notice)) {
