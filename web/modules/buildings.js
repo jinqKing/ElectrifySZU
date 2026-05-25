@@ -356,16 +356,24 @@ function applyBuildingsData(campusData, fields) {
 
   // On first page load, gently animate the building dropdown open
   // to hint that the user can directly select a building.
+  // Deferred via setTimeout so the forced reflow doesn't block the
+  // initial paint / event loop — otherwise clicks feel laggy.
   if (_firstLoad) {
     _firstLoad = false;
     const list = document.querySelector("#buildingOptions");
     if (list && list.childElementCount > 0) {
-      // Start invisible so the force-reflow frame isn't a flash.
-      list.style.opacity = "0";
-      list.classList.add("open");
-      void list.offsetHeight;
-      list.style.opacity = "";
-      list.classList.add("open-animated");
+      setTimeout(() => {
+        // Paint one frame at opacity:0 so the animation entry is invisible.
+        list.style.opacity = "0";
+        list.classList.add("open");
+        requestAnimationFrame(() => {
+          // Clear inline opacity and start the CSS animation in the same
+          // rAF tick — the browser sees the animation's from {opacity:0}
+          // and paints no flash frame.
+          list.style.opacity = "";
+          list.classList.add("open-animated");
+        });
+      }, 0);
     }
   }
 }
