@@ -140,14 +140,14 @@ def main():
 
     if room_id:
         print(f"\n  >>> roomId = {room_id} <<<")
-        print(f"\n  将以下配置加入 .env:")
+        print("\n  将以下配置加入 .env:")
         print(f"  DORM_ROOM_ID={room_id}")
         print(f"  DORM_ROOM_NAME={room_name}")
         print(f"  DORM_CLIENT={config.client}")
     else:
-        print(f"\n  [!] 未找到。请确认:")
-        print(f"      - buildingId 正确 (用 --list 查看)")
-        print(f"      - 房间号存在")
+        print("\n  [!] 未找到。请确认:")
+        print("      - buildingId 正确 (用 --list 查看)")
+        print("      - 房间号存在")
 
 
 if __name__ == "__main__":
