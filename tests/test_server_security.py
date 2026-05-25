@@ -19,7 +19,7 @@ class LocalTestServer(ThreadingHTTPServer):
 @pytest.fixture
 def http_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     likes_file = tmp_path / "likes.json"
-    monkeypatch.setattr(server, "LIKES_FILE", likes_file)
+    monkeypatch.setattr("electrifyszu.server.handlers.likes.LIKES_FILE", likes_file)
     monkeypatch.setenv("ALERT_ADMIN_TOKEN", "secret-token")
 
     httpd = LocalTestServer(("127.0.0.1", 0), server.DashboardHandler)
@@ -87,7 +87,7 @@ def test_alert_check_requires_post_and_admin_token(
             calls.append(skip_recent)
             return {"checked": 1}
 
-    monkeypatch.setattr(server, "AlertRunner", FakeRunner)
+    monkeypatch.setattr("electrifyszu.subscription.alerts.AlertRunner", FakeRunner)
 
     status, payload = request_json(http_server, "GET", "/api/alerts/check")
     assert status == 404
@@ -199,7 +199,7 @@ def test_like_save_is_atomic_and_keeps_fixed_tmp_file(
     likes_path = tmp_path / "likes.json"
     fixed_tmp = likes_path.with_suffix(".tmp")
     fixed_tmp.write_text("sentinel", encoding="utf-8")
-    monkeypatch.setattr(server, "LIKES_FILE", likes_path)
+    monkeypatch.setattr("electrifyszu.server.handlers.likes.LIKES_FILE", likes_path)
 
     server._save_likes(
         {
