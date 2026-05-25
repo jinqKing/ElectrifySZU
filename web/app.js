@@ -298,6 +298,20 @@ if (chartUnitToggle) {
   });
 }
 
+// ── Recharge button — device-aware URL on click only ────────────
+(function() {
+  const RECHARGE_MOBILE  = "http://cgdzchat.com/sdms-pay-weixiao/service/weixin/waterEleServer?schoolCode=4144010590";
+  const RECHARGE_DESKTOP = "https://card.szu.edu.cn/";
+
+  const btn = document.querySelector("#rechargeButton");
+  if (!btn) return;
+
+  btn.addEventListener("click", () => {
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    btn.href = isMobile ? RECHARGE_MOBILE : RECHARGE_DESKTOP;
+  });
+})();
+
 // ── Initialization ────────────────────────────────────────────────
 const initialLocale = resolveInitialLocale();
 setLanguage(initialLocale, { persist: false });
