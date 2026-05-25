@@ -28,7 +28,9 @@ export async function initLike() {
       // 无额外字段区分，保守保留 ID（点过赞的用户不会再点第二次）
     }
   } catch { /* 查询失败不影响点赞能力 */ }
-  likeBtn.disabled = false;
+  if (!likeBtn.classList.contains("liked")) {
+    likeBtn.disabled = false;
+  }
 }
 
 let _likePending = false;
@@ -50,7 +52,7 @@ async function _doHandleLike() {
       localStorage.setItem(LIKE_ID_KEY, likeId);
     }
     const res = await postJson(apiUrl("/api/like"), { id: likeId });
-    if (!res.already_liked) likeBtn.classList.add("liked");
+    if (res.already_liked === false) likeBtn.classList.add("liked");
     updateCounts(res.count, res.users);
     const msg = $("#message");
     if (msg) { msg.classList.remove("error"); }
