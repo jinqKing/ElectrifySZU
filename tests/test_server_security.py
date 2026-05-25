@@ -18,8 +18,12 @@ class LocalTestServer(ThreadingHTTPServer):
 
 @pytest.fixture
 def http_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    likes_file = tmp_path / "likes.json"
-    monkeypatch.setattr("electrifyszu.server.handlers.likes.LIKES_FILE", likes_file)
+    db_file = tmp_path / "likes.db"
+    monkeypatch.setattr("electrifyszu.server.handlers.likes_db.DB_FILE", db_file)
+    # Reset connection singleton so the new path takes effect
+    import electrifyszu.server.handlers.likes_db as dbmod
+    dbmod._conn = None
+    dbmod._conn_lock = threading.Lock()
     monkeypatch.setenv("ALERT_ADMIN_TOKEN", "secret-token")
 
     httpd = LocalTestServer(("127.0.0.1", 0), server.DashboardHandler)
@@ -193,25 +197,39 @@ def test_access_log_redacts_sensitive_query_values(caplog: pytest.LogCaptureFixt
     assert "secret" not in caplog.text
 
 
-def test_like_save_is_atomic_and_keeps_fixed_tmp_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    likes_path = tmp_path / "likes.json"
-    fixed_tmp = likes_path.with_suffix(".tmp")
-    fixed_tmp.write_text("sentinel", encoding="utf-8")
-    monkeypatch.setattr("electrifyszu.server.handlers.likes.LIKES_FILE", likes_path)
+def test_like_persists_to_sqlite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Like-init writes a row, like updates it, and data survives re-read."""
+    import electrifyszu.server.handlers.likes_db as dbmod
 
-    server._save_likes(
-        {
-            "count": 1,
-            "likedIds": ["svr-0123456789abcdef"],
-            "seenIds": ["svr-0123456789abcdef"],
-            "totalIssued": 1,
-        }
-    )
+    db_file = tmp_path / "likes.db"
+    monkeypatch.setattr(dbmod, "DB_FILE", db_file)
+    dbmod._conn = None  # force re-init with new path
 
-    assert json.loads(likes_path.read_text(encoding="utf-8"))["count"] == 1
-    assert fixed_tmp.read_text(encoding="utf-8") == "sentinel"
+    conn = dbmod._get_conn()
+
+    # Init a new user
+    new_id = dbmod.init_id(conn)
+    assert new_id.startswith("svr-")
+    assert dbmod.is_seen(conn, new_id)
+    assert not dbmod.is_liked(conn, new_id)
+
+    # Like
+    like_count, user_count = dbmod.add_like(conn, new_id)
+    assert like_count == 1
+    assert user_count == 1
+    assert dbmod.is_liked(conn, new_id)
+
+    # Verify stats
+    lc, uc = dbmod.stats(conn)
+    assert lc == 1
+    assert uc == 1
+
+    # Verify data persists (re-open connection)
+    dbmod._conn = None
+    conn2 = dbmod._get_conn()
+    lc2, uc2 = dbmod.stats(conn2)
+    assert lc2 == 1
+    assert uc2 == 1
 
 
 def test_base_url_prefers_public_base_url(monkeypatch: pytest.MonkeyPatch) -> None:

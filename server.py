@@ -38,8 +38,7 @@ from electrifyszu.server.handlers.buildings import (
     merge_campuses,       # noqa: F401
 )
 from electrifyszu.server.middleware import redact_access_log as _redact_access_log  # noqa: F401
-from electrifyszu.server.handlers.types import LIKES_FILE  # noqa: F401
-from electrifyszu.server.handlers.likes import _save_likes  # noqa: F401
+from electrifyszu.server.handlers.likes_db import DB_FILE as _likes_db_file  # noqa: F401
 
 def _valid_public_base_url(value: str) -> bool:
     from urllib.parse import urlparse
