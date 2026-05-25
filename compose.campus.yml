@@ -1,0 +1,34 @@
+# ── ElectrifySZU — Campus Proxy Server ──────────────────────────────
+#
+# Deployed on the campus-internal machine (behind SZU firewall).
+# This machine has access to:
+#   - http://192.168.84.3:9090/cgcSims   (dorm power system)
+#   - http://172.25.100.105:8010/        (apartment power system)
+#
+# The campus machine connects to the public server via SSH tunnel.
+# No public ports are needed — only SSH outbound to the public server.
+#
+# Tunnel setup (runs on this machine):
+#   autossh -M 0 -N \
+#     -o "ServerAliveInterval=30" \
+#     -o "ServerAliveCountMax=3" \
+#     -o "ExitOnForwardFailure=yes" \
+#     -R 18080:localhost:8000 \
+#     user@129.204.227.179
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+  electrifyszu-campus:
+    build:
+      context: .
+      dockerfile: deploy/campus/Dockerfile
+    image: electrifyszu-campus:local
+    container_name: electrifyszu-campus
+    restart: unless-stopped
+    network_mode: host                      # Access campus network APIs
+    env_file:
+      - path: ./.env
+        required: false
+    volumes:
+      - ./data:/app/data                    # Ranking cache, etc.
+    command: ["python", "server_campus.py", "--host", "127.0.0.1", "--port", "8000"]
