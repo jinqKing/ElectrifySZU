@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from subscription_alerts.store import (
+from electrifyszu.subscription.store import (
     SubscriptionStore,
     build_subscription,
 )

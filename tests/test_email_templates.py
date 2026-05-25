@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from subscription_alerts.email_templates import (
+from electrifyszu.subscription.email_templates import (
     alert_content,
     daily_report_content,
     verification_content,
     verification_subject,
 )
-from subscription_alerts.store import Subscription
+from electrifyszu.subscription.store import Subscription
 
 
 def sample_subscription() -> Subscription:
