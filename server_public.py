@@ -32,6 +32,11 @@ from electrifyszu.server.middleware import (
     redact_access_log,
 )
 from electrifyszu.database import ensure_db
+from electrifyszu.subscription.alerts import (
+    AlertRunner,
+    shutdown_alert_worker,
+    start_alert_worker,
+)
 
 logger = logging.getLogger("server")
 
@@ -155,12 +160,23 @@ def main() -> None:
     )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8000, type=int)
+    parser.add_argument(
+        "--check-now",
+        action="store_true",
+        help="Run one alert check immediately before serving.",
+    )
+    parser.add_argument(
+        "--no-skip",
+        action="store_true",
+        help="Do not skip subscriptions already alerted today.",
+    )
     args = parser.parse_args()
 
     # Ensure SQLite database exists
     ensure_db()
     logger.info("SQLite database ready")
 
+    ROOT = Path(__file__).resolve().parent
     server = ThreadingHTTPServer((args.host, args.port), PublicAPIHandler)
     logger.info(
         "ElectrifySZU public API server: http://%s:%d",
@@ -172,13 +188,23 @@ def main() -> None:
         len(PUBLIC_ROUTES),
     )
 
+    if args.check_now:
+        stats = AlertRunner(ROOT).run_once(skip_recent=not args.no_skip)
+        logger.info("startup check finished: %s", stats)
+    alert_thread = start_alert_worker(ROOT, skip_recent=not args.no_skip)
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         logger.warning("Shutdown requested (Ctrl+C)...")
     finally:
         logger.info("Shutting down...")
+        shutdown_alert_worker()
+        logger.info("Closing server socket, draining in-flight requests...")
         server.server_close()
+        alert_thread.join(timeout=10)
+        if alert_thread.is_alive():
+            logger.warning("Alert worker thread did not exit within timeout.")
         logger.info("Server stopped.")
 
 
