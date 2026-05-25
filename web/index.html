@@ -78,7 +78,7 @@
           </div>
           <div class="hero-status" id="heroStatus">
             <span class="pulse"></span>
-            <span data-i18n="status.waiting">等待查询</span>
+            <span data-i18n="status.loading">加载中</span>
           </div>
         </div>
       </section>
@@ -87,10 +87,11 @@
         <form id="queryForm" class="query-form">
           <label>
             <span data-i18n="form.campus">校区</span>
-            <select id="campusGroup">
-              <option value="yuehai" data-i18n="campus.yuehai" selected>粤海</option>
-              <option value="lihu" data-i18n="campus.lihu">丽湖</option>
-            </select>
+            <div class="combo campus-combo">
+              <input id="campusSearch" readonly placeholder="选择校区" data-i18n-placeholder="form.campusPlaceholder" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="campusOptions" />
+              <div id="campusOptions" class="combo-list campus-options" role="listbox"></div>
+            </div>
+            <input id="campusGroupId" name="campusGroupId" type="hidden" value="" />
             <input id="client" name="client" type="hidden" value="192.168.84.87" />
             <input id="campusName" name="campusName" type="hidden" value="粤海" />
           </label>

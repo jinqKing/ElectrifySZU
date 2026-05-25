@@ -303,8 +303,6 @@ const initialLocale = resolveInitialLocale();
 setLanguage(initialLocale, { persist: false });
 document.title = t("meta.title");
 
-loadBuildings(fields, { setMessageKey });
-
 syncEmailInputState();
 // Inline subscription toggle (was in subscription.js, kept here to avoid static import)
 {
@@ -322,7 +320,15 @@ syncEmailInputState();
   }
 }
 showPageNotice();
-import('./modules/github.js').then(mod => mod.loadGithubStars());
+
+// Wait for all essential setup, then switch hero status back to idle.
+Promise.all([
+  loadBuildings(fields, { setMessageKey }),
+  import('./modules/github.js').then(mod => mod.loadGithubStars()),
+  import('./modules/sponsor.js').then(mod => { mod.setupSponsor(); mod.setupSponsorKeyboard(); }),
+]).finally(() => {
+  setHeroStatusKey("status.waiting", {}, "unknown");
+});
 
 // Lazy-loaded: likes (deferred with requestIdleCallback)
 if ('requestIdleCallback' in window) {
@@ -330,8 +336,6 @@ if ('requestIdleCallback' in window) {
 } else {
   setTimeout(() => { initLike(); }, 1000);
 }
-
-import('./modules/sponsor.js').then(mod => { mod.setupSponsor(); mod.setupSponsorKeyboard(); });
 
 // ── Helper functions ──────────────────────────────────────────────
 
