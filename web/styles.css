@@ -302,7 +302,7 @@ h2 {
   align-items: end;
 }
 
-// --- Subscription Panel ---
+/* --- Subscription Panel --- */
 
 .subscription-wrapper {
   position: relative;
@@ -1084,7 +1084,7 @@ button:disabled {
   height: 320px;
 }
 
-// ---- Inline SVG interaction zones (replaces external .chart-hit-layer) ----
+/* ---- Inline SVG interaction zones (replaces external .chart-hit-layer) ---- */
 
 .chart-interaction {
   /* group wrapper inside SVG */
@@ -1114,14 +1114,14 @@ button:disabled {
   outline-offset: 2px;
 }
 
-// ---- Truncation notice ----
+/* ---- Truncation notice ---- */
 
 .chart-truncation {
   text-align: center;
   padding: 6px 0 0;
   font-size: 12px;
   font-weight: 700;
-  color: var(--orange);
+  color: var(--yellow);
 }
 
 .chart-tooltip {
