@@ -8,6 +8,7 @@ import { canUseBackend, apiUrl, fetchJson } from './modules/api.js';
 import {
   loadBuildings, renderBuildingOptions, renderBuildingOptionsForList,
   renderCampusOptions, chooseDefaultBuildingForCampus, syncSelectedBuilding,
+  openCampusOptions, closeCampusOptions, selectCampus,
   updateBuildingFeedback, closeBuildingOptions, updateActiveDescendant,
   mergeBuildingChoices, flattenBuildings, normalizeCampuses, fetchDemoStatus,
 } from './modules/buildings.js';
@@ -47,7 +48,9 @@ const usageLevelForm = document.querySelector("#usageLevelForm");
 const resetUsageLevelsButton = document.querySelector("#resetUsageLevels");
 
 const fields = {
-  campusGroup: document.querySelector("#campusGroup"),
+  campusSearch: document.querySelector("#campusSearch"),
+  campusOptions: document.querySelector("#campusOptions"),
+  campusGroupId: document.querySelector("#campusGroupId"),
   client: document.querySelector("#client"),
   campusName: document.querySelector("#campusName"),
   buildingSearch: document.querySelector("#buildingSearch"),
@@ -147,10 +150,75 @@ subscriptionForm.addEventListener("submit", async (event) => {
   await saveSubscription();
 });
 
-fields.campusGroup.addEventListener("change", () => {
-  chooseDefaultBuildingForCampus(fields);
-  renderBuildingOptions(fields);
-  syncSelectedBuilding(fields);
+// ── Campus combobox interactions ──────────────────────────
+fields.campusSearch.addEventListener("focus", () => {
+  renderCampusOptions(fields);
+  openCampusOptions(fields);
+});
+
+fields.campusSearch.addEventListener("click", () => {
+  if (!fields.campusOptions.classList.contains("open")) {
+    renderCampusOptions(fields);
+    openCampusOptions(fields);
+  }
+});
+
+// Close campus dropdown on outside click
+document.addEventListener("pointerdown", (e) => {
+  if (!e.target.closest(".campus-combo")) {
+    closeCampusOptions(fields);
+  }
+});
+
+// Keyboard navigation for campus combobox
+fields.campusSearch.addEventListener("keydown", (e) => {
+  const list = fields.campusOptions;
+  const options = list.querySelectorAll(".combo-option");
+  if (!list.classList.contains("open") || options.length === 0) {
+    if (e.key === "ArrowDown" || e.key === "Enter") {
+      e.preventDefault();
+      renderCampusOptions(fields);
+      openCampusOptions(fields);
+    }
+    return;
+  }
+  switch (e.key) {
+    case "ArrowDown":
+      e.preventDefault();
+      { const active = list.querySelector(".active");
+        const idx = active ? Array.from(options).indexOf(active) : -1;
+        const next = Math.min(idx + 1, options.length - 1);
+        options.forEach((o, i) => {
+          o.classList.toggle("active", i === next);
+          o.setAttribute("aria-selected", String(i === next));
+        });
+        options[next].scrollIntoView({ block: "nearest" });
+      }
+      break;
+    case "ArrowUp":
+      e.preventDefault();
+      { const active = list.querySelector(".active");
+        const idx = active ? Array.from(options).indexOf(active) : 0;
+        const prev = Math.max(idx - 1, 0);
+        options.forEach((o, i) => {
+          o.classList.toggle("active", i === prev);
+          o.setAttribute("aria-selected", String(i === prev));
+        });
+        options[prev].scrollIntoView({ block: "nearest" });
+      }
+      break;
+    case "Enter":
+    case " ":
+      e.preventDefault();
+      { const active = list.querySelector(".active");
+        if (active) { active.click(); } }
+      break;
+    case "Escape":
+      e.preventDefault();
+      closeCampusOptions(fields);
+      fields.campusSearch.blur();
+      break;
+  }
 });
 
 const debouncedBuildingInput = debounce((value) => {
@@ -165,7 +233,7 @@ fields.buildingSearch.addEventListener("input", () => {
 });
 fields.buildingSearch.addEventListener("focus", () => {
   fields.buildingSearch.select();
-  const campusVal = fields.campusGroup.value;
+  const campusVal = fields.campusGroupId.value;
   if (campusVal) {
     const campusBuildings = buildingChoices.filter((c) => c.campusGroup === campusVal);
     renderBuildingOptionsForList(fields, campusBuildings, "");
