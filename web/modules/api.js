@@ -16,8 +16,16 @@ export function apiUrl(path) {
   return new URL(path, API_BASE).toString();
 }
 
+const REQUEST_TIMEOUT_MS = 30000;
+
+function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 export async function fetchJson(url) {
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
   if (!contentType.includes("application/json")) {
     throw new Error(t("error.nonJson"));
@@ -32,7 +40,7 @@ export async function fetchJson(url) {
 }
 
 export async function postJson(url, data) {
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
