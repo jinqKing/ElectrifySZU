@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from subscription_alerts.email_service import EmailConfig, EmailDeliveryError, EmailService
+from electrifyszu.subscription.email_service import EmailConfig, EmailDeliveryError, EmailService
 
 
 def write_env(path: Path, content: str) -> Path:
