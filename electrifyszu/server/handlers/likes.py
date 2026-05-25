@@ -1,4 +1,8 @@
-"""Handlers for /api/like/* and /api/stats endpoints."""
+"""Handlers for /api/like/* and /api/stats endpoints — SQLite backend.
+
+Replaces the legacy JSON file storage with the electrifyszu.database SQLite module.
+Public handler API is unchanged.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +16,7 @@ import uuid
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
+from electrifyszu.database import get_connection, ensure_db
 from electrifyszu.server.handlers.types import (
     RequestError,
     query_value,
@@ -29,17 +34,21 @@ logger = logging.getLogger("server")
 
 
 def handle_like_init(handler: BaseHTTPRequestHandler) -> None:
+    ensure_db()
     new_id = f"svr-{uuid.uuid4().hex[:16]}"
+    conn = get_connection()
     with _likes_lock:
-        data = _load_likes()
-        seen = data.setdefault("seenIds", [])
-        seen.append(new_id)
-        data["totalIssued"] = len(seen)
-        _save_likes(data)
+        conn.execute(
+            "INSERT OR IGNORE INTO likes (user_id, liked) VALUES (?, 0)",
+            (new_id,),
+        )
+        total = conn.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
+        conn.commit()
     send_json(handler, {"ok": True, "id": new_id})
 
 
 def handle_like(handler: BaseHTTPRequestHandler) -> None:
+    ensure_db()
     try:
         body = read_request_data(handler)
     except RequestError:
@@ -48,57 +57,83 @@ def handle_like(handler: BaseHTTPRequestHandler) -> None:
     if not isinstance(user_id, str) or not _is_valid_like_id(user_id):
         send_error(handler, "INVALID_LIKE_ID", "Invalid like id", status=400)
         return
+
+    conn = get_connection()
     with _likes_lock:
-        data = _load_likes()
-        seen = data.setdefault("seenIds", [])
-        if user_id not in seen:
+        # Check if this user_id exists
+        row = conn.execute(
+            "SELECT * FROM likes WHERE user_id=?", (user_id,)
+        ).fetchone()
+        if row is None:
             send_error(handler, "UNKNOWN_LIKE_ID", "Unknown like id", status=400)
             return
-        if user_id in data["likedIds"]:
+
+        if row["liked"]:
+            # Already liked — return current counts
+            count = conn.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0]
+            total = conn.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
             send_json(handler, {
                 "ok": True, "already_liked": True,
-                "count": data["count"], "users": len(seen),
+                "count": count, "users": total,
             })
             return
-        data["likedIds"].append(user_id)
-        data["count"] += 1
-        _save_likes(data)
-    logger.info("Like #%d from %s", data["count"], _safe_like_id(user_id))
+
+        # First time liking
+        conn.execute(
+            "UPDATE likes SET liked=1 WHERE user_id=?", (user_id,)
+        )
+        conn.commit()
+        count = conn.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0]
+        total = conn.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
+
+    logger.info("Like #%d from %s", count, _safe_like_id(user_id))
     send_json(handler, {
         "ok": True, "already_liked": False,
-        "count": data["count"], "users": data.get("totalIssued", 0),
+        "count": count, "users": total,
     })
 
 
 def handle_like_count(handler: BaseHTTPRequestHandler) -> None:
-    with _likes_lock:
-        data = _load_likes()
-    send_json(handler, {"ok": True, "count": data["count"]})
+    ensure_db()
+    conn = get_connection()
+    count = conn.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0]
+    send_json(handler, {"ok": True, "count": count})
 
 
 def handle_like_my(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) -> None:
+    ensure_db()
     user_id = query_value(query, "userId")
     if user_id and not _is_valid_like_id(user_id):
         send_error(handler, "INVALID_LIKE_ID", "Invalid like id", status=400)
         return
-    with _likes_lock:
-        data = _load_likes()
-        liked = user_id in data["likedIds"]
+
+    conn = get_connection()
+    if user_id:
+        row = conn.execute(
+            "SELECT liked FROM likes WHERE user_id=?", (user_id,)
+        ).fetchone()
+        liked = bool(row and row["liked"])
+    else:
+        liked = False
+
     send_json(handler, {"ok": True, "data": {"liked": liked}})
 
 
 def handle_stats(handler: BaseHTTPRequestHandler) -> None:
-    with _likes_lock:
-        data = _load_likes()
+    ensure_db()
+    conn = get_connection()
+    likes_count = conn.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0]
+    users_count = conn.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
     send_json(handler, {
         "ok": True,
-        "data": {"likes": data["count"], "users": data.get("totalIssued", 0)},
+        "data": {"likes": likes_count, "users": users_count},
     })
 
 
-# ── Likes data persistence ───────────────────────────────────────────────────
+# ── Legacy JSON persistence (kept for migration / backward compat) ───────────
 
 def _load_likes() -> dict[str, object]:
+    """Legacy JSON loader — kept for tests that still use it directly."""
     if not LIKES_FILE.is_file():
         return {"count": 0, "likedIds": [], "seenIds": [], "totalIssued": 0}
     try:
@@ -111,6 +146,7 @@ def _load_likes() -> dict[str, object]:
 
 
 def _save_likes(data: dict[str, object]) -> None:
+    """Legacy JSON saver — kept for backward compat with existing tests."""
     LIKES_FILE.parent.mkdir(parents=True, exist_ok=True)
     temp_name = ""
     try:

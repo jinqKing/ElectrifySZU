@@ -220,34 +220,18 @@ FORCE_SEND_DAILY_REPORT=0
 
 ## 部署
 
-### GitHub Pages（静态演示）
+完整部署指南（含 SQLite 迁移、Docker、Nginx、SSH 隧道、运维备份）请移步 **[DEPLOY.md](DEPLOY.md)**。
 
-`web/` 目录可以通过 GitHub Actions 自动部署到 Pages。GitHub Pages 适合作为静态演示和作品介绍页，但不能单独承载真实查询、邮件订阅、验证、退订等后端能力。
+### 快速参考
 
-如果使用 `https://jinqking.github.io/ElectrifySZU/` 作为前端入口，前端 API 必须指向单独部署的后端地址，并且后端需要配置 CORS、HTTPS 和正确的 `PUBLIC_BASE_URL`。
-
-### Docker / Compose
-
-仓库提供 `Dockerfile` 和 `compose.yml`：
-
-```bash
-docker compose build
-docker compose up -d
-```
-
-默认 Compose 配置使用 `host` 网络模式，便于容器访问宿主机上的校园中转端口。`./data` 会挂载到容器内 `/app/data`，用于持久化订阅 CSV、点赞统计和后续状态文件。
-
-### Nginx
-
-`deploy/nginx/electrifyszu.conf` 提供了基础反代与限流示例：
-
-- `/api/status` 单独限流
-- `/api/subscriptions` 单独限流
-- 其他 `/api/` 使用基础限流
-- `client_max_body_size` 收缩到 `256k`
-- 上游服务为 `127.0.0.1:8000`
-
-正式公网运行建议再补充 HTTPS、域名、日志轮转、备份和更细粒度的滥用防护。
+| 场景 | 命令 / 文档 |
+|:-----|:------------|
+| 本地开发 | `uv run server.py --port 8000` |
+| 公网服务器 | `docker compose -f compose.public.yml up -d` |
+| 校园网机器 | `docker compose -f compose.campus.yml up -d` |
+| SQLite 迁移 | `uv run python scripts/migrate_to_sqlite.py` |
+| 隧道搭建 | 参看 [DEPLOY.md#6-ssh-隧道搭建](DEPLOY.md#6-ssh-隧道搭建) |
+| GitHub Pages | `.github/workflows/pages.yml` 自动部署 `web/` |
 
 ## 项目结构
 
