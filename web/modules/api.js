@@ -24,7 +24,9 @@ export async function fetchJson(url) {
   }
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload.hint || payload.error || t("error.requestFailed"));
+    const err = new Error(payload.hint || payload.error || t("error.requestFailed"));
+    err.status = response.status;
+    throw err;
   }
   return payload;
 }
@@ -41,7 +43,9 @@ export async function postJson(url, data) {
   }
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload.hint || payload.error || t("error.requestFailed"));
+    const err = new Error(payload.hint || payload.error || t("error.requestFailed"));
+    err.status = response.status;
+    throw err;
   }
   return payload;
 }
