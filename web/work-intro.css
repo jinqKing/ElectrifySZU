@@ -1108,6 +1108,7 @@ h2 {
     gap: 16px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    align-content: start;
   }
 
   .slide-inner > *:last-child {
@@ -1125,11 +1126,8 @@ h2 {
     font-size: 12px;
   }
 
-  /* 只在触屏设备上显示横屏按钮 */
-  @media (pointer: coarse) {
-    #landscapeToggle {
-      display: inline-flex;
-    }
+  #landscapeToggle {
+    display: inline-flex;
   }
 
   h1 {
