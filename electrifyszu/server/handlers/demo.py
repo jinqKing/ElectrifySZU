@@ -7,8 +7,22 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler
 import logging
 
-from electrifyszu.ranking.cache import cached_ranking_for, load_ranking_cache
 from electrifyszu.server.handlers.types import send_json
+
+# Optional: ranking data enhances demo with building percentile info.
+# In the public server context, the ranking module may not be available.
+try:
+    from electrifyszu.ranking.cache import cached_ranking_for as _cached_ranking_for, load_ranking_cache as _load_ranking_cache
+    cached_ranking_for = _cached_ranking_for
+    load_ranking_cache = _load_ranking_cache
+    _HAS_RANKING = True
+except ImportError:
+    _HAS_RANKING = False
+
+    def _empty_ranking(*args: object, **kwargs: object) -> None:
+        return None
+    cached_ranking_for = _empty_ranking
+    load_ranking_cache = _empty_ranking
 
 logger = logging.getLogger("server")
 

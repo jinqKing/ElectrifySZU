@@ -1,15 +1,27 @@
+"""Subscription persistence — SQLite-backed store.
+
+Replaces the legacy CSV-based store. Public API is unchanged:
+    SubscriptionStore, Subscription, SubscriptionSaveResult,
+    build_subscription, merge_active_subscription, merge_pending_subscription.
+
+Internal storage uses the electrifyszu.database module (SQLite, WAL mode).
+Migration from legacy CSV happens automatically if needed.
+"""
+
 from __future__ import annotations
 
 import csv
 import os
 import re
 import secrets
-import tempfile
+import sqlite3
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+from electrifyszu.database import get_connection, get_db_path, ensure_db, set_db_path
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x1f\x7f]")
@@ -30,6 +42,9 @@ def _get_allowed_email_domains() -> frozenset[str]:
     if env_val:
         return frozenset(d.strip().lower() for d in env_val.split(",") if d.strip())
     return _DEFAULT_ALLOWED_DOMAINS
+
+
+# Legacy CSV field list — kept for migration support
 CSV_FIELDS = [
     "email",
     "client",
@@ -52,8 +67,9 @@ CSV_FIELDS = [
     "last_daily_report_date",
     "unsubscribe_token",
 ]
-_STORE_LOCKS: dict[Path, threading.Lock] = {}
-_STORE_LOCKS_LOCK = threading.Lock()
+
+# Thread lock for table-level operations
+_store_lock = threading.Lock()
 
 
 @dataclass
@@ -94,6 +110,7 @@ class Subscription:
 
     @classmethod
     def from_row(cls, row: dict[str, str]) -> "Subscription":
+        """Create a Subscription from a legacy CSV dict row."""
         return cls(
             email=row.get("email", "").strip(),
             client=row.get("client", "").strip(),
@@ -118,6 +135,7 @@ class Subscription:
         )
 
     def to_row(self) -> dict[str, str]:
+        """Convert to a legacy CSV dict row (for backward compat)."""
         return {
             "email": self.email,
             "client": self.client,
@@ -141,6 +159,32 @@ class Subscription:
             "unsubscribe_token": self.unsubscribe_token,
         }
 
+    @classmethod
+    def from_db_row(cls, row: sqlite3.Row) -> "Subscription":
+        """Create a Subscription from a SQLite row."""
+        return cls(
+            email=row["email"],
+            client=row["client"],
+            campus_name=row["campus_name"],
+            building_id=row["building_id"],
+            building_name=row["building_name"],
+            room_name=row["room_name"],
+            threshold_kwh=row["threshold_kwh"],
+            alert_enabled=bool(row["alert_enabled"]),
+            daily_report_enabled=bool(row["daily_report_enabled"]),
+            enabled=bool(row["enabled"]),
+            verified=bool(row["verified"]),
+            created_at=row["created_at"] or "",
+            updated_at=row["updated_at"] or "",
+            verified_at=row["verified_at"] or "",
+            verification_token=row["verification_token"] or "",
+            verification_token_expires_at=row["verification_token_expires_at"] or "",
+            verification_sent_at=row["verification_sent_at"] or "",
+            last_alert_date=row["last_alert_date"] or "",
+            last_daily_report_date=row["last_daily_report_date"] or "",
+            unsubscribe_token=row["unsubscribe_token"] or "",
+        )
+
 
 @dataclass(frozen=True)
 class SubscriptionSaveResult:
@@ -153,164 +197,245 @@ class SubscriptionSaveResult:
 
 
 class SubscriptionStore:
-    def __init__(self, path: Path):
-        self.path = path.resolve()
-        self._lock = _store_lock(self.path)
+    """SQLite-backed subscription store.
+
+    Accepts a path argument for backward compatibility (legacy CSV path).
+    The actual database is stored at data/electrifyszu.db.
+    """
+
+    def __init__(self, path: Path | str | None = None):
+        # Derive SQLite DB path from the legacy CSV path for backward compat.
+        # If a path is provided, place electrifyszu.db in the same directory.
+        if path is not None:
+            set_db_path(Path(path).parent / "electrifyszu.db")
+        ensure_db()
 
     def save(self, values: dict[str, Any], default_threshold: float) -> SubscriptionSaveResult:
         submitted = build_subscription(values, default_threshold)
-        with self._lock:
-            rows = self.list_all()
-            by_key = {row.key: index for index, row in enumerate(rows)}
-            existing_index = by_key.get(submitted.key)
-            existing = rows[existing_index] if existing_index is not None else None
+        conn = get_connection()
+
+        with _store_lock:
+            # Check for existing subscription with same key
+            existing = self._find_by_key(conn, submitted.key)
 
             if existing and existing.is_active:
                 subscription = merge_active_subscription(existing, submitted)
-                rows[existing_index] = subscription
+                self._update(conn, subscription)
                 status = "active"
             else:
                 subscription = merge_pending_subscription(existing, submitted)
-                if existing_index is None:
-                    rows.append(subscription)
+                if existing:
+                    self._update(conn, subscription)
                 else:
-                    rows[existing_index] = subscription
+                    self._insert(conn, subscription)
                 status = "pending_verification"
 
-            self._write(rows)
+            conn.commit()
+
         return SubscriptionSaveResult(subscription=subscription, status=status)
 
     def list_all(self) -> list[Subscription]:
-        if not self.path.is_file():
-            return []
-        with self.path.open("r", encoding="utf-8-sig", newline="") as file:
-            reader = csv.DictReader(file)
-            return [
-                subscription
-                for subscription in (Subscription.from_row(row) for row in reader)
-                if subscription.email
-            ]
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT * FROM subscriptions ORDER BY email, client, building_id, room_name"
+        ).fetchall()
+        return [Subscription.from_db_row(r) for r in rows]
 
     def list_enabled(self) -> list[Subscription]:
-        return [item for item in self.list_all() if item.is_active and item.alert_enabled]
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT * FROM subscriptions WHERE enabled=1 AND verified=1 AND alert_enabled=1"
+            " ORDER BY email"
+        ).fetchall()
+        return [Subscription.from_db_row(r) for r in rows]
 
     def list_with_reports(self) -> list[Subscription]:
-        return [
-            item
-            for item in self.list_all()
-            if item.is_active and item.daily_report_enabled
-        ]
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT * FROM subscriptions WHERE enabled=1 AND verified=1 AND daily_report_enabled=1"
+            " ORDER BY email"
+        ).fetchall()
+        return [Subscription.from_db_row(r) for r in rows]
 
     def mark_alert_sent(self, subscription: Subscription, alert_date: str) -> None:
-        with self._lock:
-            rows = self.list_all()
-            for row in rows:
-                if row.key == subscription.key:
-                    row.last_alert_date = alert_date
-                    row.updated_at = now_iso()
-                    break
-            self._write(rows)
+        conn = get_connection()
+        with _store_lock:
+            conn.execute(
+                "UPDATE subscriptions SET last_alert_date=?, updated_at=? "
+                "WHERE email=? AND client=? AND building_id=? AND room_name=?",
+                (alert_date, now_iso(),
+                 subscription.email, subscription.client,
+                 subscription.building_id, subscription.room_name),
+            )
+            conn.commit()
 
-    def mark_daily_report_sent(
-        self, subscription: Subscription, report_date: str
-    ) -> None:
-        with self._lock:
-            rows = self.list_all()
-            for row in rows:
-                if row.key == subscription.key:
-                    row.last_daily_report_date = report_date
-                    row.updated_at = now_iso()
-                    break
-            self._write(rows)
+    def mark_daily_report_sent(self, subscription: Subscription, report_date: str) -> None:
+        conn = get_connection()
+        with _store_lock:
+            conn.execute(
+                "UPDATE subscriptions SET last_daily_report_date=?, updated_at=? "
+                "WHERE email=? AND client=? AND building_id=? AND room_name=?",
+                (report_date, now_iso(),
+                 subscription.email, subscription.client,
+                 subscription.building_id, subscription.room_name),
+            )
+            conn.commit()
 
     def verify(self, token: str) -> tuple[str, Subscription | None]:
         token = token.strip()
         if not token:
             return "invalid", None
 
-        with self._lock:
-            rows = self.list_all()
-            for row in rows:
-                if not row.verification_token:
-                    continue
-                if not secrets.compare_digest(row.verification_token, token):
-                    continue
+        conn = get_connection()
+        with _store_lock:
+            row = conn.execute(
+                "SELECT * FROM subscriptions WHERE verification_token=?",
+                (token,),
+            ).fetchone()
 
-                # 检查 token 是否过期
-                if row.verification_token_expires_at:
-                    try:
-                        expires = datetime.fromisoformat(
-                            row.verification_token_expires_at
+            if row is None:
+                return "invalid", None
+
+            sub = Subscription.from_db_row(row)
+
+            # Check expiration
+            if sub.verification_token_expires_at:
+                try:
+                    expires = datetime.fromisoformat(sub.verification_token_expires_at)
+                    if datetime.now() > expires:
+                        conn.execute(
+                            "UPDATE subscriptions SET verification_token='', "
+                            "verification_token_expires_at='', updated_at=? "
+                            "WHERE email=? AND client=? AND building_id=? AND room_name=?",
+                            (now_iso(), sub.email, sub.client, sub.building_id, sub.room_name),
                         )
-                        if datetime.now() > expires:
-                            row.verification_token = ""
-                            row.verification_token_expires_at = ""
-                            row.updated_at = now_iso()
-                            self._write(rows)
-                            return "expired", None
-                    except ValueError:
-                        pass
+                        conn.commit()
+                        return "expired", None
+                except ValueError:
+                    pass
 
-                already_verified = row.is_active
-                now = now_iso()
-                row.enabled = True
-                row.verified = True
-                row.verified_at = row.verified_at or now
-                row.verification_token = ""
-                row.verification_token_expires_at = ""
-                row.updated_at = now
-                self._write(rows)
-                return ("already_verified" if already_verified else "verified"), row
+            already_verified = sub.is_active
+            now = now_iso()
+            conn.execute(
+                "UPDATE subscriptions SET enabled=1, verified=1, "
+                "verified_at=COALESCE(verified_at,?), "
+                "verification_token='', verification_token_expires_at='', updated_at=? "
+                "WHERE email=? AND client=? AND building_id=? AND room_name=?",
+                (now, now, sub.email, sub.client, sub.building_id, sub.room_name),
+            )
+            conn.commit()
 
-        return "invalid", None
+            # Refresh the row to get updated values
+            updated = conn.execute(
+                "SELECT * FROM subscriptions WHERE email=? AND client=? AND building_id=? AND room_name=?",
+                (sub.email, sub.client, sub.building_id, sub.room_name),
+            ).fetchone()
+            result_sub = Subscription.from_db_row(updated) if updated else sub
+            result_sub.verified = True
+            result_sub.enabled = True
+
+            return ("already_verified" if already_verified else "verified"), result_sub
 
     def unsubscribe(self, token: str) -> tuple[str, Subscription | None]:
         token = token.strip()
         if not token:
             return "invalid", None
 
-        with self._lock:
-            rows = self.list_all()
-            for row in rows:
-                if not row.unsubscribe_token:
-                    continue
-                if secrets.compare_digest(row.unsubscribe_token, token):
-                    already_disabled = not row.enabled
-                    row.enabled = False
-                    row.unsubscribe_token = ""
-                    row.updated_at = now_iso()
-                    self._write(rows)
-                    if already_disabled:
-                        return "already_unsubscribed", row
-                    return "unsubscribed", row
-        return "invalid", None
+        conn = get_connection()
+        with _store_lock:
+            row = conn.execute(
+                "SELECT * FROM subscriptions WHERE unsubscribe_token=?",
+                (token,),
+            ).fetchone()
 
-    def _write(self, rows: list[Subscription]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temp_name = ""
-        try:
-            with tempfile.NamedTemporaryFile(
-                "w",
-                encoding="utf-8",
-                newline="",
-                dir=self.path.parent,
-                prefix=f".{self.path.name}.",
-                suffix=".tmp",
-                delete=False,
-            ) as file:
-                temp_name = file.name
-                writer = csv.DictWriter(file, fieldnames=CSV_FIELDS)
-                writer.writeheader()
-                for row in rows:
-                    writer.writerow(row.to_row())
-                file.flush()
-                os.fsync(file.fileno())
-            Path(temp_name).replace(self.path)
-        except Exception:
-            if temp_name:
-                Path(temp_name).unlink(missing_ok=True)
-            raise
+            if row is None:
+                return "invalid", None
 
+            sub = Subscription.from_db_row(row)
+            already_disabled = not sub.enabled
+
+            conn.execute(
+                "UPDATE subscriptions SET enabled=0, unsubscribe_token='', updated_at=? "
+                "WHERE email=? AND client=? AND building_id=? AND room_name=?",
+                (now_iso(), sub.email, sub.client, sub.building_id, sub.room_name),
+            )
+            conn.commit()
+
+            sub.enabled = False
+            sub.unsubscribe_token = ""
+
+            if already_disabled:
+                return "already_unsubscribed", sub
+            return "unsubscribed", sub
+
+    # ── Internal helpers ──────────────────────────────────────────────
+
+    def _find_by_key(self, conn, key: tuple[str, str, str, str]) -> Subscription | None:
+        row = conn.execute(
+            "SELECT * FROM subscriptions WHERE email=? AND client=? AND building_id=? AND room_name=?",
+            key,
+        ).fetchone()
+        return Subscription.from_db_row(row) if row else None
+
+    def _insert(self, conn, sub: Subscription) -> None:
+        conn.execute(
+            """INSERT INTO subscriptions
+                (email, client, campus_name, building_id, building_name,
+                 room_name, threshold_kwh, alert_enabled, daily_report_enabled,
+                 enabled, verified, created_at, updated_at, verified_at,
+                 verification_token, verification_token_expires_at,
+                 verification_sent_at, last_alert_date, last_daily_report_date,
+                 unsubscribe_token)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                sub.email, sub.client, sub.campus_name,
+                sub.building_id, sub.building_name,
+                sub.room_name, sub.threshold_kwh,
+                1 if sub.alert_enabled else 0,
+                1 if sub.daily_report_enabled else 0,
+                1 if sub.enabled else 0,
+                1 if sub.verified else 0,
+                sub.created_at, sub.updated_at,
+                sub.verified_at or None,
+                sub.verification_token or None,
+                sub.verification_token_expires_at or None,
+                sub.verification_sent_at or None,
+                sub.last_alert_date or "",
+                sub.last_daily_report_date or "",
+                sub.unsubscribe_token or None,
+            ),
+        )
+
+    def _update(self, conn, sub: Subscription) -> None:
+        conn.execute(
+            """UPDATE subscriptions SET
+                campus_name=?, building_name=?, room_name=?,
+                threshold_kwh=?, alert_enabled=?, daily_report_enabled=?,
+                enabled=?, verified=?, updated_at=?, verified_at=?,
+                verification_token=?, verification_token_expires_at=?,
+                verification_sent_at=?, last_alert_date=?,
+                last_daily_report_date=?, unsubscribe_token=?
+                WHERE email=? AND client=? AND building_id=? AND room_name=?""",
+            (
+                sub.campus_name, sub.building_name, sub.room_name,
+                sub.threshold_kwh,
+                1 if sub.alert_enabled else 0,
+                1 if sub.daily_report_enabled else 0,
+                1 if sub.enabled else 0,
+                1 if sub.verified else 0,
+                sub.updated_at, sub.verified_at or None,
+                sub.verification_token or None,
+                sub.verification_token_expires_at or None,
+                sub.verification_sent_at or None,
+                sub.last_alert_date or "",
+                sub.last_daily_report_date or "",
+                sub.unsubscribe_token or None,
+                sub.email, sub.client, sub.building_id, sub.room_name,
+            ),
+        )
+
+
+# ── Pure functions (unchanged from original) ─────────────────────────────────
 
 def build_subscription(values: dict[str, Any], default_threshold: float) -> Subscription:
     email = str(values.get("email", "")).strip().lower()
@@ -453,26 +578,6 @@ def now_iso() -> str:
     return datetime.now().replace(microsecond=0).isoformat()
 
 
-def _store_lock(path: Path) -> threading.Lock:
-    with _STORE_LOCKS_LOCK:
-        lock = _STORE_LOCKS.get(path)
-        if lock is None:
-            lock = threading.Lock()
-            _STORE_LOCKS[path] = lock
-        return lock
-
-
-def _row_verified(row: dict[str, str]) -> bool:
-    raw_verified = row.get("verified")
-    if raw_verified not in {None, ""}:
-        return _to_bool(raw_verified, False)
-    if row.get("verified_at", "").strip():
-        return True
-    return not row.get("verification_token", "").strip() and not row.get(
-        "verification_sent_at", ""
-    ).strip()
-
-
 def _to_bool(value: Any, default: bool = False) -> bool:
     if value is None or value == "":
         return default
@@ -484,3 +589,15 @@ def _to_float(value: Any, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _row_verified(row: dict[str, str]) -> bool:
+    """Determine if a legacy CSV row represents a verified subscription."""
+    raw_verified = row.get("verified")
+    if raw_verified not in {None, ""}:
+        return _to_bool(raw_verified, False)
+    if row.get("verified_at", "").strip():
+        return True
+    return not row.get("verification_token", "").strip() and not row.get(
+        "verification_sent_at", ""
+    ).strip()

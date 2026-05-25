@@ -25,6 +25,7 @@ def http_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     dbmod._conn = None
     dbmod._conn_lock = threading.Lock()
     monkeypatch.setenv("ALERT_ADMIN_TOKEN", "secret-token")
+    monkeypatch.setenv("ELECTRIFYSZU_DB_PATH", str(tmp_path / "electrifyszu.db"))
 
     httpd = LocalTestServer(("127.0.0.1", 0), server.DashboardHandler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
