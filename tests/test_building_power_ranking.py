@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from building_power_ranking.cache import (
+from electrifyszu.ranking.cache import (
     build_random_sample_plan,
     cache_with_rankings,
     cached_ranking_for,
@@ -13,14 +13,14 @@ from building_power_ranking.cache import (
     load_ranking_cache,
     save_ranking_cache,
 )
-from building_power_ranking.floor_probe import (
+from electrifyszu.ranking.floor_probe import (
     FloorRangeRecord,
     candidate_floor_range,
     load_floor_ranges,
     parse_explicit_floor_range,
     save_floor_ranges,
 )
-from building_power_ranking.ranking import build_ranking, generate_sample_rooms, mask_room_name
+from electrifyszu.ranking.ranking import build_ranking, generate_sample_rooms, mask_room_name
 
 
 class BuildingPowerRankingTests(unittest.TestCase):

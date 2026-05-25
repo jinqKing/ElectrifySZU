@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from subscription_alerts.alerts import AlertRunner
+from electrifyszu.subscription.alerts import AlertRunner
 
 
 def _subscription_values(
