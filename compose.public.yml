@@ -1,0 +1,47 @@
+# ── ElectrifySZU — Public Server ─────────────────────────────────────
+#
+# Deployed on the public-facing server (129.204.227.179).
+#
+# Services:
+#   nginx              — serves static files + reverse proxy to Python
+#   electrifyszu       — public-safe API (likes, subscriptions, demo, etc.)
+#
+# Campus-dependent endpoints (/api/status, /api/buildings)
+# are proxied through SSH tunnel to the campus machine.
+# See deploy/tunnel/README.md for tunnel setup.
+#
+# Nginx uses host networking to access the SSH tunnel on 127.0.0.1:18080.
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+  electrifyszu-public:
+    build:
+      context: .
+      dockerfile: deploy/public/Dockerfile
+    image: electrifyszu-public:local
+    container_name: electrifyszu-public
+    restart: unless-stopped
+    env_file:
+      - path: ./.env
+        required: false
+    volumes:
+      - ./data:/app/data                  # SQLite DB + subscription data
+    ports:
+      - "127.0.0.1:8000:8000"             # Only accessible via Nginx
+    command: ["python", "server_public.py", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  electrifyszu-nginx:
+    image: nginx:alpine
+    container_name: electrifyszu-nginx
+    restart: unless-stopped
+    network_mode: host                      # Access SSH tunnel on localhost:18080
+    volumes:
+      - ./deploy/nginx/electrifyszu.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./web:/usr/share/nginx/html:ro
+    depends_on:
+      - electrifyszu-public
