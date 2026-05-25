@@ -176,3 +176,8 @@ var WorkIntro = {};
   ns.navigate = navigate;
 })(WorkIntro);
 window.WorkIntro = WorkIntro;
+
+// ── Lightbox for QR code images ─────────────────────────────────
+import("./modules/lightbox.js")
+  .then(function (mod) { mod.initLightbox(); })
+  .catch(function (err) { console.warn("lightbox init skipped", err); });

@@ -408,6 +408,7 @@ Promise.all([
   loadBuildings(fields, { setMessageKey }),
   import('./modules/github.js').then(mod => mod.loadGithubStars()),
   import('./modules/sponsor.js').then(mod => { mod.setupSponsor(); mod.setupSponsorKeyboard(); }),
+  import('./modules/lightbox.js').then(mod => mod.initLightbox()),
 ]).finally(() => {
   setHeroStatusKey("status.waiting", {}, "unknown");
 });
