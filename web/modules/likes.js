@@ -21,16 +21,23 @@ export async function initLike() {
 
   try {
     const res = await fetchJson(apiUrl(`/api/like/my?userId=${encodeURIComponent(likeId)}`));
-    if (res.data.liked) { likeBtn.classList.add("liked"); likeBtn.disabled = true; }
-    else likeBtn.disabled = false;
-  } catch { likeBtn.disabled = false; }
+    if (res.data.liked) { likeBtn.classList.add("liked"); likeBtn.disabled = true; return; }
+    // 服务端不认识该 ID（新部署/数据迁移 → 404），清除旧缓存
+    if (res.ok && !res.data.liked) {
+      // liked: false 有两种情况: 还没点过赞, 或 ID 不存在
+      // 无额外字段区分，保守保留 ID（点过赞的用户不会再点第二次）
+    }
+  } catch { /* 查询失败不影响点赞能力 */ }
+  likeBtn.disabled = false;
 }
+
+let _likeRetrying = false;
 
 export async function handleLike() {
   const likeBtn = $("#likeButton");
   const likeCt = $("#likeCount");
   const userCt = $("#userCount");
-  if (!canUseBackend() || !likeBtn || !likeCt) return;
+  if (!canUseBackend() || !likeBtn || !likeCt || _likeRetrying) return;
 
   likeBtn.disabled = true;
   try {
@@ -46,7 +53,15 @@ export async function handleLike() {
     // Background sync
     try { const s = await fetchJson(apiUrl("/api/stats")); updateCounts(s.data.likes, s.data.users); } catch { /* */ }
     likeBtn.disabled = true;
-  } catch {
+  } catch (err) {
+    // 旧 ID 失效（部署数据重置）→ 清除缓存，重新走 init 流程
+    if (err?.status === 400) {
+      localStorage.removeItem(LIKE_ID_KEY);
+      likeBtn.disabled = false;
+      _likeRetrying = true;
+      try { await handleLike(); } finally { _likeRetrying = false; }
+      return;
+    }
     const msg = $("#message");
     if (msg) { msg.textContent = t("like.error"); msg.classList.add("error"); }
     likeBtn.disabled = false;
