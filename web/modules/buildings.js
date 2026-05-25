@@ -5,6 +5,7 @@ import { t, bilingualCampusName, bilingualSourceCampusName, bilingualBuildingNam
          buildingEnglishName, campusLabels, sourceCampusLabels, buildingEnglishNames } from './i18n.js';
 import { floorRange, baseBuildingName, roomFloor, escapeHtml, debounce } from './utils.js';
 import { canUseBackend, apiUrl, fetchJson } from './api.js';
+import { BUILDING_DEFAULTS } from './config.js';
 
 export { buildingActiveIndex };
 
@@ -44,8 +45,8 @@ function hasBuildingsChanged(oldData, newData) {
 export function normalizeCampuses(data) {
   if (data[0]?.client && Array.isArray(data[0]?.buildings)) return data;
   return [{
-    client: "192.168.84.87",
-    name: "粤海",
+    client: BUILDING_DEFAULTS.client,
+    name: BUILDING_DEFAULTS.campusName,
     buildings: data.map((b) => ({ id: b.id, name: b.name })),
   }];
 }
@@ -303,7 +304,9 @@ function pickVariantForRoom(fields, variants) {
 
 function preferredChoice() {
   return buildingChoices.find(
-    (choice) => choice.variants.some((b) => b.client === "192.168.84.87" && b.id === "7126")
+    (choice) => choice.variants.some(
+      (b) => b.client === BUILDING_DEFAULTS.client && b.id === BUILDING_DEFAULTS.buildingId
+    )
   );
 }
 
@@ -399,9 +402,9 @@ export async function loadStaticBuildings(fields) {
   } catch {
     // Ultimate fallback: one building so the UI doesn't break
     applyBuildingsData([{
-      client: "192.168.84.87",
-      name: "深大新斋区",
-      buildings: [{ id: "7126", name: "风槐斋" }],
+      client: BUILDING_DEFAULTS.client,
+      name: BUILDING_DEFAULTS.campusName,
+      buildings: [{ id: BUILDING_DEFAULTS.buildingId, name: BUILDING_DEFAULTS.buildingName }],
     }], fields);
   }
 }
