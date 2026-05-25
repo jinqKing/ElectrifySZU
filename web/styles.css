@@ -38,6 +38,7 @@
 }
 
 body {
+  position: relative;
   margin: 0;
   min-height: 100vh;
   background:
@@ -46,6 +47,16 @@ body {
   color: var(--text);
   font-family:
     Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url('pic/ElectrifySZU_bird_light.png') center 80% / 120% auto no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: -1;
 }
 
 button,
@@ -61,30 +72,16 @@ select {
 }
 
 .hero {
-  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 28px;
   margin-bottom: 22px;
-  overflow: hidden;
-}
-
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: url('pic/og-image.png') center 75% / auto 65% no-repeat;
-  opacity: 0.3;
-  pointer-events: none;
-  z-index: 0;
 }
 
 .hero-copy {
   display: grid;
   gap: 14px;
-  position: relative;
-  z-index: 1;
 }
 
 .hero-kicker {
@@ -101,8 +98,6 @@ select {
   gap: 10px;
   flex-wrap: wrap;
   max-width: 420px;
-  position: relative;
-  z-index: 1;
 }
 
 .repo-link {
