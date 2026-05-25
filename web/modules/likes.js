@@ -28,18 +28,22 @@ export async function initLike() {
       // 无额外字段区分，保守保留 ID（点过赞的用户不会再点第二次）
     }
   } catch { /* 查询失败不影响点赞能力 */ }
-  likeBtn.disabled = false;
+  if (!likeBtn.classList.contains("liked")) {
+    likeBtn.disabled = false;
+  }
 }
 
-let _likeRetrying = false;
+let _likePending = false;
+let _retried = false;
 
-export async function handleLike() {
+async function _doHandleLike() {
   const likeBtn = $("#likeButton");
   const likeCt = $("#likeCount");
   const userCt = $("#userCount");
-  if (!canUseBackend() || !likeBtn || !likeCt || _likeRetrying) return;
+  if (!canUseBackend() || !likeBtn || !likeCt) return;
 
   likeBtn.disabled = true;
+  const hadId = !!localStorage.getItem(LIKE_ID_KEY);
   try {
     let likeId = localStorage.getItem(LIKE_ID_KEY);
     if (!likeId) {
@@ -48,23 +52,33 @@ export async function handleLike() {
       localStorage.setItem(LIKE_ID_KEY, likeId);
     }
     const res = await postJson(apiUrl("/api/like"), { id: likeId });
-    if (!res.already_liked) likeBtn.classList.add("liked");
+    if (res.already_liked === false) likeBtn.classList.add("liked");
     updateCounts(res.count, res.users);
-    // Background sync
+    const msg = $("#message");
+    if (msg) { msg.classList.remove("error"); }
     try { const s = await fetchJson(apiUrl("/api/stats")); updateCounts(s.data.likes, s.data.users); } catch { /* */ }
     likeBtn.disabled = true;
   } catch (err) {
-    // 旧 ID 失效（部署数据重置）→ 清除缓存，重新走 init 流程
-    if (err?.status === 400) {
+    if (err?.status === 400 && hadId && !_retried) {
+      _retried = true;
       localStorage.removeItem(LIKE_ID_KEY);
-      likeBtn.disabled = false;
-      _likeRetrying = true;
-      try { await handleLike(); } finally { _likeRetrying = false; }
+      try { await _doHandleLike(); } catch { /* */ }
+      _retried = false;
       return;
     }
     const msg = $("#message");
     if (msg) { msg.textContent = t("like.error"); msg.classList.add("error"); }
     likeBtn.disabled = false;
+  }
+}
+
+export async function handleLike() {
+  if (_likePending) return;
+  _likePending = true;
+  try {
+    await _doHandleLike();
+  } finally {
+    _likePending = false;
   }
 }
 
