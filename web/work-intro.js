@@ -13,6 +13,9 @@ var WorkIntro = {};
   for (var i = 0; i < slideCount; i++) {
     var d = document.createElement("span");
     d.className = "dot";
+    d.addEventListener("click", (function(idx) {
+      return function() { navigate(idx); };
+    })(i));
     dotsBox.appendChild(d);
   }
 
@@ -106,6 +109,38 @@ var WorkIntro = {};
   }
   bootLandscape(mq.matches);
   mq.addEventListener("change", function (ev) { bootLandscape(ev.matches); });
+
+  // ===================== Sponsor Modal =====================
+  var sponsorBtn = document.getElementById("sponsorButton");
+  var modal = document.getElementById("supportModal");
+  var closeBtn = document.getElementById("supportClose");
+  var backdrop = document.querySelector("[data-support-close]");
+
+  function openSponsor() {
+    if (!modal || !sponsorBtn) return;
+    modal.hidden = false;
+    sponsorBtn.setAttribute("aria-expanded", "true");
+    document.body.style.overflow = "hidden";
+    var dialog = document.getElementById("supportDialog");
+    if (dialog) dialog.focus();
+  }
+
+  function closeSponsor() {
+    if (!modal || !sponsorBtn) return;
+    modal.hidden = true;
+    sponsorBtn.setAttribute("aria-expanded", "false");
+    document.body.style.overflow = "";
+    sponsorBtn.focus();
+  }
+
+  if (sponsorBtn && modal) {
+    sponsorBtn.addEventListener("click", openSponsor);
+    if (closeBtn) closeBtn.addEventListener("click", closeSponsor);
+    if (backdrop) backdrop.addEventListener("click", closeSponsor);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !modal.hidden) closeSponsor();
+    });
+  }
 
   // Public debug surface
   ns.el = slidesEl;
