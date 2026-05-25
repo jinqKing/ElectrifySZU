@@ -906,6 +906,38 @@ button:disabled {
     transition: none;
     opacity: 1;
   }
+  /* ---- New coverage: animations not previously covered ---- */
+  .results-container.visible {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .ring-icon,
+  .ring-icon.clicked {
+    animation: none !important;
+  }
+  .combo-list.open-animated {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .message-dots,
+  .message-detail.is-visible,
+  .message-label {
+    animation: none;
+  }
+  .repo-link:hover,
+  .repo-link:focus-visible,
+  .sponsor-trigger:hover,
+  .sponsor-trigger:focus-visible,
+  .recharge-trigger:hover,
+  .recharge-trigger:focus-visible,
+  .metric:hover,
+  .metric:focus-visible,
+  .like-button:hover,
+  .like-button:focus-visible {
+    transform: none;
+  }
 }
 
 .balance {
