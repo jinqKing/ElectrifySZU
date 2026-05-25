@@ -10,8 +10,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-MONITOR_DIR = PROJECT_DIR / "room-power-monitor"
-DEFAULT_BUILDINGS_FILE = PROJECT_DIR / "room-power-monitor" / "data" / "buildings.txt"
+DEFAULT_BUILDINGS_FILE = PROJECT_DIR / "data" / "buildings.txt"
 DEFAULT_FLOOR_RANGE_FILE = Path(__file__).resolve().parent / "data" / "building_floor_ranges.json"
 DEFAULT_MIN_FLOOR = 2
 DEFAULT_MAX_FLOOR = 20
@@ -206,8 +205,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if not args.dry_run:
-        sys.path.insert(0, str(MONITOR_DIR))
-        from src.discover import discover_room_id
+        from electrifyszu.dorm.discover import discover_room_id
     else:
         discover_room_id = None
 

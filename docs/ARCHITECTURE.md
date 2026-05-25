@@ -167,13 +167,9 @@ Historical timeline:
 
 4. **Phase 4 (present):** Transition incomplete. Old directories maintained as **thin re-export wrappers** ensuring legacy import statements (`from src.api import DormApi`) continue functioning. Eventually deprecated.
 
-Wrapper pattern:
-```python
-# room-power-monitor/src/api.py (wrapper, ~5 lines)
-from electrifyszu.dorm.api import *  # noqa: F401,F403
-```
-
-Migration tracking: All substantial logic resides in `electrifyszu/`. Anything unique to a legacy directory (e.g., `subscription_alerts/test_delivery.py`, `building_power_ranking/cache_builder.py`) is noted in respective READMEs.
+Migration complete: The legacy directories `room-power-monitor/`, `apartment-power-monitor/`,
+`subscription_alerts/`, and `building_power_ranking/` have been consolidated into
+`electrifyszu/`. Data files (`buildings.txt`) live in `electrifyszu/data/`.
 
 ---
 

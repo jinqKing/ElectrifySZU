@@ -96,8 +96,6 @@ class ApartmentConfig:
         )
 
 
-# ── Legacy alias (keep old code working) ───────────────────────────────────
+# ── Backward-compatible alias ──────────────────────────────────────────────
 
-# These aliases let code that does `from src.config import Config, _load_dotenv`
-# continue working via the compatibility wrapper in room-power-monitor/src/.
 Config = DormConfig

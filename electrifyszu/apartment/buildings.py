@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-DATA_FILE = Path(__file__).resolve().parents[2] / "apartment-power-monitor" / "data" / "buildings.txt"
+DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "apartment_buildings.txt"
 
 
 @dataclass(frozen=True)
