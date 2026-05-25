@@ -10,7 +10,6 @@
 
 import argparse
 import json
-import sys
 
 from .config import Config
 from .api import DormApi, parse_excel
