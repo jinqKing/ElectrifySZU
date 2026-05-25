@@ -6,8 +6,9 @@ dist/
 wheels/
 *.egg-info
 
-data/
-!apartment-power-monitor/data/
+# Project-level data (SQLite DB, legacy CSV/JSON — never commit)
+/data/
+!/data/.gitkeep
 
 # Virtual environments
 .venv
@@ -17,7 +18,7 @@ data/
 *.env
 !.env.example
 
-# Captured campus portal responses may contain room/session details
+# Captured campus portal responses (legacy)
 room-power-monitor/data/*.html
 
 # Local data stores and temporary files
@@ -27,7 +28,6 @@ room-power-monitor/data/*.html
 data/subscriptions.csv
 data/subscriptions.tmp
 .DS_Store
-nul
 
 # Generated cache files (never commit these)
 building_power_ranking/data/ranking_cache.json

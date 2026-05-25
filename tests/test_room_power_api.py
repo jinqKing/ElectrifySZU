@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.api import ParsedColumnError, _build_trend, _resolve_recharge_columns, _resolve_usage_columns
+from electrifyszu.dorm.api import ParsedColumnError, _build_trend, _resolve_recharge_columns, _resolve_usage_columns
 
 
 def test_resolve_usage_columns_by_header_name() -> None:

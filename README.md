@@ -57,7 +57,7 @@ ElectrifySZU 把查询、趋势、预警整合到一个页面里：
 │  ├── 自动统计使用人数                                    │
 │  └── 页脚实时显示点赞数和使用人数                         │
 ├─────────────────────────────────────────────────────────┤
-│  邮件预警订阅 (subscription_alerts/)                     │
+│  邮件预警订阅 (electrifyszu/subscription/)                │
 │  ├── 邮箱验证双确认 (double opt-in)                      │
 │  ├── 低电量自动预警（每天最多一次）                       │
 │  ├── 每日电费报告（可选）                                 │
@@ -76,14 +76,14 @@ ElectrifySZU 把查询、趋势、预警整合到一个页面里：
 │  ├── /api/health                 健康检查                 │
 │  └── /api/stats                  点赞数 + 使用人数        │
 ├─────────────────────────────────────────────────────────┤
-│  CLI 工具 (room-power-monitor/)                          │
-│  ├── python -m src.cli status      宿舍电费状态           │
+│  CLI 工具 (electrifyszu/dorm/)                            │
+│  ├── python -m electrifyszu.dorm.cli status  宿舍电费状态           │
 │  ├── python -m src.cli json        JSON 输出             │
 │  └── python -m src.discover        发现 roomId           │
 ├─────────────────────────────────────────────────────────┤
-│  丽湖公寓模块 (apartment-power-monitor/)                  │
+│  丽湖公寓模块 (electrifyszu/apartment/)                   │
 │  适配 http://172.25.100.105:8010/ 的 ASP.NET 公寓电费系统  │
-│  ├── python -m src.cli status      公寓电费状态 + 充值记录 │
+│  ├── python -m electrifyszu.apartment.cli status  公寓电费 │
 │  ├── python -m src.cli json        JSON 输出 + 趋势       │
 │  ├── python -m src.cli buildings   列出楼栋               │
 │  ├── python -m src.cli floors      列出楼层               │
@@ -124,12 +124,12 @@ uv run python -m src.discover <building_id> <room_name>
 ### 丽湖公寓查询
 
 ```bash
-cd apartment-power-monitor
-python -m src.cli buildings              # 列出已知楼栋
-python -m src.cli status 01 501          # 查询梧桐树#501 电费状态
-python -m src.cli json 01 501            # JSON 格式输出（含30天趋势）
-python -m src.cli usage 01 501 --begin 2026-05-01 --end 2026-05-20
-python -m src.cli recharge 01 501 --begin 2026-01-01 --end 2026-05-20
+# 公寓查询示例（丽湖校区）
+python -m electrifyszu.apartment.cli buildings              # 列出已知楼栋
+python -m electrifyszu.apartment.cli status 01 501          # 查询梧桐树#501 电费状态
+python -m electrifyszu.apartment.cli json 01 501            # JSON 格式输出（含30天趋势）
+python -m electrifyszu.apartment.cli usage 01 501 --begin 2026-05-01 --end 2026-05-20
+python -m electrifyszu.apartment.cli recharge 01 501 --begin 2026-01-01 --end 2026-05-20
 ```
 
 支持楼栋：梧桐树#、青冈栎#、三角梅#、冬青树#、紫罗兰#、B3文韬楼（丽湖）
@@ -196,9 +196,9 @@ FORCE_SEND_DAILY_REPORT=0
           ┌────────────┘   │   └────────────┐
           ▼                ▼                ▼
 ┌─────────────────┐ ┌────────────┐ ┌──────────────────┐
-│ room-power-     │ │subscription│ │ web/             │
-│ monitor/        │ │_alerts/    │ │ 静态文件服务     │
-│                 │ │            │ │                  │
+│ electrifyszu/   │ │electrifyszu│ │ web/             │
+│ dorm/           │ │/subscripti │ │ 静态文件服务     │
+│                 │ │on/         │ │                  │
 │ DormApi 查询    │ │ 邮箱验证   │ │ index.html       │
 │ roomId 发现     │ │ 预警线程   │ │ app.js           │
 │ CLI 工具        │ │ SMTP 发送  │ │ work-intro.html  │
@@ -237,21 +237,17 @@ FORCE_SEND_DAILY_REPORT=0
 
 ```text
 .
-├── room-power-monitor/        # 电费查询核心模块
-│   ├── src/
-│   │   ├── api.py             # DormApi，校园网电费接口封装
-│   │   ├── cli.py             # 命令行入口
-│   │   ├── config.py          # 配置管理
-│   │   ├── discover.py        # roomId 自动发现
-│   │   └── version.py         # 版本号
-│   └── data/buildings.txt     # 校区楼栋列表
-├── subscription_alerts/       # 邮件订阅预警模块
-│   ├── store.py               # 订阅存储
-│   ├── verification.py        # 邮箱验证流程
-│   ├── alerts.py              # 预警后台线程
-│   ├── email_service.py       # SMTP 发送
-│   ├── email_templates.py     # 邮件模板
-│   └── unsubscribe.py         # 一键退订
+├── electrifyszu/               # 后端核心包
+│   ├── dorm/                  # 粤海校区宿舍电费查询
+│   ├── apartment/             # 丽湖校区公寓电费查询
+│   ├── ranking/               # 楼栋排行
+│   ├── subscription/          # 邮件订阅预警
+│   ├── server/                # HTTP 服务器
+│   ├── data/                  # 数据文件
+│   │   ├── buildings.txt      # 校区楼栋列表
+│   │   └── apartment_buildings.txt # 公寓楼栋列表
+│   ├── database.py            # SQLite 数据库
+│   └── config.py              # 统一配置
 ├── web/                       # 前端静态资源
 │   ├── index.html             # 主仪表盘
 │   ├── app.js                 # 前端逻辑
