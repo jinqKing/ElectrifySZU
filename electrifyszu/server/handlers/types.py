@@ -21,6 +21,7 @@ from urllib.parse import parse_qs
 
 ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = ROOT / ".env"
+LIKES_FILE = ROOT / "data" / "likes.json"
 MAX_REQUEST_BODY_BYTES = 64 * 1024
 
 SENSITIVE_QUERY_KEYS = {"token", "email", "userId", "id"}

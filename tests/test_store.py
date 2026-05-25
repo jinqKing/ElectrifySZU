@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from electrifyszu.database import get_connection
 from electrifyszu.subscription.store import (
     SubscriptionStore,
     build_subscription,
@@ -226,8 +227,11 @@ class TestStoreSaveAndVerify:
         assert result.status == "pending_verification"
         assert result.verification_required is True
         assert result.subscription.email == "test@email.szu.edu.cn"
-        # CSV 文件应已写入
-        assert temp_csv_path.is_file()
+        # 数据已写入 SQLite
+        all_subs = store.list_all()
+        assert len(all_subs) == 1
+        assert all_subs[0].email == "test@email.szu.edu.cn"
+        # 旧 CSV 路径不受影响
         assert fixed_temp_path.read_text(encoding="utf-8") == "sentinel"
 
     def test_verify_activates_subscription(self, temp_csv_path: Path) -> None:
@@ -273,11 +277,15 @@ class TestStoreSaveAndVerify:
             default_threshold=20,
         )
         token = saved.subscription.verification_token
-        rows = store.list_all()
-        rows[0].verification_token_expires_at = (
-            datetime.now() - timedelta(minutes=1)
-        ).isoformat()
-        store._write(rows)
+        # Manually expire the token via direct DB update
+        conn = get_connection()
+        conn.execute(
+            "UPDATE subscriptions SET verification_token_expires_at=? "
+            "WHERE email=?",
+            ((datetime.now() - timedelta(minutes=1)).isoformat(),
+             "expired@email.szu.edu.cn"),
+        )
+        conn.commit()
 
         status, sub = store.verify(token)
 
