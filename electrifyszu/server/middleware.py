@@ -5,9 +5,7 @@ from __future__ import annotations
 import hmac
 import os
 import re
-import time as _time
 from http.server import BaseHTTPRequestHandler
-from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from electrifyszu.config import load_dotenv

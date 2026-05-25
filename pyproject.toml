@@ -12,6 +12,20 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    ".pytest_cache",
+    "node_modules",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "F", "W"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
