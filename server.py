@@ -1046,6 +1046,20 @@ def demo_status() -> dict[str, object]:
 
 
 
+def _prefetch_github_stars() -> None:
+    """后台预抓 GitHub stars，填充内存缓存，避免第一个用户等 5 秒。"""
+    global _GITHUB_STARS_CACHE
+    url = f"https://api.github.com/repos/{GITHUB_REPO_SLUG}"
+    try:
+        import httpx as _hx
+        resp = _hx.get(url, timeout=5)
+        stars = resp.json().get("stargazers_count", 0)
+        _GITHUB_STARS_CACHE.update(stars=int(stars), ts=time.time())
+        logger.info("GitHub stars pre-fetched: %d", stars)
+    except Exception as exc:
+        logger.warning("GitHub stars pre-fetch failed: %s", exc)
+
+
 def main() -> None:
     setup_logging()
 
@@ -1069,6 +1083,13 @@ def main() -> None:
     if args.check_now:
         stats = AlertRunner(ROOT).run_once(skip_recent=not args.no_skip)
         logger.info("startup check finished: %s", stats)
+    # 后台预抓 GitHub stars，不阻塞启动
+    threading.Thread(
+        target=_prefetch_github_stars,
+        name="github-stars-prefetch",
+        daemon=True,
+    ).start()
+
     alert_thread = start_alert_worker(ROOT, skip_recent=not args.no_skip)
     try:
         server.serve_forever()
