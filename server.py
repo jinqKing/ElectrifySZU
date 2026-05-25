@@ -119,19 +119,6 @@ def _apartment_mod(name: str) -> object:
     """Return a loaded apartment submodule."""
     _ensure_apartment_loaded()
     return sys.modules.get(f"_apartment.{name}")
-from subscription_alerts.alerts import (
-    AlertRunner,
-    AlertSettings,
-    shutdown_alert_worker,
-    start_alert_worker,
-)  # noqa: E402
-from subscription_alerts.email_service import EmailDeliveryError  # noqa: E402
-from subscription_alerts.store import SubscriptionStore  # noqa: E402
-from subscription_alerts.unsubscribe import unsubscribe_subscription  # noqa: E402
-from subscription_alerts.verification import (  # noqa: E402
-    create_pending_subscription,
-    verify_subscription,
-)
 
 MAX_REQUEST_BODY_BYTES = 64 * 1024
 LIKE_ID_PATTERN = re.compile(r"^svr-[0-9a-f]{16}$")
