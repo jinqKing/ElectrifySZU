@@ -360,6 +360,17 @@
           谢谢你愿意支持这个小项目，愿它继续帮更多同学少一点断电焦虑。
         </p>
       </section>
+
+      <!-- Lightbox for QR code images -->
+      <div class="lightbox-overlay" id="lightboxOverlay" hidden>
+        <div class="lightbox-container">
+          <button class="lightbox-close" id="lightboxClose" type="button"
+                  aria-label="关闭" data-i18n-aria-label="lightbox.close">×</button>
+          <img class="lightbox-image" id="lightboxImage" src="" alt="" draggable="false" />
+          <button class="lightbox-download" id="lightboxDownload" type="button"
+                  data-i18n="lightbox.save">保存图片</button>
+        </div>
+      </div>
     </div>
 
     <script src="modules/i18n-data.js" defer></script>
