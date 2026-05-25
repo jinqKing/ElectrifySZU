@@ -131,17 +131,20 @@ export function renderCampusOptions(fields) {
   }
 }
 
-export function renderBuildingOptions(fields, filter = "") {
+export function renderBuildingOptions(fields, filter = "", { manageOpenState = true } = {}) {
   const keyword = filter.trim().toLowerCase();
   const options = buildingChoices.filter((choice) => {
     if (!keyword) return true;
     return choice.searchText.includes(keyword);
   });
-  renderBuildingOptionsForList(fields, options, filter.trim());
+  renderBuildingOptionsForList(fields, options, filter.trim(), { manageOpenState });
 }
 
-export function renderBuildingOptionsForList(fields, options, rawKeyword = "") {
+export function renderBuildingOptionsForList(fields, options, rawKeyword = "", { manageOpenState = true } = {}) {
   const list = document.querySelector("#buildingOptions");
+  // Preserve open state so programmatic re-renders (e.g. background refresh)
+  // don't snap the dropdown closed while the user is looking at it.
+  const wasOpen = list.classList.contains("open");
   list.innerHTML = "";
   setState("buildingActiveIndex", -1);
   fields.buildingSearch.removeAttribute("aria-activedescendant");
@@ -151,12 +154,18 @@ export function renderBuildingOptionsForList(fields, options, rawKeyword = "") {
     empty.className = "combo-empty";
     empty.textContent = t("form.buildingNoResults");
     list.append(empty);
-    list.classList.add("open");
+    if (manageOpenState) list.classList.add("open");
     return;
   }
-  if (options.length === 0) { list.classList.remove("open"); return; }
+  if (options.length === 0) {
+    if (manageOpenState) list.classList.remove("open");
+    return;
+  }
 
-  if (rawKeyword || document.activeElement === fields.buildingSearch) {
+  if (!manageOpenState) {
+    // Called from applyBuildingsData — leave open state as-is.
+    if (wasOpen) list.classList.add("open");
+  } else if (rawKeyword || document.activeElement === fields.buildingSearch) {
     list.classList.add("open");
   } else {
     list.classList.remove("open");
@@ -339,7 +348,10 @@ function applyBuildingsData(campusData, fields) {
   setState("buildingChoices", mergeBuildingChoices(flat));
   renderCampusOptions(fields);
   chooseDefaultBuildingForCampus(fields);
-  renderBuildingOptions(fields);
+  // Pass manageOpenState:false so renderBuildingOptions only rebuilds
+  // the option list — it won't touch open/closed state.  That keeps
+  // background refreshes from snapping the dropdown closed.
+  renderBuildingOptions(fields, "", { manageOpenState: false });
   syncSelectedBuilding(fields);
 
   // On first page load, gently animate the building dropdown open
@@ -348,10 +360,11 @@ function applyBuildingsData(campusData, fields) {
     _firstLoad = false;
     const list = document.querySelector("#buildingOptions");
     if (list && list.childElementCount > 0) {
+      // Start invisible so the force-reflow frame isn't a flash.
+      list.style.opacity = "0";
       list.classList.add("open");
-      // Force a reflow so the browser registers display:block
-      // before the animation keyframes kick in.
       void list.offsetHeight;
+      list.style.opacity = "";
       list.classList.add("open-animated");
     }
   }
