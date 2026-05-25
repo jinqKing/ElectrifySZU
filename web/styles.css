@@ -620,7 +620,7 @@ select:focus {
 
 /* Animated open — used on first page load to hint that building selection is ready */
 .combo-list.open-animated {
-  animation: comboFadeSlide 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: comboFadeSlide 800ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes comboFadeSlide {
