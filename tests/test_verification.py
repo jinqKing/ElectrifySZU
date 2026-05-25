@@ -55,7 +55,7 @@ def test_create_pending_subscription_sends_email_for_pending(
     result = create_pending_subscription(
         store=SubscriptionStore(temp_csv_path),
         values={
-            "email": "pending@example.com",
+            "email": "pending@email.szu.edu.cn",
             "client": "192.168.1.1",
             "campus_name": "Campus A",
             "building_id": "7126",
@@ -70,7 +70,7 @@ def test_create_pending_subscription_sends_email_for_pending(
     assert result.verification_required is True
     assert calls == [
         (
-            "pending@example.com",
+            "pending@email.szu.edu.cn",
             "https://power.example.com/api/subscriptions/verify"
             f"?token={result.subscription.verification_token}",
         )
@@ -96,7 +96,7 @@ def test_create_pending_subscription_skips_email_for_active(
     first = create_pending_subscription(
         store=store,
         values={
-            "email": "active@example.com",
+            "email": "active@email.szu.edu.cn",
             "client": "192.168.1.1",
             "campus_name": "Campus A",
             "building_id": "7126",
@@ -112,7 +112,7 @@ def test_create_pending_subscription_skips_email_for_active(
     second = create_pending_subscription(
         store=store,
         values={
-            "email": "active@example.com",
+            "email": "active@email.szu.edu.cn",
             "client": "192.168.1.1",
             "campus_name": "Campus A",
             "building_id": "7126",
@@ -150,7 +150,7 @@ def test_send_verification_email_uses_email_service(monkeypatch, temp_csv_path: 
     store = SubscriptionStore(temp_csv_path)
     result = store.save(
         {
-            "email": "pending@example.com",
+            "email": "pending@email.szu.edu.cn",
             "client": "192.168.1.1",
             "campus_name": "Campus A",
             "building_id": "7126",
@@ -167,6 +167,6 @@ def test_send_verification_email_uses_email_service(monkeypatch, temp_csv_path: 
     )
 
     assert captured
-    assert captured[0][0] == "pending@example.com"
+    assert captured[0][0] == "pending@email.szu.edu.cn"
     assert "ElectrifySZU" in captured[0][1]
     assert "https://power.example.com/api/subscriptions/verify?token=abc" in captured[0][2]

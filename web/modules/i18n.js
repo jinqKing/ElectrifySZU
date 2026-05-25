@@ -9,9 +9,9 @@ translations["zh-CN"] ||= {};
 translations["en-US"] ||= {};
 
 // Fallback translations for subscription (in case i18n-data is outdated)
-translations["zh-CN"]["subscribe.emailPlaceholder"] ||= "学号或邮箱前缀";
-translations["zh-CN"]["subscribe.emailHint"] ||= "自动补全 @email.szu.edu.cn；支持输入其他完整邮箱。";
-translations["zh-CN"]["subscribe.invalidEmail"] ||= "请输入有效邮箱，或仅填写默认邮箱前缀。";
+translations["zh-CN"]["subscribe.emailPlaceholder"] ||= "输入学号";
+translations["zh-CN"]["subscribe.emailHint"] ||= "输入学号自动补全后缀，仅支持深大邮箱。";
+translations["zh-CN"]["subscribe.invalidEmail"] ||= "请输入有效的深大学号/邮箱。";
 translations["zh-CN"]["subscribe.chooseOne"] ||= "请至少选择一种订阅类型。";
 translations["zh-CN"]["subscribe.dialogResultTitle"] ||= "订阅已提交";
 translations["zh-CN"]["subscribe.triggerOpen"] ||= "🔔 订阅电费预警邮件";
@@ -22,9 +22,9 @@ translations["en-US"]["subscribe.triggerOpen"] ||= "🔔 Setup alerts";
 translations["en-US"]["subscribe.cancelBack"] ||= "✕ Back";
 translations["en-US"]["subscribe.summaryActive"] ||= "alerts subscribed";
 translations["en-US"]["subscribe.summaryPending"] ||= "awaiting verification";
-translations["en-US"]["subscribe.emailPlaceholder"] ||= "NetID or email prefix";
-translations["en-US"]["subscribe.emailHint"] ||= "Auto append @email.szu.edu.cn, support other emails";
-translations["en-US"]["subscribe.invalidEmail"] ||= "Enter a valid email address, or only the default mailbox prefix.";
+translations["en-US"]["subscribe.emailPlaceholder"] ||= "Enter student ID";
+translations["en-US"]["subscribe.emailHint"] ||= "Auto-complete from student ID, SZU email only";
+translations["en-US"]["subscribe.invalidEmail"] ||= "Enter a valid SZU student ID or email.";
 translations["en-US"]["subscribe.chooseOne"] ||= "Choose at least one subscription type.";
 translations["en-US"]["subscribe.dialogResultTitle"] ||= "Subscription submitted";
 

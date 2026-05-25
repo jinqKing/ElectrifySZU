@@ -114,22 +114,56 @@ async function _fetchJSON(relativePath) {
 
 // ── Render ─────────────────────────────────────────────────────────
 
+const _CAMPUS_GROUPS = [
+  { value: "yuehai", labelKey: "campus.yuehai" },
+  { value: "lihu", labelKey: "campus.lihu" },
+  { value: "apartment", labelKey: "campus.apartment" },
+];
+
 export function renderCampusOptions(fields) {
-  const preferredCampus = fields.campusGroup.value || "yuehai";
-  const campusGroups = [
-    { value: "yuehai", labelKey: "campus.yuehai" },
-    { value: "lihu", labelKey: "campus.lihu" },
-    { value: "apartment", labelKey: "campus.apartment" },
-  ].filter((group) => allBuildings.some((b) => b.campusGroup === group.value));
-  fields.campusGroup.innerHTML = "";
+  const preferredCampus = fields.campusGroupId.value || "yuehai";
+  const campusGroups = _CAMPUS_GROUPS.filter((group) =>
+    allBuildings.some((b) => b.campusGroup === group.value)
+  );
+  fields.campusOptions.innerHTML = "";
   for (const campus of campusGroups) {
-    const option = document.createElement("option");
-    option.value = campus.value;
-    option.dataset.i18n = campus.labelKey;
-    option.textContent = t(campus.labelKey);
-    if (campus.value === preferredCampus) option.selected = true;
-    fields.campusGroup.append(option);
+    const div = document.createElement("div");
+    div.className = "combo-option";
+    div.setAttribute("role", "option");
+    div.dataset.value = campus.value;
+    div.dataset.i18n = campus.labelKey;
+    div.textContent = t(campus.labelKey);
+    if (campus.value === preferredCampus) {
+      div.classList.add("active");
+      div.setAttribute("aria-selected", "true");
+    }
+    div.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      selectCampus(fields, campus.value);
+    });
+    fields.campusOptions.append(div);
   }
+}
+
+export function openCampusOptions(fields) {
+  fields.campusOptions.classList.add("open");
+  fields.campusSearch.setAttribute("aria-expanded", "true");
+}
+
+export function closeCampusOptions(fields) {
+  fields.campusOptions.classList.remove("open");
+  fields.campusSearch.setAttribute("aria-expanded", "false");
+}
+
+export function selectCampus(fields, value) {
+  const campus = _CAMPUS_GROUPS.find((c) => c.value === value);
+  if (!campus) return;
+  fields.campusGroupId.value = value;
+  fields.campusSearch.value = t(campus.labelKey);
+  closeCampusOptions(fields);
+  chooseDefaultBuildingForCampus(fields);
+  renderBuildingOptions(fields);
+  syncSelectedBuilding(fields);
 }
 
 export function renderBuildingOptions(fields, filter = "", { manageOpenState = true } = {}) {
@@ -228,7 +262,9 @@ export function closeBuildingOptions(fields) {
 }
 
 export function chooseDefaultBuildingForCampus(fields) {
-  const defaultChoice = preferredChoice() || choicesForCurrentCampus(fields)[0] || buildingChoices[0];
+  const campusVal = fields.campusGroupId?.value;
+  const campusChoices = campusVal ? choicesForCurrentCampus(fields) : [];
+  const defaultChoice = campusChoices[0] || preferredChoice() || buildingChoices[0];
   if (defaultChoice) fields.buildingSearch.value = defaultChoice.displayLabel;
 }
 
@@ -239,7 +275,10 @@ export function syncSelectedBuilding(fields) {
   fields.campusName.value = selected.campusName;
   fields.buildingId.value = selected.id;
   fields.buildingName.value = selected.name;
-  fields.campusGroup.value = selected.campusGroup;
+  fields.campusGroupId.value = selected.campusGroup;
+  // Sync campus search display
+  const campus = _CAMPUS_GROUPS.find((c) => c.value === selected.campusGroup);
+  if (campus && fields.campusSearch) fields.campusSearch.value = t(campus.labelKey);
 }
 
 export function resolveBuildingMatch(fields, text, campusValue) {
@@ -262,7 +301,7 @@ export function resolveBuildingMatch(fields, text, campusValue) {
 export function updateBuildingFeedback(fields) {
   const fbEl = fields.buildingFeedback;
   if (!fbEl) return;
-  const result = resolveBuildingMatch(fields, fields.buildingSearch.value, fields.campusGroup?.value);
+  const result = resolveBuildingMatch(fields, fields.buildingSearch.value, fields.campusGroupId?.value);
   const comboWrap = fbEl.parentElement;
   comboWrap.classList.remove("has-match-exact", "has-match-fuzzy", "has-no-match");
   if (!result.matched) {
@@ -314,7 +353,7 @@ function preferredChoice() {
 }
 
 function choicesForCurrentCampus(fields) {
-  return buildingChoices.filter((choice) => choice.campusGroup === fields?.campusGroup?.value);
+  return buildingChoices.filter((choice) => choice.campusGroup === fields?.campusGroupId?.value);
 }
 
 // ── Master loader (with localStorage cache) ───────────────────────
@@ -353,6 +392,12 @@ function applyBuildingsData(campusData, fields) {
   setState("allBuildings", flat);
   setState("buildingChoices", mergeBuildingChoices(flat));
   renderCampusOptions(fields);
+  // Sync campus search display
+  {
+    const cur = fields.campusGroupId.value || "yuehai";
+    const campus = _CAMPUS_GROUPS.find((c) => c.value === cur);
+    if (campus && fields.campusSearch) fields.campusSearch.value = t(campus.labelKey);
+  }
   chooseDefaultBuildingForCampus(fields);
   // Pass manageOpenState:false so renderBuildingOptions only rebuilds
   // the option list — it won't touch open/closed state.  That keeps
