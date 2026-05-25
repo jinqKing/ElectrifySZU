@@ -98,7 +98,34 @@ var WorkIntro = {};
     }
     if (!(btnLand && hintEl && btnDismiss)) return;
     btnLand.hidden = false;
-    btnLand.addEventListener("click", function () { hintEl.hidden = false; });
+
+    // 去重注册：clone 替换清除旧监听器
+    var newBtn = btnLand.cloneNode(true);
+    btnLand.parentNode.replaceChild(newBtn, btnLand);
+    btnLand = newBtn;
+
+    btnLand.addEventListener("click", function () {
+      // ① 优先尝试 Screen Orientation API（Android Chrome 原生支持）
+      if (typeof screen !== 'undefined' && screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(function () {
+          // ② 回退：先全屏再锁（部分 Chrome 需要）
+          var el = document.documentElement;
+          if (el.requestFullscreen) {
+            el.requestFullscreen().then(function () {
+              screen.orientation.lock('landscape').catch(function () {});
+            }).catch(function () {
+              hintEl.hidden = false;   // ③ 都失败 → 显示横幅
+            });
+          } else {
+            hintEl.hidden = false;      // ③ 无全屏 API → 显示横幅
+          }
+        });
+        return;
+      }
+      // ④ 无 orientation API（iOS Safari）→ 直接显示横幅
+      hintEl.hidden = false;
+    });
+
     btnDismiss.addEventListener("click", hideHint);
     hintEl.addEventListener("click", function (e) {
       if (e.target === hintEl) hideHint();
