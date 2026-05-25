@@ -16,6 +16,91 @@ class TestBuildSubscription:
         with pytest.raises(ValueError, match="邮箱"):
             build_subscription({"email": "not-an-email"}, 20)
 
+    def test_rejects_unauthorized_domain(self) -> None:
+        """非允许的邮箱域名应被拒绝。"""
+        with pytest.raises(ValueError, match="仅支持"):
+            build_subscription(
+                {
+                    "email": "test@gmail.com",
+                    "client": "192.168.1.1",
+                    "campus_name": "粤海",
+                    "building_id": "7126",
+                    "building_name": "风槐斋",
+                    "room_name": "713",
+                },
+                20,
+            )
+
+    def test_rejects_qq_domain(self) -> None:
+        """QQ 邮箱等非 szu 域名应被拒绝。"""
+        with pytest.raises(ValueError, match="仅支持"):
+            build_subscription(
+                {
+                    "email": "test@qq.com",
+                    "client": "192.168.1.1",
+                    "campus_name": "粤海",
+                    "building_id": "7126",
+                    "building_name": "风槐斋",
+                    "room_name": "713",
+                },
+                20,
+            )
+
+    def test_rejects_outlook_domain(self) -> None:
+        """Outlook 等非 szu 域名应被拒绝。"""
+        with pytest.raises(ValueError, match="仅支持"):
+            build_subscription(
+                {
+                    "email": "test@outlook.com",
+                    "client": "192.168.1.1",
+                    "campus_name": "粤海",
+                    "building_id": "7126",
+                    "building_name": "风槐斋",
+                    "room_name": "713",
+                },
+                20,
+            )
+
+    def test_allows_mails_szu_domain(self) -> None:
+        """@mails.szu.edu.cn 域名应被允许（2024 级及以后的学号邮箱）。"""
+        sub = build_subscription(
+            {
+                "email": "2024123456@mails.szu.edu.cn",
+                "client": "192.168.1.1",
+                "campus_name": "粤海",
+                "building_id": "7126",
+                "building_name": "风槐斋",
+                "room_name": "713",
+            },
+            20,
+        )
+        assert sub.email == "2024123456@mails.szu.edu.cn"
+
+    def test_allows_uppercase_domain(self) -> None:
+        """大写域名应被小写化后通过。"""
+        sub = build_subscription(
+            {
+                "email": "Test@EMAIL.SZU.EDU.CN",
+                "client": "192.168.1.1",
+                "campus_name": "粤海",
+                "building_id": "7126",
+                "building_name": "风槐斋",
+                "room_name": "713",
+            },
+            20,
+        )
+        assert sub.email == "test@email.szu.edu.cn"
+
+    def test_domain_via_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """通过环境变量 ALLOWED_EMAIL_DOMAINS 可自定义允许的域名。"""
+        from electrifyszu.subscription.store import _get_allowed_email_domains
+
+        monkeypatch.setenv("ALLOWED_EMAIL_DOMAINS", "@custom.edu.cn,@test.cn")
+        domains = _get_allowed_email_domains()
+        assert "@custom.edu.cn" in domains
+        assert "@test.cn" in domains
+        assert "@email.szu.edu.cn" not in domains
+
     def test_missing_room_name_raises(self) -> None:
         with pytest.raises(ValueError, match="房间号"):
             build_subscription(
