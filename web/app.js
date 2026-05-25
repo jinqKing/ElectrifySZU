@@ -229,19 +229,6 @@ demoButton.addEventListener("click", async () => {
   message.textContent += ` · ${sceneLabel}`;
 });
 
-// Block F5 / Ctrl+R reload (SPA behavior)
-window.addEventListener("keydown", (event) => {
-  const key = String(event.key || "").toLowerCase();
-  if (event.key === "F5" || ((event.ctrlKey || event.metaKey) && key === "r")) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-});
-
-window.addEventListener("beforeunload", (event) => {
-  event.preventDefault();
-  event.returnValue = "";
-});
 
 languageButtons.forEach((button) => {
   button.addEventListener("click", async () => {
