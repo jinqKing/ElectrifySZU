@@ -110,7 +110,7 @@ def test_store_operation(temp_csv_path: Path):
 | `temp_csv_path` | Isolated CSV file path backed by `tmp_path` | `tests/conftest.py` |
 | `tmp_path` | Temporary directory (pytest builtin) | pytest |
 
-The conftest prepends `room-power-monitor/` to `sys.path` for backward-compatibility imports. Avoid relying on this in new tests — use `electrifyszu.` qualified imports directly.
+Legacy wrapper directories (`room-power-monitor/`, `apartment-power-monitor/`) have been consolidated into `electrifyszu/`. All imports should use the `electrifyszu.` qualified path directly.
 
 ### CI Pipeline
 

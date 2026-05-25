@@ -29,7 +29,7 @@ Common reasons:
 
 1. **Typo in room number.** `"713"` ≠ `"713 "` (trailing space matters). Ensure `roomName` matches the official designation.
 2. **Wrong campus/client selected.** Each campus has a distinct `client` IP. Selecting "粤海" while querying a "新斋区" room fails silently because the underlying systems differ.
-3. **Building ID mismatch.** The `buildingId` embedded in the campus selector must correspond to the correct `client`. Check `room-power-monitor/data/buildings.txt` for authoritative mappings.
+3. **Building ID mismatch.** The `buildingId` embedded in the campus selector must correspond to the correct `client`. Check `electrifyszu/data/buildings.txt` for authoritative mappings.
 4. **Newly assigned room.** Rooms provisioned after the last crawl won't appear. Open the campus system manually to confirm the room appears in the dropdown.
 
 **Fix:** 
@@ -139,8 +139,8 @@ Ensure `resetLoadingAnimation()` is called before initiating the next fetch. The
 #### Building dropdown empty or incorrect
 
 Dropdown populated from `GET /api/buildings`. Empty means:
-- `room-power-monitor/data/buildings.txt` is missing or malformed
-- `apartment-power-monitor/src/buildings.py` raised during init (logged as warning, degrades gracefully)
+- `electrifyszu/data/buildings.txt` is missing or malformed
+- `electrifyszu/data/apartment_buildings.txt` is missing or malformed
 
 Regenerate: `python -m electrifyszu.apartment.cli buildings --online` (requires campus network).
 

@@ -18,7 +18,7 @@ from electrifyszu.server.handlers.types import (
 import electrifyszu.apartment.buildings as _apt_buildings
 
 ROOT = Path(__file__).resolve().parents[3]
-BUILDINGS_FILE = ROOT / "room-power-monitor" / "data" / "buildings.txt"
+BUILDINGS_FILE = ROOT / "electrifyszu" / "data" / "buildings.txt"
 
 
 def handle_buildings(handler: BaseHTTPRequestHandler) -> None:

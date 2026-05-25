@@ -175,7 +175,7 @@ Returns the full campus-and-building hierarchy.
 }
 ```
 
-Built from `room-power-monitor/data/buildings.txt` + `apartment-power-monitor/src/buildings.py` registry.
+Built from `electrifyszu/data/buildings.txt` + `electrifyszu/data/apartment_buildings.txt`.
 
 ---
 
