@@ -41,6 +41,7 @@ async function _doHandleLike() {
   if (!canUseBackend() || !likeBtn || !likeCt) return;
 
   likeBtn.disabled = true;
+  const hadId = !!localStorage.getItem(LIKE_ID_KEY);
   try {
     let likeId = localStorage.getItem(LIKE_ID_KEY);
     if (!likeId) {
@@ -56,7 +57,7 @@ async function _doHandleLike() {
     try { const s = await fetchJson(apiUrl("/api/stats")); updateCounts(s.data.likes, s.data.users); } catch { /* */ }
     likeBtn.disabled = true;
   } catch (err) {
-    if (err?.status === 400 && !_retried) {
+    if (err?.status === 400 && hadId && !_retried) {
       _retried = true;
       localStorage.removeItem(LIKE_ID_KEY);
       try { await _doHandleLike(); } catch { /* */ }
