@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import hmac
-import importlib.util
 import json
 import logging
 import mimetypes
@@ -20,31 +19,43 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
 
-from log_config import setup_logging
+from electrifyszu.logging import setup_logging
+from electrifyszu.version import __version__
 
-ROOT = Path(__file__).resolve().parent
-MONITOR_DIR = ROOT / "room-power-monitor"
-APARTMENT_DIR = ROOT / "apartment-power-monitor"
-WEB_DIR = ROOT / "web"
-BUILDINGS_FILE = MONITOR_DIR / "data" / "buildings.txt"
-APARTMENT_BUILDINGS_FILE = APARTMENT_DIR / "data" / "buildings.txt"
-LIKES_FILE = ROOT / "data" / "likes.json"
-ENV_FILE = ROOT / ".env"
-sys.path.insert(0, str(MONITOR_DIR))
-
-logger = logging.getLogger("server")
-
-from src.api import DormApi  # noqa: E402
-from src.config import Config, _load_dotenv  # noqa: E402
-from src.discover import discover_room_id  # noqa: E402
-from src.version import __version__  # noqa: E402
-from building_power_ranking.cache import (  # noqa: E402
+from electrifyszu.dorm.api import DormApi
+from electrifyszu.config import DormConfig as Config, load_dotenv
+from electrifyszu.dorm.discover import discover_room_id
+from electrifyszu.ranking.cache import (
     build_random_sample_plan,
     cached_ranking_for,
     demo_ranking_from_plan,
     load_ranking_cache,
 )
-from building_power_ranking.ranking import mask_room_name  # noqa: E402
+from electrifyszu.ranking.ranking import mask_room_name
+from electrifyszu.subscription.alerts import (
+    AlertRunner,
+    AlertSettings,
+    shutdown_alert_worker,
+    start_alert_worker,
+)
+from electrifyszu.subscription.email_service import EmailDeliveryError
+from electrifyszu.subscription.store import SubscriptionStore
+from electrifyszu.subscription.unsubscribe import unsubscribe_subscription
+from electrifyszu.subscription.verification import (
+    create_pending_subscription,
+    verify_subscription,
+)
+from electrifyszu.config import ApartmentConfig  # noqa: E402
+import electrifyszu.apartment.api as _apt_api  # noqa: E402
+import electrifyszu.apartment.buildings as _apt_buildings  # noqa: E402
+
+ROOT = Path(__file__).resolve().parent
+WEB_DIR = ROOT / "web"
+BUILDINGS_FILE = ROOT / "room-power-monitor" / "data" / "buildings.txt"
+LIKES_FILE = ROOT / "data" / "likes.json"
+ENV_FILE = ROOT / ".env"
+
+logger = logging.getLogger("server")
 
 # 排行缓存（模块加载时预读，避免首次请求的惰性加载开销）
 _RANKING_CACHE: dict = {}
@@ -68,57 +79,6 @@ except Exception:
     _RANKING_CACHE = {}
     _RANKING_CACHE_LOADED = False
 mimetypes.guess_type("index.html")
-from subscription_alerts.alerts import (
-    AlertRunner,
-    AlertSettings,
-    shutdown_alert_worker,
-    start_alert_worker,
-)  # noqa: E402
-from subscription_alerts.email_service import EmailDeliveryError  # noqa: E402
-from subscription_alerts.store import SubscriptionStore  # noqa: E402
-from subscription_alerts.unsubscribe import unsubscribe_subscription  # noqa: E402
-from subscription_alerts.verification import (  # noqa: E402
-    create_pending_subscription,
-    verify_subscription,
-)
-
-# Import apartment-power-monitor as a proper package (avoids 'src' name conflict)
-_APARTMENT_LOADED = False
-
-
-def _ensure_apartment_loaded() -> None:
-    """Load apartment-power-monitor/src as the '_apartment' package with proper relative imports."""
-    global _APARTMENT_LOADED
-    if _APARTMENT_LOADED:
-        return
-    src_path = APARTMENT_DIR / "src"
-    pkg_name = "_apartment"
-
-    init_path = src_path / "__init__.py"
-    if init_path.exists():
-        spec = importlib.util.spec_from_file_location(pkg_name, str(init_path))
-        pkg = importlib.util.module_from_spec(spec)
-        pkg.__path__ = [str(src_path)]
-        sys.modules[pkg_name] = pkg
-        spec.loader.exec_module(pkg)
-
-    for sub in ["version", "config", "buildings", "api"]:
-        file_path = src_path / f"{sub}.py"
-        if file_path.exists():
-            sub_name = f"{pkg_name}.{sub}"
-            spec = importlib.util.spec_from_file_location(sub_name, str(file_path))
-            mod = importlib.util.module_from_spec(spec)
-            mod.__package__ = pkg_name
-            sys.modules[sub_name] = mod
-            spec.loader.exec_module(mod)
-
-    _APARTMENT_LOADED = True
-
-
-def _apartment_mod(name: str) -> object:
-    """Return a loaded apartment submodule."""
-    _ensure_apartment_loaded()
-    return sys.modules.get(f"_apartment.{name}")
 
 MAX_REQUEST_BODY_BYTES = 64 * 1024
 LIKE_ID_PATTERN = re.compile(r"^svr-[0-9a-f]{16}$")
@@ -366,11 +326,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _handle_apartment_status(self, building_code: str, room_name: str, days: int) -> None:
         try:
-            config_mod = _apartment_mod("config")
-            api_mod = _apartment_mod("api")
-
-            apt_config = config_mod.Config.from_env(str(ENV_FILE))
-            api = api_mod.ApartmentPowerApi(apt_config)
+            apt_config = ApartmentConfig.from_env(str(ENV_FILE))
+            api = _apt_api.ApartmentPowerApi(apt_config)
             result = api.get_status(
                 building_code=building_code,
                 room_name=room_name,
@@ -420,8 +377,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _handle_apartment_floors(self, query: dict[str, list[str]]) -> None:
         try:
             building_code = _query_value(query, "building") or ""
-            buildings_mod = _apartment_mod("buildings")
-            building = buildings_mod.get_building(building_code)
+            building = _apt_buildings.get_building(building_code)
             floors = [
                 {"code": f"{building.code}{f:02d}", "label": building.floor_label(f)}
                 for f in building.floors
@@ -436,8 +392,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         try:
             building_code = _query_value(query, "building") or ""
             floor_code = _query_value(query, "floor") or ""
-            buildings_mod = _apartment_mod("buildings")
-            building = buildings_mod.get_building(building_code)
+            building = _apt_buildings.get_building(building_code)
             # floor_code format: building_code + floor_number (e.g. "0105")
             floor_num = int(floor_code[-2:]) if len(floor_code) >= 2 else 0
             rooms = [
@@ -705,7 +660,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         return True
 
     def _validate_admin_token(self) -> bool:
-        _load_dotenv(str(ENV_FILE))
+        load_dotenv(str(ENV_FILE))
         expected = os.getenv("ALERT_ADMIN_TOKEN", "").strip()
         supplied = self.headers.get("X-Admin-Token", "").strip()
         return bool(expected and supplied and hmac.compare_digest(supplied, expected))
@@ -755,7 +710,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         raise RequestError()
 
     def _request_base_url(self) -> str:
-        _load_dotenv(str(ENV_FILE))
+        load_dotenv(str(ENV_FILE))
         public_base_url = os.getenv("PUBLIC_BASE_URL", "").strip()
         if _valid_public_base_url(public_base_url):
             return public_base_url.rstrip("/")
@@ -950,8 +905,7 @@ def merge_campuses(*groups: list[dict[str, object]]) -> list[dict[str, object]]:
 def _merge_apartment_into_lihu(data: list[dict[str, object]]) -> None:
     """Merge apartment 6 buildings into the 丽湖 campus (client=172.21.101.11)."""
     try:
-        buildings_mod = _apartment_mod("buildings")
-        apartments = buildings_mod.load_buildings()
+        apartments = _apt_buildings.load_buildings()
         apt_list = [
             {"id": b.code, "name": b.name}
             for b in sorted(apartments.values(), key=lambda x: x.code)

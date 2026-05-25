@@ -46,7 +46,7 @@ def test_send_once_uses_ssl_server(monkeypatch) -> None:
             events.append(("quit", None))
 
     monkeypatch.setattr(
-        "subscription_alerts.email_service.smtplib.SMTP_SSL",
+        "electrifyszu.subscription.email_service.smtplib.SMTP_SSL",
         lambda host, port, timeout: FakeSMTP(),
     )
 
@@ -75,8 +75,8 @@ def test_send_text_retries_transient_errors(monkeypatch) -> None:
             raise socket.timeout("timeout")
 
     monkeypatch.setattr(EmailService, "_send_once", fake_send_once)
-    monkeypatch.setattr("subscription_alerts.email_service.time.sleep", lambda seconds: None)
-    monkeypatch.setattr("subscription_alerts.email_service.random.uniform", lambda a, b: 0.0)
+    monkeypatch.setattr("electrifyszu.subscription.email_service.time.sleep", lambda seconds: None)
+    monkeypatch.setattr("electrifyszu.subscription.email_service.random.uniform", lambda a, b: 0.0)
 
     service = EmailService(
         EmailConfig(
