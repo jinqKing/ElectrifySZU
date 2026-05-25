@@ -152,6 +152,7 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  white-space: nowrap;
   border: 1px solid var(--line);
   color: var(--text);
   transition:
@@ -1828,6 +1829,9 @@ body.modal-open {
   .sponsor-trigger,
   .recharge-trigger {
     justify-content: center;
+    padding: 0 10px;
+    min-width: 0;
+    font-size: 13px;
   }
 
   .language-switcher {
