@@ -48,7 +48,7 @@ def test_create_pending_subscription_sends_email_for_pending(
         calls.append((subscription.email, confirmation_url))
 
     monkeypatch.setattr(
-        "subscription_alerts.verification.send_verification_email",
+        "electrifyszu.subscription.verification.send_verification_email",
         fake_send,
     )
 
@@ -88,7 +88,7 @@ def test_create_pending_subscription_skips_email_for_active(
         call_count += 1
 
     monkeypatch.setattr(
-        "subscription_alerts.verification.send_verification_email",
+        "electrifyszu.subscription.verification.send_verification_email",
         fake_send,
     )
 
@@ -140,10 +140,12 @@ def test_send_verification_email_uses_email_service(monkeypatch, temp_csv_path: 
             captured.append((to_email, subject, content))
 
     monkeypatch.setattr(
-        "subscription_alerts.verification.EmailConfig.from_env",
-        lambda env_path: object(),
+        "electrifyszu.subscription.email_service.EmailConfig.from_env",
+        lambda env_path: type("cfg", (), {"sender_name": "Tester", "sender_email": "test@test.com",
+            "smtp_host": "smtp.test", "smtp_port": 465, "smtp_ssl": True, "smtp_starttls": False,
+            "sender_password": "secret"})(),
     )
-    monkeypatch.setattr("subscription_alerts.verification.EmailService", FakeService)
+    monkeypatch.setattr("electrifyszu.subscription.verification.EmailService", FakeService)
 
     store = SubscriptionStore(temp_csv_path)
     result = store.save(
