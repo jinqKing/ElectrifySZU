@@ -32,6 +32,7 @@ export async function initLike() {
 }
 
 let _likePending = false;
+let _retried = false;
 
 async function _doHandleLike() {
   const likeBtn = $("#likeButton");
@@ -50,12 +51,16 @@ async function _doHandleLike() {
     const res = await postJson(apiUrl("/api/like"), { id: likeId });
     if (!res.already_liked) likeBtn.classList.add("liked");
     updateCounts(res.count, res.users);
+    const msg = $("#message");
+    if (msg) { msg.classList.remove("error"); }
     try { const s = await fetchJson(apiUrl("/api/stats")); updateCounts(s.data.likes, s.data.users); } catch { /* */ }
     likeBtn.disabled = true;
   } catch (err) {
-    if (err?.status === 400) {
+    if (err?.status === 400 && !_retried) {
+      _retried = true;
       localStorage.removeItem(LIKE_ID_KEY);
       try { await _doHandleLike(); } catch { /* */ }
+      _retried = false;
       return;
     }
     const msg = $("#message");
