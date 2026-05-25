@@ -33,17 +33,17 @@ def test_runner_groups_by_client_campus_building_and_room(
     runner = AlertRunner(tmp_path)
     for values in (
         _subscription_values(
-            email="a@example.com",
+            email="a@email.szu.edu.cn",
             client="10.0.0.1",
             campus_name="Campus A",
         ),
         _subscription_values(
-            email="b@example.com",
+            email="b@email.szu.edu.cn",
             client="10.0.0.2",
             campus_name="Campus A",
         ),
         _subscription_values(
-            email="c@example.com",
+            email="c@email.szu.edu.cn",
             client="10.0.0.1",
             campus_name="Campus B",
         ),

@@ -19,6 +19,17 @@ MAX_BUILDING_ID_LENGTH = 32
 MAX_NAME_LENGTH = 80
 MAX_ROOM_NAME_LENGTH = 32
 MAX_THRESHOLD_KWH = 10000.0
+
+# 默认允许的邮箱域名（可通过环境变量 ALLOWED_EMAIL_DOMAINS 覆盖，逗号分隔）
+_DEFAULT_ALLOWED_DOMAINS: frozenset[str] = frozenset({"@email.szu.edu.cn", "@mails.szu.edu.cn"})
+
+
+def _get_allowed_email_domains() -> frozenset[str]:
+    """从环境变量读取允许的邮箱域名集合，留空则使用默认值。"""
+    env_val = os.getenv("ALLOWED_EMAIL_DOMAINS")
+    if env_val:
+        return frozenset(d.strip().lower() for d in env_val.split(",") if d.strip())
+    return _DEFAULT_ALLOWED_DOMAINS
 CSV_FIELDS = [
     "email",
     "client",
@@ -305,6 +316,12 @@ def build_subscription(values: dict[str, Any], default_threshold: float) -> Subs
     email = str(values.get("email", "")).strip().lower()
     if len(email) > MAX_EMAIL_LENGTH or not EMAIL_PATTERN.match(email):
         raise ValueError("请输入有效的邮箱地址。")
+
+    # 邮箱域名白名单校验
+    at_idx = email.find("@")
+    if at_idx == -1 or email[at_idx:] not in _get_allowed_email_domains():
+        allowed = "、".join(sorted(_get_allowed_email_domains()))
+        raise ValueError(f"仅支持 {allowed} 邮箱。")
 
     required = {
         "client": "校区网络参数",
