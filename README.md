@@ -21,6 +21,12 @@
   一次查询看到余额、趋势和预警，把校园电费系统变成一个真正的管家。</strong>
 </p>
 
+<p align="center">
+  <a href="https://www.iotun.com">
+    <img src="web/pic/og-image.png" alt="ElectrifySZU" width="600">
+  </a>
+</p>
+
 ***
 
 ## 📚 Documentation
