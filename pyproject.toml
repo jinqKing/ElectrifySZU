@@ -17,4 +17,4 @@ testpaths = ["tests"]
 
 [project.scripts]
 electrifyszu = "server:main"
-electrifyszu-delivery-test = "subscription_alerts.test_delivery:main"
+electrifyszu-delivery-test = "electrifyszu.subscription.test_delivery:main"
