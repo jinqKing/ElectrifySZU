@@ -102,7 +102,8 @@ class AlertRunner:
 
         # --- Phase B: group subs by room key, fetch once per room ---
         # room_map: room_key -> (representative_sub, [alert_subs], [report_subs])
-        room_key = lambda s: (s.client, s.campus_name, s.building_id, s.room_name)
+        def room_key(s: Subscription) -> tuple[str, str, str, str]:
+            return s.client, s.campus_name, s.building_id, s.room_name
         room_map: dict[
             tuple[str, str, str, str],
             tuple[Subscription, list[Subscription], list[Subscription]],
