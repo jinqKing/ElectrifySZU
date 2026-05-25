@@ -61,16 +61,30 @@ select {
 }
 
 .hero {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 28px;
   margin-bottom: 22px;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('pic/og-image.png') center 75% / auto 65% no-repeat;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .hero-copy {
   display: grid;
   gap: 14px;
+  position: relative;
+  z-index: 1;
 }
 
 .hero-kicker {
@@ -87,6 +101,8 @@ select {
   gap: 10px;
   flex-wrap: wrap;
   max-width: 420px;
+  position: relative;
+  z-index: 1;
 }
 
 .repo-link {
