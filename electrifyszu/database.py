@@ -172,43 +172,58 @@ def init_db() -> None:
 
 # ── Migration helpers ────────────────────────────────────────────────────────
 
+def _legacy_paths() -> tuple[Path, Path]:
+    """Return (likes_json_path, subs_csv_path) relative to the current DB.
+
+    Derives legacy paths from the DB directory so that when the DB is
+    in a test temp directory, only test-local legacy files are checked.
+    """
+    db_dir = get_db_path().parent
+    return db_dir / "likes.json", db_dir / "subscriptions.csv"
+
+
 def needs_migration() -> bool:
     """Check if legacy CSV/JSON data exists but DB is empty."""
-    if not DB_FILE.is_file():
-        return LIKES_LEGACY_FILE.is_file() or SUBS_LEGACY_FILE.is_file()
+    likes_legacy, subs_legacy = _legacy_paths()
+    if not get_db_path().is_file():
+        return likes_legacy.is_file() or subs_legacy.is_file()
     # DB exists — check if it has data
     conn = get_connection()
     sub_count = conn.execute("SELECT COUNT(*) FROM subscriptions").fetchone()[0]
     like_count = conn.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
-    return (sub_count == 0 and SUBS_LEGACY_FILE.is_file()) or (
-        like_count == 0 and LIKES_LEGACY_FILE.is_file()
+    return (sub_count == 0 and subs_legacy.is_file()) or (
+        like_count == 0 and likes_legacy.is_file()
     )
 
 
 def migrate_from_legacy() -> dict[str, int]:
     """Migrate data from legacy CSV/JSON files to SQLite.
 
+    Only migrates from files co-located with the current DB directory,
+    so test temp directories are isolated from production data.
+
     Returns a dict of counts: {"subscriptions": N, "likes": N, "errors": N}.
     """
     init_db()
+    likes_legacy, subs_legacy = _legacy_paths()
     stats: dict[str, int] = {"subscriptions": 0, "likes": 0, "errors": 0}
 
     # ── Migrate subscriptions from CSV ──
-    if SUBS_LEGACY_FILE.is_file():
+    if subs_legacy.is_file():
         try:
-            count = _migrate_subscriptions_csv()
+            count = _migrate_subscriptions_csv(subs_legacy)
             stats["subscriptions"] = count
-            logger.info("Migrated %d subscriptions from %s", count, SUBS_LEGACY_FILE)
+            logger.info("Migrated %d subscriptions from %s", count, subs_legacy)
         except Exception as exc:
             stats["errors"] += 1
             logger.error("Failed to migrate subscriptions: %s", exc)
 
     # ── Migrate likes from JSON ──
-    if LIKES_LEGACY_FILE.is_file():
+    if likes_legacy.is_file():
         try:
-            count = _migrate_likes_json()
+            count = _migrate_likes_json(likes_legacy)
             stats["likes"] = count
-            logger.info("Migrated %d likes from %s", count, LIKES_LEGACY_FILE)
+            logger.info("Migrated %d likes from %s", count, likes_legacy)
         except Exception as exc:
             stats["errors"] += 1
             logger.error("Failed to migrate likes: %s", exc)
@@ -216,7 +231,7 @@ def migrate_from_legacy() -> dict[str, int]:
     return stats
 
 
-def _migrate_subscriptions_csv() -> int:
+def _migrate_subscriptions_csv(subs_path: Path) -> int:
     """Import subscriptions from legacy CSV into SQLite."""
     from electrifyszu.subscription.store import (
         CSV_FIELDS,
@@ -228,7 +243,7 @@ def _migrate_subscriptions_csv() -> int:
 
     conn = get_connection()
     count = 0
-    with SUBS_LEGACY_FILE.open("r", encoding="utf-8-sig", newline="") as f:
+    with subs_path.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             if not row.get("email", "").strip():
@@ -274,11 +289,11 @@ def _migrate_subscriptions_csv() -> int:
     return count
 
 
-def _migrate_likes_json() -> int:
+def _migrate_likes_json(likes_path: Path) -> int:
     """Import likes from legacy JSON into SQLite."""
     conn = get_connection()
     try:
-        data = json.loads(LIKES_LEGACY_FILE.read_text(encoding="utf-8"))
+        data = json.loads(likes_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return 0
 
