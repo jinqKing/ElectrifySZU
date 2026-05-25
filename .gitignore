@@ -27,6 +27,7 @@ room-power-monitor/data/*.html
 data/subscriptions.csv
 data/subscriptions.tmp
 .DS_Store
+nul
 
 # Generated cache files (never commit these)
 building_power_ranking/data/ranking_cache.json
