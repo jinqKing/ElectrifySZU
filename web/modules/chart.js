@@ -54,7 +54,12 @@ export function renderStatus(data, view) {
 
 function revealResultsContainer() {
   const rc = document.querySelector(".results-container");
-  if (rc) rc.classList.add("visible");
+  if (rc) {
+    // Remove-then-add to force CSS animation re-trigger on repeated calls
+    rc.classList.remove("visible");
+    void rc.offsetHeight;  // force reflow so browser registers the removal
+    rc.classList.add("visible");
+  }
 }
 
 // ── Metric cards ──────────────────────────────────────────────────

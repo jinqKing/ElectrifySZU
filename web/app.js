@@ -98,6 +98,9 @@ export const loadingStatusController =
 
 setState("customUsageLevels", loadUsageLevelSettings());
 
+// ── Concurrency guard ─────────────────────────────────────────────
+let _loadStatusInFlight = false;
+
 // ── Event listeners ───────────────────────────────────────────────
 
 form.addEventListener("submit", async (event) => {
@@ -112,6 +115,8 @@ form.addEventListener("submit", async (event) => {
 });
 
 async function loadStatus(url) {
+  if (_loadStatusInFlight) return;  // prevent concurrent query race
+  _loadStatusInFlight = true;
   setBusy(true);
   startLoadingMessage();
   try {
@@ -126,6 +131,7 @@ async function loadStatus(url) {
     updateBalanceCardStatus("unknown");
   } finally {
     setBusy(false);
+    _loadStatusInFlight = false;
   }
 }
 
