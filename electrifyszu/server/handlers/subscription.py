@@ -81,7 +81,9 @@ def handle_subscription_create(handler: BaseHTTPRequestHandler) -> None:
         )
     except ValueError as exc:
         msg = str(exc)
-        if "邮箱" in msg:
+        if "仅支持" in msg:
+            code = "INVALID_EMAIL_DOMAIN"
+        elif "邮箱" in msg:
             code = "INVALID_EMAIL"
         elif "缺少" in msg:
             code = "MISSING_FIELD"
