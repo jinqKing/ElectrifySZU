@@ -45,6 +45,11 @@ def test_missing_usage_columns_raise_diagnostic_error() -> None:
 def test_build_trend_uses_resolved_columns() -> None:
     records = [
         {
+            "\u5269\u4f59\u7535\u91cf": 30.0,
+            "\u7d2f\u8ba1\u7528\u7535\u91cf": 5.0,
+            "\u6284\u8868\u65f6\u95f4": "2026-05-20",
+        },
+        {
             "\u5269\u4f59\u7535\u91cf": 20.0,
             "\u7d2f\u8ba1\u7528\u7535\u91cf": 10.0,
             "\u6284\u8868\u65f6\u95f4": "2026-05-21",
@@ -65,6 +70,9 @@ def test_build_trend_uses_resolved_columns() -> None:
         },
     )
 
-    assert trend[0]["daily_used_kwh"] == 0.0
+    # \u7b2c\u4e00\u6761\u662f\u57fa\u51c6\u65e5\uff0c\u88ab\u8df3\u8fc7\uff1b\u8fd4\u56de\u771f\u5b9e\u7684 2 \u5929\u6570\u636e
+    assert len(trend) == 2
+    assert trend[0]["daily_used_kwh"] == 5.0
+    assert trend[0]["date"] == "2026-05-21"
     assert trend[1]["daily_used_kwh"] == 2.5
     assert trend[1]["date"] == "2026-05-22"
