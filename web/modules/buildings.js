@@ -155,21 +155,23 @@ export function renderBuildingOptionsForList(fields, options, rawKeyword = "", {
     empty.className = "combo-empty";
     empty.textContent = t("form.buildingNoResults");
     list.append(empty);
-    if (manageOpenState) list.classList.add("open");
+    if (manageOpenState) { list.classList.add("open"); fields.buildingSearch.setAttribute("aria-expanded", "true"); }
     return;
   }
   if (options.length === 0) {
-    if (manageOpenState) list.classList.remove("open");
+    if (manageOpenState) { list.classList.remove("open"); fields.buildingSearch.setAttribute("aria-expanded", "false"); }
     return;
   }
 
   if (!manageOpenState) {
     // Called from applyBuildingsData — leave open state as-is.
-    if (wasOpen) list.classList.add("open");
+    if (wasOpen) { list.classList.add("open"); fields.buildingSearch.setAttribute("aria-expanded", "true"); }
   } else if (rawKeyword || document.activeElement === fields.buildingSearch) {
     list.classList.add("open");
+    fields.buildingSearch.setAttribute("aria-expanded", "true");
   } else {
     list.classList.remove("open");
+    fields.buildingSearch.setAttribute("aria-expanded", "false");
   }
 
   const keywordLower = rawKeyword.toLowerCase();
@@ -220,6 +222,7 @@ export function updateActiveDescendant(fields, options) {
 
 export function closeBuildingOptions(fields) {
   document.querySelector("#buildingOptions").classList.remove("open");
+  fields.buildingSearch.setAttribute("aria-expanded", "false");
   setState("buildingActiveIndex", -1);
   fields.buildingSearch.removeAttribute("aria-activedescendant");
 }
@@ -369,6 +372,7 @@ function applyBuildingsData(campusData, fields) {
         // Paint one frame at opacity:0 so the animation entry is invisible.
         list.style.opacity = "0";
         list.classList.add("open");
+        fields.buildingSearch.setAttribute("aria-expanded", "true");
         requestAnimationFrame(() => {
           // Clear inline opacity and start the CSS animation in the same
           // rAF tick — the browser sees the animation's from {opacity:0}
