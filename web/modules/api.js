@@ -7,6 +7,8 @@ const IS_STATIC_PAGE =
   location.hostname.endsWith(".github.io") ||
   location.hostname === "github.io";
 
+const REQUEST_TIMEOUT_MS = 30000;
+
 export function canUseBackend() {
   return Boolean(API_BASE) || !IS_STATIC_PAGE;
 }
@@ -15,8 +17,6 @@ export function apiUrl(path) {
   if (!API_BASE) return path;
   return new URL(path, API_BASE).toString();
 }
-
-const REQUEST_TIMEOUT_MS = 30000;
 
 function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
