@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from subscription_alerts.store import SubscriptionStore
-from subscription_alerts.verification import (
+from electrifyszu.subscription.store import SubscriptionStore
+from electrifyszu.subscription.verification import (
     build_verification_url,
     create_pending_subscription,
     send_verification_email,
