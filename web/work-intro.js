@@ -1,88 +1,116 @@
 /* ElectrifySZU Work Intro — Slide Navigation */
-(function () {
-  const slidesEl = document.getElementById("slides");
-  const slideCount = document.querySelectorAll(".slide").length;
-  const prevButton = document.getElementById("prevSlide");
-  const nextButton = document.getElementById("nextSlide");
-  const counter = document.getElementById("counter");
-  const dotsContainer = document.getElementById("dots");
-  let currentIndex = 0;
+var WorkIntro = {};
+(function (ns) {
+  var slidesEl = document.getElementById("slides");
+  var slideCount = document.querySelectorAll(".slide").length;
+  var prevBtn = document.getElementById("prevSlide");
+  var nextBtn = document.getElementById("nextSlide");
+  var counter = document.getElementById("counter");
+  var dotsBox = document.getElementById("dots");
+  var cur = 0;
 
-  // Build dot indicators
-  for (let i = 0; i < slideCount; i++) {
-    const dot = document.createElement("span");
-    dot.className = "dot";
-    dotsContainer.appendChild(dot);
+  // build dot indicators
+  for (var i = 0; i < slideCount; i++) {
+    var d = document.createElement("span");
+    d.className = "dot";
+    dotsBox.appendChild(d);
   }
 
-  function goTo(idx) {
-    currentIndex = Math.max(0, Math.min(slideCount - 1, idx));
-    slidesEl.style.transform = `translateX(-${currentIndex * 100}vw)`;
-    prevButton.disabled = currentIndex === 0;
-    nextButton.disabled = currentIndex === slideCount - 1;
-    counter.textContent = `${currentIndex + 1} / ${slideCount}`;
-    document.querySelectorAll(".dot").forEach(function (d, i) {
-      d.classList.toggle("active", i === currentIndex);
+  /** Navigate to slide *idx*, update all UI, persist to history */
+  function navigate(newCur) {
+    cur = Math.max(0, Math.min(slideCount - 1, newCur));
+    slidesEl.style.transform = "translateX(-" + (cur * 100) + "dvw)";
+    prevBtn.disabled = cur === 0;
+    nextBtn.disabled = cur === slideCount - 1;
+    counter.textContent = (cur + 1) + " / " + slideCount;
+    document.querySelectorAll(".dot").forEach(function (el, j) {
+      el.classList.toggle("active", j === cur);
     });
+    try { history.replaceState({ slide: cur }, "", "#" + (cur + 1)); } catch (_) {}
   }
 
-  prevButton.addEventListener("click", function () { goTo(currentIndex - 1); });
-  nextButton.addEventListener("click", function () { goTo(currentIndex + 1); });
+  // Button clicks
+  prevBtn.addEventListener("click", function () { navigate(cur - 1); });
+  nextBtn.addEventListener("click", function () { navigate(cur + 1); });
 
-  window.addEventListener("keydown", function (e) {
-    if (e.key === "ArrowLeft") goTo(currentIndex - 1);
-    if (e.key === "ArrowRight" || e.key === " ") {
-      e.preventDefault();
-      goTo(currentIndex + 1);
+  // Keyboard — scoped to .deck element
+  var deck = document.querySelector(".deck");
+  deck.setAttribute("tabindex", "-1");
+  deck.focus();
+  deck._kbActive = true;
+  deck.addEventListener("focusin", function () { deck._kbActive = true; });
+  deck.addEventListener("focusout", function (e) {
+    if (!deck.contains(e.relatedTarget)) deck._kbActive = false;
+  });
+  deck.addEventListener("click", function () { deck.focus(); });
+  deck.addEventListener("keydown", function (e) {
+    if (!deck._kbActive) return;
+    switch (e.key) {
+      case "ArrowLeft": navigate(cur - 1); break;
+      case "ArrowRight":
+      case " ":
+        e.preventDefault();
+        navigate(cur + 1);
+        break;
     }
   });
 
   // Touch swipe
-  let startX = 0;
-  slidesEl.addEventListener("touchstart", function (e) { startX = e.touches[0].clientX; }, { passive: true });
+  var txStart = 0;
+  slidesEl.addEventListener("touchstart", function (e) { txStart = e.touches[0].clientX; }, { passive: true });
   slidesEl.addEventListener("touchend", function (e) {
-    var diff = startX - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) {
-      goTo(currentIndex + (diff > 0 ? 1 : -1));
-    }
+    var delta = txStart - e.changedTouches[0].clientX;
+    if (Math.abs(delta) > 50) navigate(cur + (delta > 0 ? 1 : -1));
   }, { passive: true });
 
-  goTo(0);
-
-  /* Landscape rotation hint */
-  var landscapeToggle = document.getElementById("landscapeToggle");
-  var rotateHint = document.getElementById("rotateHint");
-  var dismissHint = document.getElementById("dismissHint");
-  var isSmallTouchScreen = window.matchMedia("(max-width: 860px) and (pointer: coarse)").matches;
-
-  function hideRotateHint() {
-    if (rotateHint) {
-      rotateHint.hidden = true;
+  // Browser back/forward
+  window.addEventListener("popstate", function (e) {
+    if (e.state != null && typeof e.state.slide === "number") {
+      navigate(e.state.slide);
+    } else {
+      var n = parseInt(location.hash.slice(1), 10);
+      navigate(n ? n - 1 : 0);
     }
-  }
+  });
 
-  if (!isSmallTouchScreen) {
-    hideRotateHint();
-    if (landscapeToggle) {
-      landscapeToggle.hidden = true;
+  // Initial: honour hash fragment (#2 means go to slide index 1)
+  var seed = parseInt(location.hash.slice(1), 10) - 1;
+  navigate((isNaN(seed) || seed < 0) ? 0 : seed);
+  // Trigger fade-in
+  slidesEl.classList.add("is-ready");
+
+  // ===================== Landscape Hint =====================
+  var btnLand = document.getElementById("landscapeToggle");
+  var hintEl  = document.getElementById("rotateHint");
+  var btnDismiss = document.getElementById("dismissHint");
+
+  function hideHint() { if (hintEl) hintEl.hidden = true; }
+
+  var mq = window.matchMedia("(max-width: 860px) and (pointer: coarse)");
+  function bootLandscape(ok) {
+    if (!ok) {
+      hideHint();
+      if (btnLand) btnLand.hidden = true;
+      return;
     }
-    return;
-  }
-
-  if (landscapeToggle && rotateHint && dismissHint) {
-    landscapeToggle.addEventListener("click", function () {
-      rotateHint.hidden = false;
+    if (!(btnLand && hintEl && btnDismiss)) return;
+    btnLand.hidden = false;
+    btnLand.addEventListener("click", function () { hintEl.hidden = false; });
+    btnDismiss.addEventListener("click", hideHint);
+    hintEl.addEventListener("click", function (e) {
+      if (e.target === hintEl) hideHint();
     });
-
-    dismissHint.addEventListener("click", hideRotateHint);
-    rotateHint.addEventListener("click", function (e) {
-      if (e.target === rotateHint) hideRotateHint();
-    });
-
     window.addEventListener("orientationchange", function () {
-      if (!rotateHint.hidden && window.matchMedia("(orientation: landscape)").matches) {
-        hideRotateHint();
-      }
+      if (!hintEl.hidden && window.matchMedia("(orientation: landscape)").matches) hideHint();
     });
   }
-})();
+  bootLandscape(mq.matches);
+  mq.addEventListener("change", function (ev) { bootLandscape(ev.matches); });
+
+  // Public debug surface
+  ns.el = slidesEl;
+  ns.total = slideCount;
+  ns.index = function () { return cur; };
+  ns.navigate = navigate;
+})(WorkIntro);
+window.WorkIntro = WorkIntro;
