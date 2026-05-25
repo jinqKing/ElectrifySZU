@@ -12,8 +12,6 @@ import {
   mergeBuildingChoices, flattenBuildings, normalizeCampuses, fetchDemoStatus,
 } from './modules/buildings.js';
 import { initLike, handleLike } from './modules/likes.js';
-import { setupSponsor, setupSponsorKeyboard } from './modules/sponsor.js';
-import { loadGithubStars } from './modules/github.js';
 
 // ── DOM references ────────────────────────────────────────────────
 const form = document.querySelector("#queryForm");
@@ -319,7 +317,7 @@ syncEmailInputState();
   }
 }
 showPageNotice();
-loadGithubStars();
+import('./modules/github.js').then(mod => mod.loadGithubStars());
 
 // Lazy-loaded: likes (deferred with requestIdleCallback)
 if ('requestIdleCallback' in window) {
@@ -328,8 +326,7 @@ if ('requestIdleCallback' in window) {
   setTimeout(() => { initLike(); }, 1000);
 }
 
-setupSponsor();
-setupSponsorKeyboard();
+import('./modules/sponsor.js').then(mod => { mod.setupSponsor(); mod.setupSponsorKeyboard(); });
 
 // ── Helper functions ──────────────────────────────────────────────
 
