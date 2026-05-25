@@ -12,13 +12,12 @@ Defines a Handler protocol so every handler gets:
 
 from __future__ import annotations
 
-import os
 from email import policy
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Protocol
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs
 
 ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = ROOT / ".env"
@@ -143,7 +142,6 @@ def send_error(
 
 
 def redirect_to(handler: BaseHTTPRequestHandler, path: str) -> None:
-    from urllib.parse import urlencode
     handler.send_response(302)
     handler.send_header("Location", path)
     handler.send_header("Content-Length", "0")

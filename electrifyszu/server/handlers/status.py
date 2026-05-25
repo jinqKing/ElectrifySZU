@@ -11,8 +11,6 @@ from electrifyszu.dorm.discover import discover_room_id
 from electrifyszu.ranking.cache import cached_ranking_for, load_ranking_cache
 from electrifyszu.server.handlers.types import (
     ENV_FILE,
-    Handler,
-    RequestError,
     query_value,
     send_error,
     send_json,
