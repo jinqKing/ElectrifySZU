@@ -2,26 +2,28 @@
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 import re
-import tempfile
 import threading
-import uuid
 from http.server import BaseHTTPRequestHandler
-from pathlib import Path
 
+from electrifyszu.server.handlers.likes_db import (
+    _get_conn,
+    add_like,
+    get_count,
+    init_id,
+    is_liked,
+    is_seen,
+    stats,
+)
 from electrifyszu.server.handlers.types import (
     RequestError,
     query_value,
     read_request_data,
     send_error,
     send_json,
-    LIKES_FILE,
 )
 
-ROOT = Path(__file__).resolve().parents[3]
 LIKE_ID_PATTERN = re.compile(r"^svr-[0-9a-f]{16}$")
 
 _likes_lock = threading.Lock()
@@ -29,13 +31,9 @@ logger = logging.getLogger("server")
 
 
 def handle_like_init(handler: BaseHTTPRequestHandler) -> None:
-    new_id = f"svr-{uuid.uuid4().hex[:16]}"
     with _likes_lock:
-        data = _load_likes()
-        seen = data.setdefault("seenIds", [])
-        seen.append(new_id)
-        data["totalIssued"] = len(seen)
-        _save_likes(data)
+        conn = _get_conn()
+        new_id = init_id(conn)
     send_json(handler, {"ok": True, "id": new_id})
 
 
@@ -49,31 +47,30 @@ def handle_like(handler: BaseHTTPRequestHandler) -> None:
         send_error(handler, "INVALID_LIKE_ID", "Invalid like id", status=400)
         return
     with _likes_lock:
-        data = _load_likes()
-        seen = data.setdefault("seenIds", [])
-        if user_id not in seen:
+        conn = _get_conn()
+        if not is_seen(conn, user_id):
             send_error(handler, "UNKNOWN_LIKE_ID", "Unknown like id", status=400)
             return
-        if user_id in data["likedIds"]:
+        if is_liked(conn, user_id):
+            like_count, user_count = stats(conn)
             send_json(handler, {
                 "ok": True, "already_liked": True,
-                "count": data["count"], "users": len(seen),
+                "count": like_count, "users": user_count,
             })
             return
-        data["likedIds"].append(user_id)
-        data["count"] += 1
-        _save_likes(data)
-    logger.info("Like #%d from %s", data["count"], _safe_like_id(user_id))
+        like_count, user_count = add_like(conn, user_id)
+    logger.info("Like #%d from %s", like_count, _safe_like_id(user_id))
     send_json(handler, {
         "ok": True, "already_liked": False,
-        "count": data["count"], "users": data.get("totalIssued", 0),
+        "count": like_count, "users": user_count,
     })
 
 
 def handle_like_count(handler: BaseHTTPRequestHandler) -> None:
     with _likes_lock:
-        data = _load_likes()
-    send_json(handler, {"ok": True, "count": data["count"]})
+        conn = _get_conn()
+        count = get_count(conn)
+    send_json(handler, {"ok": True, "count": count})
 
 
 def handle_like_my(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) -> None:
@@ -82,52 +79,22 @@ def handle_like_my(handler: BaseHTTPRequestHandler, query: dict[str, list[str]])
         send_error(handler, "INVALID_LIKE_ID", "Invalid like id", status=400)
         return
     with _likes_lock:
-        data = _load_likes()
-        liked = user_id in data["likedIds"]
+        conn = _get_conn()
+        liked = is_liked(conn, user_id) if user_id else False
     send_json(handler, {"ok": True, "data": {"liked": liked}})
 
 
 def handle_stats(handler: BaseHTTPRequestHandler) -> None:
     with _likes_lock:
-        data = _load_likes()
+        conn = _get_conn()
+        like_count, user_count = stats(conn)
     send_json(handler, {
         "ok": True,
-        "data": {"likes": data["count"], "users": data.get("totalIssued", 0)},
+        "data": {"likes": like_count, "users": user_count},
     })
 
 
-# ── Likes data persistence ───────────────────────────────────────────────────
-
-def _load_likes() -> dict[str, object]:
-    if not LIKES_FILE.is_file():
-        return {"count": 0, "likedIds": [], "seenIds": [], "totalIssued": 0}
-    try:
-        data = json.loads(LIKES_FILE.read_text(encoding="utf-8"))
-        data.setdefault("seenIds", [])
-        data.setdefault("totalIssued", 0)
-        return data
-    except (json.JSONDecodeError, OSError):
-        return {"count": 0, "likedIds": [], "seenIds": [], "totalIssued": 0}
-
-
-def _save_likes(data: dict[str, object]) -> None:
-    LIKES_FILE.parent.mkdir(parents=True, exist_ok=True)
-    temp_name = ""
-    try:
-        with tempfile.NamedTemporaryFile(
-            "w", encoding="utf-8", dir=LIKES_FILE.parent,
-            prefix=f".{LIKES_FILE.name}.", suffix=".tmp", delete=False,
-        ) as file:
-            temp_name = file.name
-            json.dump(data, file, ensure_ascii=False)
-            file.flush()
-            os.fsync(file.fileno())
-        Path(temp_name).replace(LIKES_FILE)
-    except Exception:
-        if temp_name:
-            Path(temp_name).unlink(missing_ok=True)
-        raise
-
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _is_valid_like_id(value: str) -> bool:
     return bool(LIKE_ID_PATTERN.fullmatch(value))
