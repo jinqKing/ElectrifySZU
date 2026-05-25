@@ -2,20 +2,12 @@
 
 from __future__ import annotations
 
-import json
-import mimetypes
-import os
 import re
-import threading
-import tempfile
-import time as _time
-import uuid
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 from electrifyszu.config import DormConfig as Config
-from electrifyszu.ranking.cache import cached_ranking_for, demo_ranking_from_plan, load_ranking_cache, sample_plan_for
-from electrifyszu.ranking.ranking import mask_room_name
+from electrifyszu.ranking.cache import cached_ranking_for
 from electrifyszu.server.handlers.types import (
     ENV_FILE,
     query_value,
