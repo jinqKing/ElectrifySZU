@@ -146,7 +146,7 @@ select {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.86);
   box-shadow: var(--shadow);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   text-decoration: none;
   display: inline-flex;
@@ -195,7 +195,7 @@ select {
   padding: 0 11px;
   background: transparent;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -244,14 +244,14 @@ h1 {
 
 h2 {
   margin-bottom: 0;
-  font-size: 18px;
+  font-size: 19px;
 }
 
 .subtitle {
   max-width: 620px;
   margin-bottom: 0;
   color: var(--muted);
-  font-size: 18px;
+  font-size: 19px;
   line-height: 1.7;
 }
 
@@ -265,7 +265,7 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.78);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   font-weight: 800;
   box-shadow: var(--shadow);
@@ -318,7 +318,7 @@ h2 {
   margin-top: 0;
   background: rgba(37, 99, 235, 0.07);
   color: inherit;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
   text-align: left;
   cursor: pointer;
@@ -377,7 +377,7 @@ h2 {
 
 .subscription-toggle .btn-secondary-text {
   color: #b0bac6;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   margin-left: 6px;
 }
@@ -422,7 +422,7 @@ h2 {
   margin-top: 14px;
   background: rgba(15, 159, 110, 0.06);
   color: var(--green);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   cursor: pointer;
   transition: background 160ms ease;
@@ -452,7 +452,7 @@ h2 {
 .query-hint {
   margin: 12px 0 0;
   color: #7a8797;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -460,7 +460,7 @@ label {
   display: grid;
   gap: 8px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -507,7 +507,7 @@ label {
 
 .field-hint {
   color: #7a8797;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.5;
 }
@@ -527,7 +527,7 @@ label {
   gap: 9px;
   min-height: 19px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -812,7 +812,7 @@ button:disabled {
   display: block;
   margin-bottom: 16px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
 }
 
@@ -848,13 +848,13 @@ button:disabled {
   min-height: 20px;
   margin-top: 12px;
   color: #3f4f63;
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .metric-subtext {
   margin-top: 10px;
   min-height: 18px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .metric.is-switching .metric-main {
@@ -996,7 +996,7 @@ button:disabled {
   justify-items: end;
   gap: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -1082,7 +1082,7 @@ button:disabled {
 .section-note {
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1299,7 +1299,7 @@ button:disabled {
   padding: 6px 10px;
   background: #eef2f7;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -1385,7 +1385,7 @@ dd {
 
 .recharge-item span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1618,7 +1618,7 @@ body.modal-open {
 .page-footer p {
   margin-bottom: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: none;
@@ -1753,7 +1753,7 @@ body.modal-open {
   }
 
   .subtitle {
-    font-size: 16px;
+    font-size: 17px;
     line-height: 1.65;
   }
 

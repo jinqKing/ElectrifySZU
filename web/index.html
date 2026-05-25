@@ -65,7 +65,7 @@
           <a
             class="secondary recharge-trigger"
             id="rechargeButton"
-            href="http://cgdzchat.com/sdms-pay-weixiao/service/weixin/electric_buy"
+            href="#"
             target="_blank"
             rel="noreferrer"
             data-i18n="brand.recharge"
@@ -87,10 +87,11 @@
         <form id="queryForm" class="query-form">
           <label>
             <span data-i18n="form.campus">校区</span>
-            <select id="campusGroup">
-              <option value="yuehai" data-i18n="campus.yuehai" selected>粤海</option>
-              <option value="lihu" data-i18n="campus.lihu">丽湖</option>
-            </select>
+            <div class="combo campus-combo">
+              <input id="campusSearch" readonly placeholder="选择校区" data-i18n-placeholder="form.campusPlaceholder" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="campusOptions" />
+              <div id="campusOptions" class="combo-list campus-options" role="listbox"></div>
+            </div>
+            <input id="campusGroupId" name="campusGroupId" type="hidden" value="yuehai" />
             <input id="client" name="client" type="hidden" value="192.168.84.87" />
             <input id="campusName" name="campusName" type="hidden" value="粤海" />
           </label>
@@ -143,7 +144,7 @@
                     />
                     <span class="email-domain-hint" id="subscriberEmailDomainHint" aria-hidden="true">@email.szu.edu.cn</span>
                   </div>
-                  <small class="field-hint" data-i18n="subscribe.emailHint">可只填写邮箱前缀，默认补全 @email.szu.edu.cn；提交后需到邮箱点击确认链接。</small>
+                  <small class="field-hint" data-i18n="subscribe.emailHint">输入学号自动补全后缀，仅支持深大邮箱；提交后需到邮箱点击确认链接。</small>
                 </label>
                 <fieldset class="subscription-options" aria-label="订阅类型" data-i18n-aria-label="subscribe.optionsLabel">
                   <label class="checkbox-option">
