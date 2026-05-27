@@ -1427,3 +1427,260 @@ h2 {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* ===== Slide 9 — Q&A + Changelog ===== */
+
+.slide-qa-inner {
+  grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr);
+  align-content: start;
+  padding-top: 42px;
+}
+
+.math-e {
+  font-family: 'Times New Roman', 'CMU Serif', 'Computer Modern', serif;
+  font-style: italic;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+.qa-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.qa-card {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.qa-q {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.qa-num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--dark);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.qa-a {
+  margin-left: 34px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+  font-weight: 700;
+}
+
+.qa-a strong {
+  color: var(--ink);
+}
+
+.qa-a code {
+  background: #edf1f5;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--blue);
+}
+
+.qa-quote {
+  margin: 6px 0 0;
+  padding: 6px 12px;
+  border-left: 3px solid var(--blue);
+  background: rgba(37, 99, 235, 0.06);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--ink);
+  font-style: italic;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.qa-a cite,
+.qa-a a {
+  color: var(--blue);
+  font-weight: 800;
+}
+
+.qa-a a:hover {
+  text-decoration: underline;
+}
+
+.changelog-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.changelog-heading {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.changelog-icon {
+  font-size: 18px;
+}
+
+.changelog-list {
+  display: grid;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  scrollbar-width: thin;
+  padding-right: 4px;
+}
+
+.cl-entry {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.8);
+  overflow: hidden;
+}
+
+.cl-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  list-style: none;
+  user-select: none;
+  transition: background var(--dur-fast) ease;
+}
+
+.cl-summary::-webkit-details-marker {
+  display: none;
+}
+
+.cl-summary::before {
+  content: '▶';
+  font-size: 10px;
+  color: var(--muted);
+  transition: transform 200ms ease;
+  flex-shrink: 0;
+}
+
+.cl-entry[open] > .cl-summary::before {
+  content: '▼';
+}
+
+.cl-summary:hover {
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.cl-version {
+  font-weight: 900;
+  color: var(--ink);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.cl-date {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.cl-tags {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cl-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.tag-rearch { background: rgba(37, 99, 235, 0.12); color: var(--blue); }
+.tag-feat   { background: rgba(15, 159, 110, 0.12); color: var(--green); }
+.tag-docs   { background: rgba(101, 115, 134, 0.14); color: var(--muted); }
+.tag-shield { background: rgba(217, 134, 22, 0.14); color: var(--yellow); }
+
+.cl-body {
+  padding: 0 12px 10px 30px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.cl-body ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.cl-body li {
+  margin-bottom: 3px;
+}
+
+.cl-highlight {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+@media (max-width: 860px) {
+  .slide-qa-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .qa-q {
+    font-size: 14px;
+  }
+
+  .qa-a {
+    font-size: 13px;
+  }
+
+  .changelog-list {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .cl-version {
+    font-size: 13px;
+  }
+
+  .cl-summary {
+    padding: 8px 10px;
+    flex-wrap: wrap;
+  }
+}

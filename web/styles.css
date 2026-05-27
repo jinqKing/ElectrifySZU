@@ -240,6 +240,14 @@ select {
   font-size: 12px;
   font-weight: 800;
   text-transform: none;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.version-label:hover,
+.version-label:focus-visible {
+  color: var(--blue);
 }
 
 h1,

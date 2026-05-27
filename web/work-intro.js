@@ -19,6 +19,16 @@ var WorkIntro = {};
     dotsBox.appendChild(d);
   }
 
+  /** Find index of slide by its aria-labelledby="slide-N-title" number */
+  function findSlideIndexByNumber(num) {
+    var slides = document.querySelectorAll(".slide");
+    for (var i = 0; i < slides.length; i++) {
+      var label = slides[i].getAttribute("aria-labelledby") || "";
+      if (label === "slide-" + num + "-title") return i;
+    }
+    return -1;
+  }
+
   /** Navigate to slide *idx*, update all UI, persist to history */
   function navigate(newCur) {
     cur = Math.max(0, Math.min(slideCount - 1, newCur));
@@ -29,7 +39,12 @@ var WorkIntro = {};
     document.querySelectorAll(".dot").forEach(function (el, j) {
       el.classList.toggle("active", j === cur);
     });
-    try { history.replaceState({ slide: cur }, "", "#" + (cur + 1)); } catch (_) {}
+    // Hash from slide's own number, not index — stable if slides are added/removed
+    var thisSlide = document.querySelectorAll(".slide")[cur];
+    var label = thisSlide && thisSlide.getAttribute("aria-labelledby") || "";
+    var m = label.match(/slide-(\d+)-title/);
+    var slug = m ? m[1] : (cur + 1);
+    try { history.replaceState({ slide: cur }, "", "#" + slug); } catch (_) {}
   }
 
   // Button clicks
@@ -72,13 +87,15 @@ var WorkIntro = {};
       navigate(e.state.slide);
     } else {
       var n = parseInt(location.hash.slice(1), 10);
-      navigate(n ? n - 1 : 0);
+      var idx = findSlideIndexByNumber(n);
+      navigate((n && idx >= 0) ? idx : 0);
     }
   });
 
-  // Initial: honour hash fragment (#2 means go to slide index 1)
-  var seed = parseInt(location.hash.slice(1), 10) - 1;
-  navigate((isNaN(seed) || seed < 0) ? 0 : seed);
+  // Initial: honour hash (#N → find slide with aria-labelledby="slide-N-title")
+  var hashNum = parseInt(location.hash.slice(1), 10);
+  var startIdx = findSlideIndexByNumber(hashNum);
+  navigate(startIdx >= 0 ? startIdx : 0);
   // Trigger fade-in
   slidesEl.classList.add("is-ready");
 
