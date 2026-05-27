@@ -1,6 +1,6 @@
 # ── ElectrifySZU — Public Server ─────────────────────────────────────
 #
-# Deployed on the public-facing server (129.204.227.179).
+# Deployed on the public-facing server.
 #
 # Services:
 #   nginx              — serves static files + reverse proxy to Python

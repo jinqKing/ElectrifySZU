@@ -2,7 +2,7 @@
 // Centralised defaults. Override via __SERVER_CONFIG__ at deploy time.
 
 export const BUILDING_DEFAULTS = {
-  client: "192.168.84.87",
+  client: "",
   buildingId: "7126",
   buildingName: "风槐斋",
   campusName: "粤海",

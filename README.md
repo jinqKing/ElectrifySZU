@@ -9,7 +9,6 @@
 
 <p align="center">
   <a href="https://www.iotun.com"><img src="https://img.shields.io/badge/🚀 Live Demo-www.iotun.com-eab308?style=for-the-badge" alt="官网"></a>
-  <a href="http://129.204.227.179/"><img src="https://img.shields.io/badge/💻 Server-http%3A//129.204.227.179-eab308?style=for-the-badge" alt="直连"></a>
 </p>
 
 <p align="center">

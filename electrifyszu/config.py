@@ -44,13 +44,13 @@ _load_dotenv = load_dotenv
 
 @dataclass
 class DormConfig:
-    base_url: str = "http://192.168.84.3:9090/cgcSims"
-    client: str = "192.168.84.87"
-    campus_name: str = "深大新斋区"
-    building_id: str = "7126"
-    building_name: str = "风槐斋"
-    room_id: str = "7322"
-    room_name: str = "713"
+    base_url: str = ""               # 必须通过 DORM_API_BASE 环境变量配置
+    client: str = ""                 # 必须通过 DORM_CLIENT 环境变量配置
+    campus_name: str = ""
+    building_id: str = ""
+    building_name: str = ""
+    room_id: str = ""
+    room_name: str = ""
     poll_interval: int = 3600
     low_power_threshold: float = 20.0
 
@@ -72,11 +72,11 @@ class DormConfig:
         )
 
 
-# ── Apartment config (丽湖 172.25.100.105:8010) ─────────────────────────────
+# ── Apartment config (丽湖校区公寓系统) ──────────────────────────────────────
 
 @dataclass
 class ApartmentConfig:
-    base_url: str = "http://172.25.100.105:8010/"
+    base_url: str = ""               # 必须通过 APARTMENT_POWER_BASE 环境变量配置
     building_code: str = "01"
     room_name: str = "501"
     timeout: int = 15
@@ -95,6 +95,17 @@ class ApartmentConfig:
             ),
         )
 
+
+# ── Campus group identifiers ─────────────────────────────────────────────────
+# Maps logical campus groups to their network client IPs.
+# Used by handlers and frontend to identify campus without hardcoding IPs.
+
+CAMPUS_GROUP = {
+    "lihu":           "172.21.101.11",   # 西丽校区（丽湖）
+    "yuehai_north":   "192.168.84.1",    # 粤海/北校区
+    "yuehai_south":   "192.168.84.110",  # 粤海/南校区
+    "yuehai_newzhai": "192.168.84.87",   # 粤海/新斋区
+}
 
 # ── Backward-compatible alias ──────────────────────────────────────────────
 

@@ -6,7 +6,7 @@
                             Cloudflare (www.iotun.com)
                                    │
                             ┌──────┴──────┐
-                            │  公网服务器   │  129.204.227.179
+                            │  公网服务器   │  &lt;PUBLIC_SERVER_IP&gt;
                             │  (Nginx)     │
                             ├──────────────┤
                             │  静态文件     │  web/ (直接读磁盘)
@@ -44,7 +44,7 @@
 
 | 节点 | 要求 | 示例 |
 |:----|:-----|:-----|
-| 公网服务器 | 1C2G, Linux, 公网 IP | 129.204.227.179 (CentOS 7+) |
+| 公网服务器 | 1C2G, Linux, 公网 IP | &lt;PUBLIC_SERVER_IP&gt; (CentOS 7+) |
 | 校园网机器 | 能访问校园内网, 能 SSH 出站到公网 | SZU 实验室/宿舍电脑 |
 
 ### 软件
@@ -307,10 +307,10 @@ LOG_LEVEL=INFO
 ```bash
 # 在校园网机器上
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
-ssh-copy-id user@129.204.227.179
+ssh-copy-id user@&lt;PUBLIC_SERVER_IP&gt;
 
 # 验证
-ssh user@129.204.227.179 "echo 隧道就绪"
+ssh user@&lt;PUBLIC_SERVER_IP&gt; "echo 隧道就绪"
 ```
 
 ### 6.2 autossh（推荐，零额外依赖）
@@ -328,7 +328,7 @@ autossh -M 0 \
   -o "StrictHostKeyChecking=accept-new" \
   -N \
   -R 18080:localhost:8000 \
-  user@129.204.227.179
+  user@&lt;PUBLIC_SERVER_IP&gt;
 ```
 
 #### systemd 自动启停
@@ -351,7 +351,7 @@ ExecStart=/usr/bin/autossh -M 0 \
   -o "StrictHostKeyChecking=accept-new" \
   -N \
   -R 18080:localhost:8000 \
-  user@129.204.227.179
+  user@&lt;PUBLIC_SERVER_IP&gt;
 ExecStop=/usr/bin/kill $MAINPID
 Restart=always
 RestartSec=10
