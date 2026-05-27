@@ -88,6 +88,10 @@ CREATE TABLE IF NOT EXISTS likes (
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- ================================================================
+-- Power Archive Tables
+-- ================================================================
+
 CREATE INDEX IF NOT EXISTS idx_likes_liked ON likes(liked);
 CREATE INDEX IF NOT EXISTS idx_likes_user ON likes(user_id);
 
@@ -137,7 +141,124 @@ CREATE TABLE IF NOT EXISTS building_list (
     updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(client, building_id)
 );
+
+CREATE TABLE IF NOT EXISTS room_mappings (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL CHECK(source IN ('dorm','apartment')),
+    client          TEXT NOT NULL,
+    campus_name     TEXT NOT NULL,
+    building_id     TEXT NOT NULL,
+    building_name   TEXT NOT NULL,
+    room_name       TEXT NOT NULL,
+    internal_id     TEXT NOT NULL,
+    discovered_at   TEXT NOT NULL,
+    refreshed_at    TEXT,
+    expire_after    TEXT,
+    UNIQUE(source, client, building_id, room_name)
+);
+CREATE INDEX IF NOT EXISTS idx_rm_lookup
+    ON room_mappings(source, client, building_id, room_name);
+
+CREATE TABLE IF NOT EXISTS room_snapshots (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL CHECK(source IN ('dorm','apartment')),
+    client          TEXT NOT NULL,
+    campus_name     TEXT NOT NULL,
+    building_id     TEXT NOT NULL,
+    building_name   TEXT NOT NULL,
+    room_name       TEXT NOT NULL,
+    remaining       REAL,
+    total_used_kwh  REAL,
+    daily_avg_kwh   REAL,
+    est_days_left   REAL,
+    unit_price      REAL,
+    price_tier      TEXT,
+    status          TEXT,
+    captured_at     TEXT NOT NULL,
+    period_begin    TEXT,
+    period_end      TEXT,
+    period_days     INTEGER,
+    capture_method  TEXT DEFAULT 'auto',
+    api_latency_ms  INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_rs_latest
+    ON room_snapshots(source, client, building_id, room_name, captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rs_date
+    ON room_snapshots(captured_at);
+
+CREATE TABLE IF NOT EXISTS daily_consumption (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL,
+    client          TEXT NOT NULL,
+    building_id     TEXT NOT NULL,
+    room_name       TEXT NOT NULL,
+    record_date     TEXT NOT NULL,
+    daily_used_kwh  REAL NOT NULL,
+    remaining       REAL,
+    snapshot_id     INTEGER REFERENCES room_snapshots(id) ON DELETE CASCADE,
+    UNIQUE(source, client, building_id, room_name, record_date)
+);
+CREATE INDEX IF NOT EXISTS idx_dc_query
+    ON daily_consumption(source, client, building_id, room_name, record_date DESC);
+
+CREATE TABLE IF NOT EXISTS charge_events (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL,
+    client          TEXT NOT NULL,
+    building_id     TEXT NOT NULL,
+    room_name       TEXT NOT NULL,
+    txn_time        TEXT NOT NULL,
+    kwh             REAL,
+    yuan            REAL,
+    method          TEXT,
+    person          TEXT,
+    snapshot_id     INTEGER REFERENCES room_snapshots(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_ce_query
+    ON charge_events(source, client, building_id, room_name, txn_time DESC);
+
+CREATE TABLE IF NOT EXISTS collection_tasks (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL CHECK(source IN ('dorm','apartment')),
+    client          TEXT NOT NULL,
+    campus_name     TEXT NOT NULL,
+    building_id     TEXT NOT NULL,
+    building_name   TEXT NOT NULL,
+    room_name       TEXT NOT NULL,
+    schedule        TEXT DEFAULT 'daily',
+    priority        INTEGER NOT NULL DEFAULT 1,
+    enabled         INTEGER NOT NULL DEFAULT 1,
+    reason          TEXT DEFAULT 'manual',
+    added_at        TEXT NOT NULL,
+    last_collected  TEXT,
+    last_status     TEXT,
+    consecutive_failures INTEGER DEFAULT 0,
+    UNIQUE(source, client, building_id, room_name)
+);
+CREATE INDEX IF NOT EXISTS idx_ct_ready
+    ON collection_tasks(priority, enabled, last_collected);
+
+CREATE TABLE IF NOT EXISTS collection_runs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at      TEXT NOT NULL,
+    completed_at    TEXT,
+    duration_sec    REAL,
+    rooms_queued    INTEGER DEFAULT 0,
+    rooms_done      INTEGER DEFAULT 0,
+    rooms_skipped   INTEGER DEFAULT 0,
+    rooms_failed    INTEGER DEFAULT 0,
+    mappings_hit    INTEGER DEFAULT 0,
+    mappings_miss   INTEGER DEFAULT 0,
+    trigger         TEXT DEFAULT 'schedule',
+    notes           TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_cr_time ON collection_runs(started_at DESC);
 """
+
+
+# Number of archive tables for health-reporting
+ARCHIVE_TABLE_COUNT = 6
+
 
 
 def get_db_path() -> Path:

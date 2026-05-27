@@ -23,6 +23,20 @@ from urllib.parse import urljoin, quote
 import httpx
 
 from electrifyszu.config import DormConfig as Config
+from electrifyszu.database import ensure_db
+
+# Lazy singleton mapping cache
+_mapping_repo: object | None = None
+
+
+def _repo():
+    global _mapping_repo
+    if _mapping_repo is None:
+        ensure_db()
+        from electrifyszu.archive.mapping_repo import MappingRepository
+        _mapping_repo = MappingRepository()
+    return _mapping_repo
+
 
 
 def get_proxy() -> str:
@@ -80,37 +94,43 @@ def list_buildings(client_ip: str = "", base_url: str = "") -> dict:
     return result
 
 
-def discover_room_id(building_id: str, room_name: str,
-                     client_ip: str = "",
-                     base_url: str = "") -> str | None:
-    """通过登录表单获取 roomId。优先从持久化表 room_mapping 读取。"""
+def discover_room_id(
+    building_id: str,
+    room_name: str,
+    client_ip: str = "",
+    base_url: str = "",
+    *,
+    force_rediscover: bool = False,
+) -> str | None:
+    """Through login form obtain roomId, consulting local cache first.
+
+    Cache hit => zero network overhead; miss => fall through to three campus-site
+    round trips.
+
+    Args:
+        building_id:       Building ID (eg "7126")
+        room_name:         Room number (eg "713")
+        client_ip:         Campus client IP
+        base_url:          Override default API address
+        force_rediscover:  Skip cache, force campus-net rediscover
+
+    Returns:
+        roomId string, None if not found
+    """
     config = Config.from_env()
     client_ip = client_ip or config.client
 
-    from electrifyszu.database import ensure_db, get_connection
-
-    ensure_db()
-    conn = get_connection()
-    row = conn.execute(
-        "SELECT room_id FROM room_mapping WHERE client=? AND building_id=? AND room_name=?",
-        (client_ip, building_id, room_name),
-    ).fetchone()
-    if row is not None:
-        return row["room_id"]
-
-    result = _discover_room_id_impl(building_id, room_name, client_ip, base_url)
-    if result is not None:
-        conn.execute(
-            "INSERT OR IGNORE INTO room_mapping (client, building_id, room_name, room_id) VALUES (?,?,?,?)",
-            (client_ip, building_id, room_name, result),
+    # Fast path: consult mapping cache
+    if not force_rediscover:
+        cached = _repo().get_internal_id(
+            source="dorm", client=client_ip,
+            building_id=building_id, room_name=room_name,
         )
-        conn.commit()
-    return result
+        if cached:
+            return cached
 
-
-def _discover_room_id_impl(building_id: str, room_name: str,
-                           client_ip: str, base_url: str) -> str | None:
-    """原始 discover_room_id 实现（直接请求校园 API）。"""
+    # Slow path: scrape campus web
+ (feat: add Power Archive module for persistent campus electricity data collection)
     client = httpx.Client(proxy=get_proxy() or None)
     api_base = _base_url(base_url)
 
@@ -118,22 +138,21 @@ def _discover_room_id_impl(building_id: str, room_name: str,
     r = client.get(f"{api_base}/login.do?task=station&client={client_ip}",
                    headers={"User-Agent": "Mozilla/5.0"})
 
-    # 提取 form action 和 building option 文本
-    action_m = re.search(rb'action="([^"]+)"', r.content)
+    # Extract form action and building option text
+    action_m = re.search(rb"action=\"([^\"]+)\"", r.content)
     if not action_m:
         return None
     action = action_m.group(1).decode()
 
-    # 查找 buildingId 对应的 option 文本
+    # Locate buildingId option text
     opt_m = re.search(
         rf'<option value="{building_id}">([^<]*)</option>'.encode(), r.content)
     if not opt_m:
-        # buildingId 不在当前校区的建筑列表中
         return None
 
     opt_text = opt_m.group(1).decode("gb2312")
 
-    # Step 2: POST 登录表单
+    # Step 2: POST login form
     body = "&".join([
         f"client={client_ip}",
         f"buildingId={building_id}",
@@ -152,12 +171,22 @@ def _discover_room_id_impl(building_id: str, room_name: str,
         }
     )
 
-    # Step 3: 从响应中提取 roomId
+    # Step 3: extract roomId from response
     html = resp.text
     room_id_m = re.search(
         r'<input[^>]*type="hidden"[^>]*name="roomId"[^>]*value="(\d+)"', html)
     if room_id_m:
-        return room_id_m.group(1)
+        room_id = room_id_m.group(1)
+        _repo().put_internal_id(
+            source="dorm",
+            client=client_ip,
+            campus_name=config.campus_name,
+            building_id=building_id,
+            building_name=config.building_name,
+            room_name=room_name,
+            internal_id=room_id,
+        )
+        return room_id
     return None
 
 
