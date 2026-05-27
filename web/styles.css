@@ -53,7 +53,8 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: url('pic/ElectrifySZU_bird_light.png') center 80% / 120% auto no-repeat;
+  background: url('pic/ElectrifySZU_bird_light.webp') center 80% / 120% auto no-repeat,
+              url('pic/ElectrifySZU_bird_light.png') center 80% / 120% auto no-repeat;
   opacity: 0.12;
   pointer-events: none;
   z-index: -1;
