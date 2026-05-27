@@ -90,6 +90,53 @@ CREATE TABLE IF NOT EXISTS likes (
 
 CREATE INDEX IF NOT EXISTS idx_likes_liked ON likes(liked);
 CREATE INDEX IF NOT EXISTS idx_likes_user ON likes(user_id);
+
+CREATE TABLE IF NOT EXISTS usage_records (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    client      TEXT NOT NULL,
+    room_id     TEXT NOT NULL,
+    record_time TEXT NOT NULL,
+    remaining   REAL,
+    total_used  REAL,
+    daily_kwh   REAL,
+    unit_price  REAL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(client, room_id, record_time)
+);
+CREATE INDEX IF NOT EXISTS idx_usage_lookup
+    ON usage_records(client, room_id, record_time);
+
+CREATE TABLE IF NOT EXISTS recharge_records (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    client        TEXT NOT NULL,
+    room_id       TEXT NOT NULL,
+    recharge_time TEXT NOT NULL,
+    kwh           REAL,
+    yuan          REAL,
+    method        TEXT,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(client, room_id, recharge_time, kwh)
+);
+CREATE INDEX IF NOT EXISTS idx_recharge_lookup
+    ON recharge_records(client, room_id, recharge_time);
+
+CREATE TABLE IF NOT EXISTS room_mapping (
+    client         TEXT NOT NULL,
+    building_id    TEXT NOT NULL,
+    room_name      TEXT NOT NULL,
+    room_id        TEXT NOT NULL,
+    building_name  TEXT,
+    discovered_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(client, building_id, room_name)
+);
+
+CREATE TABLE IF NOT EXISTS building_list (
+    client        TEXT NOT NULL,
+    building_id   TEXT NOT NULL,
+    building_name TEXT NOT NULL,
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(client, building_id)
+);
 """
 
 

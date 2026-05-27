@@ -38,31 +38,81 @@ def _base_url(value: str = "") -> str:
 
 
 def list_buildings(client_ip: str = "", base_url: str = "") -> dict:
-    """获取楼栋列表，返回 {buildingId: buildingName}"""
+    """获取楼栋列表，返回 {buildingId: buildingName}。
+
+    优先从持久化表 building_list 读取；超过 6 小时则重新请求校园 API 并更新。
+    """
     config = Config.from_env()
     client_ip = client_ip or config.client
+
+    from electrifyszu.database import ensure_db, get_connection
+    from datetime import datetime, timedelta
+
+    ensure_db()
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT updated_at FROM building_list WHERE client=? LIMIT 1",
+        (client_ip,),
+    ).fetchone()
+
+    stale = True
+    if row is not None:
+        cutoff = (datetime.now() - timedelta(hours=6)).isoformat()
+        stale = row["updated_at"] < cutoff
+
+    if not stale:
+        rows = conn.execute(
+            "SELECT building_id, building_name FROM building_list WHERE client=?",
+            (client_ip,),
+        ).fetchall()
+        return {r["building_id"]: r["building_name"] for r in rows}
+
     client = httpx.Client(proxy=get_proxy() or None)
     r = client.get(f"{_base_url(base_url)}/login.do?task=station&client={client_ip}")
     opts = re.findall(rb'<option value="(\d+)">([^<]*)</option>', r.content)
-    return {bid.decode(): name.decode("gb2312").strip() for bid, name in opts}
+    result = {bid.decode(): name.decode("gb2312").strip() for bid, name in opts}
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for bid, name in result.items():
+        conn.execute(
+            "INSERT OR REPLACE INTO building_list (client, building_id, building_name, updated_at) VALUES (?,?,?,?)",
+            (client_ip, bid, name, now),
+        )
+    conn.commit()
+    return result
 
 
 def discover_room_id(building_id: str, room_name: str,
                      client_ip: str = "",
                      base_url: str = "") -> str | None:
-    """
-    通过登录表单获取 roomId。
-
-    Args:
-        building_id: 楼栋ID (如 "7126")
-        room_name:   房间号 (如 "713")
-        client_ip:   校区IP
-
-    Returns:
-        roomId 字符串，找不到返回 None
-    """
+    """通过登录表单获取 roomId。优先从持久化表 room_mapping 读取。"""
     config = Config.from_env()
     client_ip = client_ip or config.client
+
+    from electrifyszu.database import ensure_db, get_connection
+
+    ensure_db()
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT room_id FROM room_mapping WHERE client=? AND building_id=? AND room_name=?",
+        (client_ip, building_id, room_name),
+    ).fetchone()
+    if row is not None:
+        return row["room_id"]
+
+    result = _discover_room_id_impl(building_id, room_name, client_ip, base_url)
+    if result is not None:
+        conn.execute(
+            "INSERT OR IGNORE INTO room_mapping (client, building_id, room_name, room_id) VALUES (?,?,?,?)",
+            (client_ip, building_id, room_name, result),
+        )
+        conn.commit()
+    return result
+
+
+def _discover_room_id_impl(building_id: str, room_name: str,
+                           client_ip: str, base_url: str) -> str | None:
+    """原始 discover_room_id 实现（直接请求校园 API）。"""
     client = httpx.Client(proxy=get_proxy() or None)
     api_base = _base_url(base_url)
 
