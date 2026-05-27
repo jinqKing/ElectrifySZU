@@ -137,24 +137,75 @@ class ApartmentPowerApi:
         begin = (today - timedelta(days=days)).strftime("%Y-%m-%d")
         end = today.strftime("%Y-%m-%d")
 
-        usage = self.query_usage(building_code, room_name, begin=begin, end=end)
-        recharge = self.query_recharge(building_code, room_name)
-        usage_records = _normalize_usage_records(usage.records)
-        recharge_records = _normalize_recharge_records(recharge.records)
+        from electrifyszu.dorm.store import (
+            get_usage_gap,
+            get_usage_records,
+            get_recharge_records,
+            insert_usage_records,
+            insert_recharge_records,
+            recharge_is_stale,
+        )
 
-        total_used = round(sum(row["kwh"] for row in usage_records), 2)
-        daily_avg = round(total_used / max(len(usage_records), 1), 2)
-        remaining = usage.remaining
+        building = get_building(building_code)
+        room_code = building.room_code(room_name)
+        floor_code = building.floor_code(room_name)
+        room_label = building.room_label(room_name)
+        client = "172.21.101.11"
+
+        # 1. Usage: fill gap, then reconstruct from DB
+        gap_begin, gap_end = get_usage_gap(client, room_code, begin, end)
+        fresh_remaining = None
+        if gap_begin:
+            qr = self.query_usage(building_code, room_name, begin=gap_begin, end=gap_end)
+            fresh_remaining = qr.remaining
+            records = _normalize_usage_records(qr.records)
+            if records:
+                insert_usage_records(client, room_code, [
+                    {"record_time": r["date"], "remaining": None, "total_used": None,
+                     "daily_kwh": r.get("kwh"), "unit_price": r.get("unit_price")}
+                    for r in records
+                ])
+
+        stored = get_usage_records(client, room_code, begin, end)
+        usage_list = [
+            {"date": r["record_time"], "kwh": _to_float(r.get("daily_kwh") or r.get("remaining"), default=None),
+             "unit_price": _to_float(r.get("unit_price") or r.get("total_used"), default=None)}
+            for r in stored
+        ]
+        usage_list = [u for u in usage_list if u["kwh"] is not None]
+
+        # 2. Recharge
+        if recharge_is_stale(client, room_code):
+            qr = self.query_recharge(building_code, room_name)
+            records = _normalize_recharge_records(qr.records)
+            if records:
+                insert_recharge_records(client, room_code, [
+                    {"recharge_time": r["time"], "kwh": r.get("kwh"), "yuan": r.get("yuan"),
+                     "method": r.get("person", "")}
+                    for r in records
+                ])
+        recharge_stored = get_recharge_records(client, room_code)
+        recharge_list = [
+            {"time": r["recharge_time"], "room": room_name,
+             "kwh": _to_float(r.get("kwh")), "yuan": _to_float(r.get("yuan")),
+             "person": str(r.get("method", ""))}
+            for r in recharge_stored
+        ]
+
+        # 3. Reconstruct
+        remaining = fresh_remaining  # fresh if we hit the API, None if fully cached
+        total_used = round(sum(u["kwh"] for u in usage_list), 2)
+        daily_avg = round(total_used / max(len(usage_list), 1), 2)
 
         return {
-            "building_code": usage.building_code,
-            "building_name": usage.building_name,
-            "floor_code": usage.floor_code,
-            "room_code": usage.room_code,
+            "building_code": building.code,
+            "building_name": building.name,
+            "floor_code": floor_code,
+            "room_code": room_code,
             "room_name": room_name,
-            "room_label": usage.room_label,
+            "room_label": room_label,
             "period": {"begin": begin, "end": end, "days": days},
-            "records": len(usage_records),
+            "records": len(usage_list),
             "threshold_kwh": threshold,
             "status": _status_level(remaining, threshold),
             "remaining": remaining,
@@ -163,10 +214,10 @@ class ApartmentPowerApi:
             "est_days_left": round(remaining / daily_avg, 1)
             if remaining is not None and daily_avg > 0
             else None,
-            "last_record": max((row["date"] for row in usage_records), default=""),
-            "unit_price": _last_unit_price(usage_records),
-            "trend": _build_trend(usage_records, remaining),
-            "recharges": recharge_records,
+            "last_record": max((u["date"] for u in usage_list), default=""),
+            "unit_price": _last_unit_price(usage_list),
+            "trend": _build_trend(usage_list, remaining),
+            "recharges": recharge_list,
         }
 
     def _query_records(
