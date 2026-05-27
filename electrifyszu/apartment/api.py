@@ -11,7 +11,7 @@ from http.cookiejar import CookieJar
 from typing import Any
 
 from electrifyszu.apartment.buildings import Building, get_building, load_buildings, normalize_building_code
-from electrifyszu.config import ApartmentConfig as Config
+from electrifyszu.config import ApartmentConfig as Config, CAMPUS_GROUP
 from electrifyszu.version import __version__
 
 SELECT_FIELDS = {
@@ -150,7 +150,7 @@ class ApartmentPowerApi:
         room_code = building.room_code(room_name)
         floor_code = building.floor_code(room_name)
         room_label = building.room_label(room_name)
-        client = "172.21.101.11"
+        client = CAMPUS_GROUP["lihu"]
 
         # 1. Usage: fill gap, then reconstruct from DB
         gap_begin, gap_end = get_usage_gap(client, room_code, begin, end)

@@ -1,6 +1,7 @@
 [
   {
     "client": "192.168.84.1",
+    "group": "yuehai_north",
     "name": "北校区",
     "buildings": [
       { "id": "6363", "name": "乔林11-12层" },
@@ -40,6 +41,7 @@
   },
   {
     "client": "192.168.84.110",
+    "group": "yuehai_south",
     "name": "南校区",
     "buildings": [
       { "id": "6875", "name": "春笛3-8楼" },
@@ -55,6 +57,7 @@
   },
   {
     "client": "172.21.101.11",
+    "group": "lihu",
     "name": "丽湖校区",
     "buildings": [
       { "id": "10057", "name": "A栋风信子" },
@@ -64,6 +67,7 @@
   },
   {
     "client": "192.168.84.87",
+    "group": "yuehai_newzhai",
     "name": "深大新斋区",
     "buildings": [
       { "id": "7126", "name": "风槐斋" },

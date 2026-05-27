@@ -6,7 +6,15 @@ import re
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
-from electrifyszu.config import DormConfig as Config
+from electrifyszu.config import CAMPUS_GROUP, DormConfig as Config
+
+
+def _campus_group(client: str) -> str:
+    """Map a campus client IP to its logical group identifier."""
+    for group_name, group_client in CAMPUS_GROUP.items():
+        if group_client == client:
+            return group_name
+    return ""
 from electrifyszu.ranking.cache import cached_ranking_for
 from electrifyszu.server.handlers.types import (
     ENV_FILE,
@@ -97,9 +105,11 @@ def load_buildings_file() -> list[dict[str, object]]:
     for line in BUILDINGS_FILE.read_text(encoding="utf-8").splitlines():
         campus_match = campus_pattern.search(line)
         if campus_match:
+            client = campus_match.group(2).strip()
             current = {
-                "client": campus_match.group(2).strip(),
+                "client": client,
                 "name": campus_match.group(1).strip(),
+                "group": _campus_group(client),
                 "buildings": [],
             }
             campuses.append(current)
@@ -117,6 +127,7 @@ def default_campuses(config: Config) -> list[dict[str, object]]:
     return [{
         "client": config.client,
         "name": config.campus_name,
+        "group": _campus_group(config.client),
         "buildings": [{"id": config.building_id, "name": config.building_name}],
     }]
 
@@ -132,7 +143,7 @@ def merge_campuses(*groups: list[dict[str, object]]) -> list[dict[str, object]]:
                 continue
             target = campuses_by_client.get(client)
             if target is None:
-                target = {"client": client, "name": name, "buildings": []}
+                target = {"client": client, "name": name, "group": _campus_group(client), "buildings": []}
                 campuses_by_client[client] = target
                 merged.append(target)
             seen_buildings = {building["id"] for building in target["buildings"]}
@@ -155,7 +166,7 @@ def _merge_apartment_into_lihu(data: list[dict[str, object]]) -> None:
     except Exception:
         return
     for campus in data:
-        if campus.get("client") == "172.21.101.11":
+        if campus.get("group") == "lihu":
             seen = {b["id"] for b in campus.get("buildings", [])}
             for building in apt_list:
                 if building["id"] not in seen:
@@ -163,7 +174,8 @@ def _merge_apartment_into_lihu(data: list[dict[str, object]]) -> None:
                     seen.add(building["id"])
             return
     data.append({
-        "client": "172.21.101.11",
+        "client": CAMPUS_GROUP["lihu"],
         "name": "西丽校区",
+        "group": "lihu",
         "buildings": apt_list,
     })

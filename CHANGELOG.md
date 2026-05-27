@@ -14,7 +14,7 @@ The format follows the spirit of Keep a Changelog, and this project uses an Eule
 
 ### Highlights
 
-- **Online launch!** 🔗 Access the live system at [www.iotun.com](https://www.iotun.com) or directly via [129.204.227.179](http://129.204.227.179/).
+- **Online launch!** 🔗 Access the live system at [www.iotun.com](https://www.iotun.com).
 - Major frontend refactoring: modularized JS, lazy-loaded dependencies, improved performance and UX throughout.
 
 ### Added

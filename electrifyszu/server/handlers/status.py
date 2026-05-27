@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from http.server import BaseHTTPRequestHandler
 
-from electrifyszu.config import DormConfig as Config, ApartmentConfig
+from electrifyszu.config import CAMPUS_GROUP, DormConfig as Config, ApartmentConfig
 from electrifyszu.dorm.api import DormApi
 from electrifyszu.dorm.discover import discover_room_id
 from electrifyszu.ranking.cache import cached_ranking_for, load_ranking_cache
@@ -43,7 +43,7 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
         days = int(query_value(query, "days") or "30")
 
         # 丽湖校区内，公寓系统楼栋（编码01-06）走 ApartmentPowerApi
-        if client == "172.21.101.11" and building_id in ("01", "02", "03", "04", "05", "06"):
+        if client == CAMPUS_GROUP["lihu"] and building_id in ("01", "02", "03", "04", "05", "06"):
             _handle_apartment_status(handler, building_id, room_name, days)
             return
 
@@ -112,7 +112,7 @@ def _handle_apartment_status(
             days=days,
             threshold=apt_config.low_power_threshold,
         )
-        result["client"] = "172.21.101.11"
+        result["client"] = CAMPUS_GROUP["lihu"]
         result["campus_name"] = "西丽校区"
         result["building_id"] = building_code
         send_json(handler, {"ok": True, "data": result})

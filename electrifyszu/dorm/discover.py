@@ -24,8 +24,6 @@ import httpx
 
 from electrifyszu.config import DormConfig as Config
 
-DEFAULT_BASE_URL = "http://192.168.84.3:9090/cgcSims"
-
 
 def get_proxy() -> str:
     return os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy") or ""
@@ -34,7 +32,7 @@ def get_proxy() -> str:
 def _base_url(value: str = "") -> str:
     if value:
         return value.rstrip("/")
-    return Config.from_env().base_url.rstrip("/") or DEFAULT_BASE_URL
+    return Config.from_env().base_url.rstrip("/")
 
 
 def list_buildings(client_ip: str = "", base_url: str = "") -> dict:

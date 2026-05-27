@@ -3,7 +3,7 @@
 ## 架构概览
 
 ```
-用户浏览器 → Cloudflare → 公网服务器 (129.204.227.179)
+用户浏览器 → Cloudflare → 公网服务器 (&lt;PUBLIC_SERVER_IP&gt;)
                               │
                     Nginx (三路分流)
                     ├── / (静态文件)         → 直接读磁盘
@@ -29,7 +29,7 @@ autossh -M 0 \
   -o "StrictHostKeyChecking=accept-new" \
   -N \
   -R 18080:localhost:8000 \
-  user@129.204.227.179
+  user@&lt;PUBLIC_SERVER_IP&gt;
 ```
 
 **参数说明：**
@@ -57,7 +57,7 @@ ExecStart=/usr/bin/autossh -M 0 \
   -o "StrictHostKeyChecking=accept-new" \
   -N \
   -R 18080:localhost:8000 \
-  user@129.204.227.179
+  user@&lt;PUBLIC_SERVER_IP&gt;
 Restart=always
 RestartSec=10
 StartLimitIntervalSec=0
@@ -79,10 +79,10 @@ sudo systemctl status electrifyszu-tunnel
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
 
 # 复制公钥到公网服务器
-ssh-copy-id user@129.204.227.179
+ssh-copy-id user@&lt;PUBLIC_SERVER_IP&gt;
 
 # 验证免密登录
-ssh user@129.204.227.179 "echo OK"
+ssh user@&lt;PUBLIC_SERVER_IP&gt; "echo OK"
 ```
 
 ## 方式二：rathole（Rust 高性能隧道）
@@ -104,7 +104,7 @@ bind_addr = "0.0.0.0:18080"
 
 ```toml
 [client]
-remote_addr = "129.204.227.179:2333"
+remote_addr = "&lt;PUBLIC_SERVER_IP&gt;:2333"
 
 [client.services.campus-api]
 token = "your-secret-token-here"
@@ -145,7 +145,7 @@ dashboard_pwd = your-password
 
 ```toml
 [common]
-server_addr = 129.204.227.179
+server_addr = &lt;PUBLIC_SERVER_IP&gt;
 server_port = 7000
 
 [campus-api]

@@ -1,6 +1,6 @@
 """ElectrifySZU — Public API server.
 
-Designed to run on the public-facing server (129.204.227.179).
+Designed to run on the public-facing server.
 Handles only endpoints that do NOT need campus network access.
 
 Campus-dependent endpoints (/api/status, /api/buildings, etc.)
