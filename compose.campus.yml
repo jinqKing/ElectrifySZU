@@ -14,7 +14,7 @@
 #     -o "ServerAliveCountMax=3" \
 #     -o "ExitOnForwardFailure=yes" \
 #     -R 18080:localhost:8000 \
-#     user@<DEPRECATED_SERVER_IP>
+#     user@<PUBLIC_SERVER_IP>
 # ─────────────────────────────────────────────────────────────────────
 
 services:

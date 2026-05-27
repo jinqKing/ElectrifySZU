@@ -9,7 +9,6 @@
 
 <p align="center">
   <a href="https://www.<DOMAIN>"><img src="https://img.shields.io/badge/🚀 Live Demo-www.<DOMAIN>-eab308?style=for-the-badge" alt="官网"></a>
-  <a href="http://<DEPRECATED_SERVER_IP>/"><img src="https://img.shields.io/badge/💻 Server-http%3A//<DEPRECATED_SERVER_IP>-eab308?style=for-the-badge" alt="直连"></a>
 </p>
 
 <p align="center">

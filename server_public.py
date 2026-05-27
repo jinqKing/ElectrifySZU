@@ -1,6 +1,6 @@
 """ElectrifySZU — Public API server.
 
-Designed to run on the public-facing server (<DEPRECATED_SERVER_IP>).
+Designed to run on the public-facing server.
 Handles only endpoints that do NOT need campus network access.
 
 Campus-dependent endpoints (/api/status, /api/buildings, etc.)

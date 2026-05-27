@@ -14,7 +14,7 @@ The format follows the spirit of Keep a Changelog, and this project uses an Eule
 
 ### Highlights
 
-- **Online launch!** 🔗 Access the live system at [www.<DOMAIN>](https://www.<DOMAIN>) or directly via [<DEPRECATED_SERVER_IP>](http://<DEPRECATED_SERVER_IP>/).
+- **Online launch!** 🔗 Access the live system at [www.<DOMAIN>](https://www.<DOMAIN>).
 - Major frontend refactoring: modularized JS, lazy-loaded dependencies, improved performance and UX throughout.
 
 ### Added

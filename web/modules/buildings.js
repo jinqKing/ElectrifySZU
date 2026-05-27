@@ -53,8 +53,8 @@ export function normalizeCampuses(data) {
 
 export function flattenBuildings(campusData) {
   return campusData.flatMap((campus) => {
-    const uiCampus = campus.client === "172.21.101.11" ? "丽湖" : campus.client === "apartment" ? "公寓" : "粤海";
-    const campusGroup = campus.client === "172.21.101.11" ? "lihu" : campus.client === "apartment" ? "apartment" : "yuehai";
+    const campusGroup = campus.group || (campus.client === "apartment" ? "apartment" : "yuehai");
+    const uiCampus = campusGroup === "lihu" ? "丽湖" : campusGroup === "apartment" ? "公寓" : "粤海";
     return (campus.buildings || []).map((building) => ({
       id: building.id,
       name: building.name,
