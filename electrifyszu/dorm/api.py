@@ -89,65 +89,67 @@ class DormApi:
         days: int = 30,
         threshold: float | None = None,
     ) -> dict[str, Any]:
-        """Return a dashboard-friendly room power summary."""
+        """Return a dashboard-friendly room power summary.
+
+        Incrementally fetches missing date ranges from the campus API and
+        stores records permanently in SQLite. Once a day's meter reading is
+        stored it is never re-fetched.
+        """
+        from electrifyszu.dorm.store import (
+            get_usage_gap,
+            get_usage_records,
+            get_recharge_records,
+            insert_usage_records,
+            insert_recharge_records,
+            recharge_is_stale,
+            reconstruct_dorm_status,
+        )
+
         days = max(days, 1)
         today = datetime.now()
         begin = (today - timedelta(days=days + 1)).strftime("%Y-%m-%d")
         end = today.strftime("%Y-%m-%d")
 
-        usage = parse_excel(self.get_usage(room_id, room_name, begin=begin, end=end))
-        recharge = parse_excel(self.get_recharge(room_id, room_name))
-
-        result: dict[str, Any] = {
-            "room_id": room_id,
-            "room_name": room_name,
-            "period": {"begin": begin, "end": end, "days": days},
-            "records": max(len(usage) - 1, 0),
-            "threshold_kwh": threshold,
-            "status": "unknown",
-            "recharges": [],
-            "trend": [],
-        }
-
-        if usage:
-            first = usage[0]
-            last = usage[-1]
-            usage_columns = _resolve_usage_columns(first)
-            remaining = _to_float(last.get(usage_columns["remaining"]))
-            total_used = max(
-                _to_float(last.get(usage_columns["total_used"]))
-                - _to_float(first.get(usage_columns["total_used"])),
-                0,
+        # 1. Incrementally fill usage gap
+        gap_begin, gap_end = get_usage_gap(self.client, room_id, begin, end)
+        if gap_begin:
+            usage_rows = parse_excel(
+                self.get_usage(room_id, room_name, begin=gap_begin, end=gap_end)
             )
-            daily_avg = round(total_used / max(len(usage) - 1, 1), 2)
-            result["trend"] = _build_trend(usage, usage_columns)
+            if usage_rows:
+                cols = _resolve_usage_columns(usage_rows[0])
+                records = [
+                    {
+                        "record_time": str(r.get(cols["record_time"], "")),
+                        "remaining": _to_float(r.get(cols["remaining"])),
+                        "total_used": _to_float(r.get(cols["total_used"])),
+                    }
+                    for r in usage_rows
+                ]
+                insert_usage_records(self.client, room_id, records)
 
-            result.update(
-                {
-                    "remaining": remaining,
-                    "total_used_kwh": round(total_used, 2),
-                    "daily_avg_kwh": daily_avg,
-                    "est_days_left": round(remaining / daily_avg, 1)
-                    if daily_avg > 0
-                    else None,
-                    "last_record": last.get(usage_columns["record_time"]),
-                    "status": _status_level(remaining, threshold),
-                }
-            )
+        # 2. Incrementally fill recharge gap
+        if recharge_is_stale(self.client, room_id):
+            recharge_rows = parse_excel(self.get_recharge(room_id, room_name))
+            if recharge_rows:
+                cols = _resolve_recharge_columns(recharge_rows[0])
+                records = [
+                    {
+                        "recharge_time": str(r.get(cols["time"], "")),
+                        "kwh": _to_float(r.get(cols["kwh"])),
+                        "yuan": _to_float(r.get(cols["yuan"])),
+                        "method": str(r.get(cols["method"], "")),
+                    }
+                    for r in recharge_rows
+                ]
+                insert_recharge_records(self.client, room_id, records)
 
-        if recharge:
-            recharge_columns = _resolve_recharge_columns(recharge[0])
-            result["recharges"] = [
-                {
-                    "time": row.get(recharge_columns["time"]),
-                    "kwh": _to_float(row.get(recharge_columns["kwh"])),
-                    "yuan": _to_float(row.get(recharge_columns["yuan"])),
-                    "method": row.get(recharge_columns["method"]),
-                }
-                for row in recharge
-            ]
-
-        return result
+        # 3. Reconstruct from DB
+        return reconstruct_dorm_status(
+            get_usage_records(self.client, room_id, begin, end),
+            get_recharge_records(self.client, room_id),
+            room_id, room_name, begin, end, days, threshold,
+        )
 
 
 def parse_excel(data: bytes) -> list[dict[str, Any]]:

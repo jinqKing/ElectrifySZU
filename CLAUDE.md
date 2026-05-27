@@ -10,6 +10,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Conda 环境：`D:\anaconda3\envs\electrifyszu`。运行命令前先激活：`conda activate electrifyszu`，或直接用该环境的 Python 解释器：`D:\anaconda3\envs\electrifyszu\python.exe`。
 
+## 生产环境
+
+远程linux服务器连接方式：ssh mtt
+远程项目文件夹：~/ElectrifySZU
+部署方式：docker
+
 ## 常用命令
 
 ```bash
