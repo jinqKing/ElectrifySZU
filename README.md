@@ -63,22 +63,34 @@ ElectrifySZU 把查询、趋势、预警整合到一个页面里：
 │  ├── 一键退订链接                                         │
 │  └── 测试模式：绕过校园网直接发送测试预警                  │
 ├─────────────────────────────────────────────────────────┤
+│  数据归档缓存 (electrifyszu/archive/)                      │
+│  ├── SQLite 持久化缓存取代纯透传代理                       │
+│  ├── 查询优先走缓存（24h内快照），不命中才抓取校园网        │
+│  ├── 房间映射、电费快照、日耗数据、充值记录全入库           │
+│  ├── 自动定时采集订阅房间                                  │
+│  └── CLI：collect / batch / backfill / status / history    │
+├─────────────────────────────────────────────────────────┤
 │  后端 API 代理 (server.py)                               │
-│  ├── /api/status                 宿舍电费查询             │
+│  ├── /api/status                 宿舍电费查询（cache优先） │
 │  ├── /api/buildings              校区楼栋列表             │
 │  ├── /api/demo-status            演示数据                 │
 │  ├── /api/subscriptions          订阅管理                 │
 │  ├── /api/subscriptions/verify   邮箱验证确认             │
 │  ├── /api/unsubscribe            一键退订                 │
 │  ├── /api/alerts/check           手动触发预警检查         │
+│  ├── /api/archive/batch          批量采集过期待归档房间   │
+│  ├── /api/archive/status         归档状态概览             │
+│  ├── /api/archive/history        房间历史浏览             │
 │  ├── /api/version                版本信息                 │
 │  ├── /api/health                 健康检查                 │
 │  └── /api/stats                  点赞数 + 使用人数        │
 ├─────────────────────────────────────────────────────────┤
-│  CLI 工具 (electrifyszu/dorm/)                            │
-│  ├── python -m electrifyszu.dorm.cli status  宿舍电费状态           │
-│  ├── python -m src.cli json        JSON 输出             │
-│  └── python -m src.discover        发现 roomId           │
+│  CLI 工具 (electrifyszu/)                                 │
+│  ├── python -m electrifyszu.dorm.cli status  宿舍电费     │
+│  ├── python -m electrifyszu.dorm.discover   发现 roomId   │
+│  ├── python -m electrifyszu.archive.cli     归档管理（集、 │
+│  │     collect/batch/backfill/status/history）            │
+│  ├── python -m electrifyszu.apartment.cli   公寓查询      │
 ├─────────────────────────────────────────────────────────┤
 │  丽湖公寓模块 (electrifyszu/apartment/)                   │
 │  适配 http://172.25.100.105:8010/ 的 ASP.NET 公寓电费系统  │
@@ -194,16 +206,30 @@ FORCE_SEND_DAILY_REPORT=0
                        │   │   │
           ┌────────────┘   │   └────────────┐
           ▼                ▼                ▼
-┌─────────────────┐ ┌────────────┐ ┌──────────────────┐
-│ electrifyszu/   │ │electrifyszu│ │ web/             │
-│ dorm/           │ │/subscripti │ │ 静态文件服务     │
-│                 │ │on/         │ │                  │
-│ DormApi 查询    │ │ 邮箱验证   │ │ index.html       │
-│ roomId 发现     │ │ 预警线程   │ │ app.js           │
-│ CLI 工具        │ │ SMTP 发送  │ │ work-intro.html  │
-└────────┬────────┘ └────────────┘ └──────────────────┘
-         │
-         ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────────┐
+│ electrifyszu │ │ electrifyszu │ │ web/             │
+│ dorm/        │ │ /subscription│ │ 静态文件服务     │
+│ apartment/   │ │ /            │ │                  │
+│              │ │ 邮箱验证      │ │ index.html       │
+│ DormApi      │ │ 预警线程      │ │ app.js           │
+│ AptPowerApi  │ │ SMTP 发送     │ │ work-intro.html  │
+└──────┬───────┘ └──────┬───────┘ └──────────────────┘
+       │               │
+       └───────┬───────┘
+               ▼
+┌──────────────────────────┐
+│ electrifyszu/archive/    │
+│ Power Archive (SQLite)   │
+│ ├─ mapping_repo          │
+│ ├─ snapshot_storage      │
+│ ├─ collector             │
+│ └─ tasks                 │
+│                          │
+│ Cache HIT → zero-latency │
+│ Cache MISS → poll campus │
+└──────┬───────────────────┘
+       │
+       ▼
 ┌─────────────────┐
 │ 校园内网电费系统 │
 └─────────────────┘
@@ -237,6 +263,7 @@ FORCE_SEND_DAILY_REPORT=0
 ```text
 .
 ├── electrifyszu/               # 后端核心包
+│   ├── archive/               # 电力数据归档缓存（SQLite持久化）
 │   ├── dorm/                  # 粤海校区宿舍电费查询
 │   ├── apartment/             # 丽湖校区公寓电费查询
 │   ├── ranking/               # 楼栋排行
@@ -245,7 +272,7 @@ FORCE_SEND_DAILY_REPORT=0
 │   ├── data/                  # 数据文件
 │   │   ├── buildings.txt      # 校区楼栋列表
 │   │   └── apartment_buildings.txt # 公寓楼栋列表
-│   ├── database.py            # SQLite 数据库
+│   ├── database.py            # SQLite 数据库（含归档表）
 │   └── config.py              # 统一配置
 ├── web/                       # 前端静态资源
 │   ├── index.html             # 主仪表盘
@@ -275,6 +302,9 @@ FORCE_SEND_DAILY_REPORT=0
 | GET | `/api/subscriptions/verify` | 邮箱验证确认 |
 | GET | `/api/unsubscribe` | 取消订阅 |
 | POST | `/api/alerts/check` | 手动触发预警检查（需 `X-Admin-Token`） |
+| POST | `/api/archive/batch` | 批量采集过期待归档房间（需 `X-Admin-Token`） |
+| GET | `/api/archive/status` | 归档表行数统计与最近运行记录（需 `X-Admin-Token`） |
+| GET | `/api/archive/history` | 房间历史趋势与充值记录查询（需 `X-Admin-Token`） |
 | GET | `/api/version` | 服务版本信息 |
 | GET | `/api/health` | 健康检查 |
 | POST | `/api/like/init` | 签发点赞者 ID（首次访问自动调用） |

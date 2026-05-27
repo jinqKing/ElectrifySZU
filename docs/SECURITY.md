@@ -44,9 +44,17 @@ Logic:
 
 ### 2. Admin Token Authentication
 
-**Problem:** `POST /api/alerts/check` triggers expensive campus-API fan-outs. Exposing it publicly enables denial-of-service attacks.
+**Problem:** `POST /api/alerts/check` and the 3 archive admin endpoints (`POST /api/archive/batch`, `GET /api/archive/status`, `GET /api/archive/history`) trigger expensive campus-API fan-outs or expose internal data. Exposing them publicly enables denial-of-service and data-leakage attacks.
 
-**Implementation:** Constant-time HMAC comparison via `hmac.compare_digest()` in `middleware.validate_admin_token()`.
+**Implementation:** Two enforcement layers:
+
+1. **`middleware.validate_admin_token()`** — Constant-time HMAC comparison via `hmac.compare_digest()`.
+   ```python
+   expected = os.getenv("ALERT_ADMIN_TOKEN", "").strip()
+   supplied = handler.headers.get("X-Admin-Token", "").strip()
+   return bool(expected and supplied and hmac.compare_digest(supplied, expected))
+   ```
+2. **`_require_auth()` guard in `handlers/archive.py`** — Wraps every archive endpoint. Returns `ADMIN_AUTH_REQUIRED` (401) on failure.
 
 ```python
 expected = os.getenv("ALERT_ADMIN_TOKEN", "").strip()
@@ -179,7 +187,19 @@ Any path resolving outside `web/` returns 404 rather than leaking sibling files.
 
 ---
 
-### 9. Email Domain Whitelist
+### 10. SQLite Database Access Control
+
+**Risk:** `data/electrifyszu.db` is a single binary file containing all subscriptions, room snapshots, daily consumption records, and cached room mappings. If an attacker gains filesystem access, they can exfiltrate the entire dataset without API calls.
+
+**Mitigation:** 
+- File permissions should restrict read access to the server process user only (`chmod 600` / `chown`).
+- `ELECTRIFYSZU_DB_PATH` env var allows pointing to a protected volume in container deployments.
+- No encryption-at-rest is implemented; a dedicated secrets volume is recommended for production.
+- Legacy CSV/JSON files (`data/subscriptions.csv`, `data/likes.json`) are superseded by SQLite but retained until migration is verified — treat them with equivalent sensitivity.
+
+---
+
+### 11. Email Domain Whitelist
 
 **Purpose:** Restrict subscription recipients to institutional accounts, reducing spam-relay abuse risk.
 
@@ -212,11 +232,12 @@ External view:                                                    Internal trust
 |-----|------------|---------------------|
 | No CAPTCHA on subscription form | Low-Medium | Bot volume currently manageable; add turnstile/hcaptcha if spam increases |
 | Rate limiting delegated to Nginx | Medium | Works fine with proper Nginx config; bare-server deployments lack protection — document prominently |
-| No audit trail for admin operations | Low | Consider appending admin-action log entries (who triggered `/api/alerts/check`) |
-| Tokens stored plaintext in CSV | Low-Medium | Acceptable for short-lived tokens (< 24h expiry); hash+salt for long-term retention |
+| No audit trail for admin operations | Low | Consider appending admin-action log entries (who triggered `/api/alerts/check`, `/api/archive/batch`) |
+| Tokens stored plaintext in SQLite | Low-Medium | Acceptable for short-lived tokens (< 24h expiry); hash+salt for long-term retention |
 | No CSRF token for admin endpoints | Low | `X-Admin-Token` serves equivalent purpose for machine clients; human-admin UI TBD |
 | Passwords visible in process env | Standard cloud risk | Rotate regularly; consider encrypted vault for production |
 | No automated dependency scanning | Low | Add Dependabot/Renovatebot for CVE awareness |
+| SQLite database not encrypted at rest | Medium | For production with sensitive data, mount on encrypted volume or add sqlcipher layer |
 | IPv4-only rate limiting | Low | `$binary_remote_addr` loses accuracy behind NAT; upgrade to `$http_x_real_ip` with `realip` module |
 
 ---

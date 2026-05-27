@@ -10,20 +10,21 @@ Last reviewed: 2026-05-27
 
 | Metric | Value |
 |--------|-------|
-| Backend LOC | ~5,800 |
+| Backend LOC | ~8,500 |
 | Frontend LOC | ~7,700 |
 | Test count | 62 (all offline-safe) |
-| Untested backend LOC | ~1,874 |
+| Untested backend LOC | ~2,800 (including new `archive/`) |
 | Frontend tests | 0 |
-| Documentation | 7 dedicated docs |
+| Documentation | 8 dedicated docs |
 | CI pipelines | 2 (backend tests + GH Pages) |
 | Deployment | Docker Compose (public + campus) |
+| Storage | SQLite (`electrifyszu.db`) |
 | Active committers | Student team (Matrix) |
 | Total commits | 160+ |
 
-**Strengths:** well-architected split (frontend/API/campus), comprehensive docs, live-deployed, mature subscription flow, dual-environment deployment playbooks.
+**Strengths:** well-architected split (frontend/API/campus), comprehensive docs, live-deployed, mature subscription flow, dual-environment deployment playbooks, SQLite-backed Power Archive with cache-first architecture.
 
-**Growing pains:** large untested zones (especially `apartment/`), no frontend automation, lightweight lint rules, ad-hoc release process, no observability layer.
+**Growing pains:** large untested zones (`apartment/`, `archive/`), no frontend automation, lightweight lint rules, ad-hoc release process, no observability layer.
 
 ---
 
@@ -35,7 +36,7 @@ Close obvious quality gaps without altering production behaviour. Low-risk, high
 
 | Pri | Item | Description | Approach | Est. | Risk |
 |-----|------|-------------|----------|------|------|
-| P0 | Backfill backend coverage | Test 4 biggest blind spots: `apartment/api.py` (599 L), `server/middleware.py`, `server/handlers/{status,subscription}`, `server/router` | Standard pytest fixtures + mocked HTTP; reuse patterns from existing `test_server_security.py` | 4–6 h | 🟢 |
+| P0 | Backfill backend coverage | Test biggest blind spots: `archive/` (6 new modules), `apartment/api.py` (599 L), `server/middleware.py`, `server/handlers/{status,subscription,archive}`, `server/router` | Standard pytest fixtures + mocked HTTP; reuse patterns from existing `test_server_security.py` | 6–8 h | 🟢 |
 | P0 | Coverage gate in CI | Block merges when coverage dips below threshold | Add `pytest-cov` to `[dev]` extras; `--cov-fail-under=60` in `ci.yml` | 30 m | 🟢 |
 | P1 | Lint hardening | Progressive ruf expansion | Dry-run `UP SIM ARG FLY PT` → batch-fix → activate; add `ruff format` | 2 h | 🟡 |
 | P1 | Frontend ESLint | Basic JS quality checks | `.eslintrc` targeting `web/modules/` with browser-global awareness | 1 h | 🟢 |

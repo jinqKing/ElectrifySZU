@@ -11,6 +11,7 @@ Variables are read from `.env` in the project root. Values in `.env` are **never
 | Variable | Default | Description |
 |----------|---------|-------------|
 | *(—)* | | No env var; controlled by CLI `--host` / `--port` |
+| `ELECTRIFYSZU_DB_PATH` | `data/electrifyszu.db` | Override SQLite database file path (absolute or relative). Useful for test isolation or mounting on encrypted volumes. |
 | `LOG_LEVEL` | `INFO` | Console log verbosity: `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 | `LOG_DIR` | `logs` | Log file directory (absolute or relative to project root) |
 | `LOG_MAX_BYTES` | `10485760` | Single log file size before rotation (bytes; default 10 MiB) |
@@ -271,6 +272,12 @@ Additional CLI entry points defined in `pyproject.toml`:
 |--------------|--------|---------|
 | `electrifyszu` | `server:main` | Launch HTTP dashboard server |
 | `electrifyszu-delivery-test` | `electrifyszu.subscription.test_delivery:main` | Standalone email delivery test |
+
+Additional CLI entry point via module invocation:
+
+| Command | Purpose |
+|---------|---------|
+| `python -m electrifyszu.archive.cli` | Power Archive management CLI (subcommands: `collect`, `batch`, `backfill`, `status`, `mappings`, `history`) |
 
 ---
 

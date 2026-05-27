@@ -13,6 +13,11 @@ Diagnose problems symptom-first. Find your issue in the table below, jump to the
 | Inspect subscription DB | `cat data/subscriptions.csv \| column -t -s','` |
 | Check likes store integrity | `python -c "import json; print(json.dumps(json.load(open('data/likes.json')), indent=2)[:500])"` |
 | Discover roomId | `uv run python -m electrifyszu.dorm.discover "<paste_selectList_URL>"` |
+| Archive status | `uv run python -m electrifyszu.archive.cli status` |
+| List cached room mappings | `uv run python -m electrifyszu.archive.cli mappings --show` |
+| Collect one room manually | `uv run python -m electrifyszu.archive.cli collect --building 7126 --room 713` |
+| Batch collect overdue tasks | `uv run python -m electrifyszu.archive.cli batch` |
+| View stored history for a room | `uv run python -m electrifyszu.archive.cli history --building 7126 --room 713` |
 | Restart server gracefully | Ctrl+\`C\` (drains in-flight requests, shuts down alert worker) |
 
 ---
@@ -172,6 +177,46 @@ Upstream `127.0.0.1:8000` is unreachable:
 #### Mixed-content warning (HTTPS site loads HTTP resources)
 
 Deploy behind HTTPS-aware proxy setting `X-Forwarded-Proto: https`. The server honors this header to construct correct callback URLs (verification links, unsubscribe links). Also set `PUBLIC_BASE_URL=https://your.domain.com`.
+
+---
+
+### Archive / Cache Issues
+
+#### `/api/status` always returns `_source:"live"` (cache never hit)
+
+The cache TTL is 24 hours. If you keep seeing cache misses:
+
+1. **Fresh database.** First-run or new DB has no snapshots. After one live fetch, subsequent requests hit cache.
+2. **Different room each time.** Cache is per-room; querying 20 different rooms needs 20 first-time fetches.
+3. **Server restarted after < 24h.** This is fine — cache persists across restarts (SQLite on disk).
+
+Check cache state:
+```bash
+uv run python -m electrifyszu.archive.cli status
+# Look at room_snapshots count and oldest/newest timestamps
+```
+
+#### Archive batch collection silently skips rooms
+
+Tasks with >5 consecutive failures are auto-disabled. Check:
+```bash
+uv run sqlite3 data/electrifyszu.db "SELECT building_id, room_name, last_status, consecutive_failures FROM collection_tasks WHERE enabled=0"
+```
+Re-enable a disabled task:
+```bash
+uv run sqlite3 data/electrifyszu.db "UPDATE collection_tasks SET enabled=1, consecutive_failures=0 WHERE id=ID"
+```
+
+#### Room mapping cache returns stale internal_id
+
+Mappings expire after 30 days by default. Force refresh by collecting the room, or purge expired:
+```bash
+uv run python -m electrifyszu.archive.cli mappings --purge
+```
+
+#### SQLite database file location
+
+The archive database lives at `data/electrifyszu.db` by default. Override via `ELECTRIFYSZU_DB_PATH` environment variable.
 
 ---
 

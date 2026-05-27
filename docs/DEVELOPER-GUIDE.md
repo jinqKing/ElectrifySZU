@@ -108,6 +108,7 @@ def test_store_operation(temp_csv_path: Path):
 | Fixture | Provides | Defined In |
 |---------|----------|------------|
 | `temp_csv_path` | Isolated CSV file path backed by `tmp_path` | `tests/conftest.py` |
+| `db_path` | Override SQLite DB via `ELECTRIFYSZU_DB_PATH` env var | `electrifyszu/database.py` |
 | `tmp_path` | Temporary directory (pytest builtin) | pytest |
 
 Legacy wrapper directories (`room-power-monitor/`, `apartment-power-monitor/`) have been consolidated into `electrifyszu/`. All imports should use the `electrifyszu.` qualified path directly.
@@ -327,7 +328,9 @@ Comprehensive prompt archive: see `docs/prompts-collection.md`.
 LOG_LEVEL=DEBUG
 ```
 
-Shows SQL-equivalent trace for CSV reads, SMTP handshakes, and HTTP request/response bodies.
+Shows SQL-equivalent trace for database queries, SMTP handshakes, and HTTP request/response bodies.
+
+Namespaces specific to the archive subsystem: `electrifyszu.archive.mapping`, `electrifyszu.archive.snapshots`, `electrifyszu.archive.collector`, `electrifyszu.archive.cli`.
 
 ### Interactive REPL Against Running Server
 
@@ -349,6 +352,32 @@ python
 >>> store = SubscriptionStore("data/subscriptions.csv")
 >>> for sub in store.list_all():
 ...     print(f"{sub.email:30s} {'ACTIVE' if sub.is_active else 'PENDING':8s} thresh={sub.threshold_kwh}")
+```
+
+### Inspecting the Power Archive (SQLite)
+
+```python
+python
+>>> from electrifyszu.database import get_connection
+>>> conn = get_connection()
+>>> for row in conn.execute("SELECT building_name, room_name, remaining, captured_at FROM room_snapshots ORDER BY captured_at DESC LIMIT 10"):
+...     print(dict(row))
+```
+
+### Debugging Archive Cache
+
+```bash
+# See archive row counts and recent batch runs
+uv run python -m electrifyszu.archive.cli status
+
+# List all cached room-ID mappings
+uv run python -m electrifyszu.archive.cli mappings --show
+
+# Collect one room manually (useful for testing)
+uv run python -m electrifyszu.archive.cli collect --building 7126 --room 713
+
+# View stored consumption history for a room
+uv run python -m electrifyszu.archive.cli history --building 7126 --room 713
 ```
 
 ### Reproducing Email Templates Locally

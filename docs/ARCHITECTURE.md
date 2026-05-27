@@ -4,44 +4,57 @@ High-level system design, module relationships, and the story behind our dual-la
 
 ## System Composition
 
-At runtime, ElectrifySZU consists of **one Python process** hosting two concurrent subsystems:
+At runtime, ElectrifySZU consists of **one Python process** hosting three concurrent subsystems:
 
 ```
-┌──────────────────────────────────────────────────────┐
-│              electrifyszu Python Process              │
-│                                                       │
-│  ┌─────────────────────┐    ┌─────────────────────┐  │
-│  │   HTTP Server        │    │   Alert Worker       │  │
-│  │   ThreadingHTTPServ  │    │   Daemon Thread      │  │
-│  │   :8000              │    │   (scheduled loops)  │  │
-│  │                      │    │                      │  │
-│  │  Router (route tbl)  │    │  AlertRunner         │  │
-│  │  ↓                   │    │  ├─ read CSV subs    │  │
-│  │  Handlers/           │    │  ├─ group by room    │  │
-│  │  ├─ status           │    │  ├─ fetch via API    │  │
-│  │  ├─ buildings        │    │  └─ send emails      │  │
-│  │  ├─ subscription     │    │                      │  │
-│  │  ├─ likes            │    │  Wake-up triggers:   │  │
-│  │  └─ demo             │    │  • Clock reaches HH:MM│  │
-│  │                      │    │  • SIGTERM shutdown   │  │
-│  └──────┬──────────────┘    └─────────────────────┘  │
-│         │                                             │
-│  ┌──────▼──────────────┐    ┌─────────────────────┐  │
-│  │  Shared Services     │    │  Persistence Layer   │  │
-│  │                      │    │                      │  │
-│  │  • DormApi           │    │  data/               │  │
-│  │  • AptPowerApi       │    │  ├─ subscriptions.csv│  │
-│  │  • EmailService      │    │  ├─ likes.json       │  │
-│  │  • discover_room_id  │    │  └─ ranking_cache.json│  │
-│  │  • ranking cache     │    │                      │  │
-│  └──────────────────────┘    └─────────────────────┘  │
-└──────────────────────────────────────────────────────┘
-         │                       │
-         ▼                       ▼
-┌──────────────────┐    ┌──────────────────┐
-│ Campus Intranet  │    │  SMTP Provider   │
-│ Power Systems    │    │  (QQ/Gmail/etc)  │
-└──────────────────┘    └──────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                      electrifyszu Python Process                  │
+│                                                                   │
+│  ┌────────────────────────┐  ┌────────────────────────────────┐  │
+│  │     HTTP Server         │  │      Background Workers        │  │
+│  │     ThreadingHTTPServer │  │                                │  │
+│  │     :8000               │  │  ┌──────────────────────────┐  │  │
+│  │                         │  │  │ AlertRunner (daemon)      │  │  │
+│  │  Router (route tbl)     │  │  │ ├─ read subscriptions     │  │  │
+│  │  ↓                      │  │  │ ├─ group by room          │  │  │
+│  │  Handlers/              │  │  │ ├─ fetch via cache│API    │  │  │
+│  │  ├─ status (cache+live) │  │  │ └─ send emails            │  │  │
+│  │  ├─ buildings           │  │  └──────────────────────────┘  │  │
+│  │  ├─ subscription        │  │                                │  │
+│  │  ├─ archive (admin)     │  │  Wake-up triggers:             │  │
+│  │  ├─ likes               │  │  • Clock reaches HH:MM         │  │
+│  │  └─ demo                │  │  • SIGTERM shutdown            │  │
+│  └────────┬───────────────┘  └────────────────────────────────┘  │
+│           │                                                      │
+│  ┌────────▼──────────────────────────────────────────────────┐   │
+│  │                 Shared Services & Archive Engine            │   │
+│  │                                                            │   │
+│  │  ┌────────────┐ ┌──────────────┐ ┌──────────────────────┐  │   │
+│  │  │ DormApi    │ │ AptPowerApi  │ │  Power Archive        │  │   │
+│  │  │ discover() │ │ discover()   │ │  ├─ MappingRepository │  │   │
+│  │  └────────────┘ └──────────────┘ │  ├─ SnapshotStorage   │  │   │
+│  │  ┌────────────┐ ┌──────────────┐ │  ├─ PowerCollector    │  │   │
+│  │  │EmailService│ │ Ranking Cache│ │  └─ TaskMgr           │  │   │
+│  │  └────────────┘ └──────────────┘ └──────────────────────┘  │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│           │                                                       │
+│  ┌────────▼──────────────────────────────────────────────────┐   │
+│  │              Persistence Layer (SQLite)                     │   │
+│  │  data/electrifyszu.db                                       │   │
+│  │  ├─ subscriptions    ├─ room_mappings                      │   │
+│  │  ├─ likes            ├─ room_snapshots                     │   │
+│  │  ├─ ranking_cache    ├─ daily_consumption                  │   │
+│  │  └─ legacy CSVs      ├─ charge_events                      │   │
+│  │                      ├─ collection_tasks                   │   │
+│  │                      └─ collection_runs                    │   │
+│  └────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────┘
+         │                                    │
+         ▼                                    ▼
+┌──────────────────┐                 ┌──────────────────┐
+│ Campus Intranet  │                 │  SMTP Provider   │
+│ Power Systems    │                 │  (QQ/Gmail/etc)  │
+└──────────────────┘                 └──────────────────┘
 ```
 
 Startup sequence (`server.main()`):
@@ -72,7 +85,8 @@ graph TB
             MW["Middleware"]
             
             subgraph Handlers
-                H_Status["status.py"]
+                H_Status["status.py — cache+live"]
+                H_Archive["archive.py — admin"]
                 H_Buildings["buildings.py"]
                 H_Sub["subscription.py"]
                 H_Likes["likes.py"]
@@ -94,11 +108,15 @@ graph TB
             RC["Ranking Cache"]
         end
         
-        subgraph Storage
-            CSV[(subs.csv)]
-            LJ[(likes.json)]
-            RJ[(ranking.json)]
-            BF[buildings.txt]
+        subgraph Archive["Power Archive"]
+            MR["MappingRepository"]
+            SS["SnapshotStorage"]
+            PC["PowerCollector"]
+            TM["CollectionTaskManager"]
+        end
+
+        subgraph Storage["Persistence (SQLite)"]
+            DB["electrifyszu.db"]
         end
     end
     
@@ -110,17 +128,28 @@ graph TB
     H_Status --> DA
     H_Status --> Disc
     H_Status --> RC
-    H_Buildings --> BF
+    H_Status --> SS
+    H_Archive --> PC
+    H_Archive --> TM
+    H_Archive --> MR
     H_Buildings --> RC
-    H_Sub --> CSV
+    H_Sub --> DB
     H_Sub --> ES
-    H_Likes --> LJ
+    H_Likes --> DB
     H_Demo --> Github
     
-    AW --> CSV
+    AW --> DB
     AW --> DA
     AW --> ES
-    AW --> Disc
+    AW --> SS
+    
+    PC --> DA
+    PC --> APA
+    PC --> MR
+    PC --> SS
+    SS --> DB
+    MR --> DB
+    TM --> DB
     
     DA --> Campus
     APA --> Campus
@@ -197,10 +226,11 @@ Delegates ALL request-handling logic to `electrifyszu/server/handlers/`. Contain
 | `middleware.py` | Cross-cutting concerns: XSRF origin check, admin token validation, access-log redaction. |
 | `static.py` | Secure static file serving from `web/`. Path traversal prevention via `resolve()` containment check. |
 | `handlers/types.py` | Shared protocols (`Handler`), utility functions (`query_value`, `read_request_data`, `send_json`, `send_error`), and constants (`LIKES_FILE`, `SENSITIVE_QUERY_KEYS`). |
-| `handlers/status.py` | Dorm/apartment status query. Bridges to `DormApi` or `ApartmentPowerApi` based on client IP. Attaches ranking percentile enrichment. |
+| `handlers/status.py` | Dorm/apartment status query. **Cache-first strategy**: serves fresh snapshot from SQLite (<24h) before hitting campus APIs. Falls through to live fetch on cache miss, persists result into archive. Bridges to `DormApi` or `ApartmentPowerApi` based on client IP. Attaches `_source` marker and ranking percentile enrichment. |
 | `handlers/buildings.py` | Campus/building listings, apartment floor/room cascades, building ranking retrieval. Parses `buildings.txt` + apartment registry. |
 | `handlers/subscription.py` | Full subscription lifecycle: create → verify → unsubscribe → manual alert check. Delegates to `electrifyszu.subscription.*` modules. |
-| `handlers/likes.py` | Like identity issuance/spending, count queries, stats. Atomic JSON persistence with thread locking. |
+| `handlers/archive.py` | Archive admin endpoints — batch collection, archive status inspection, history browsing. Protected by `X-Admin-Token`. Routes: `POST /api/archive/batch`, `GET /api/archive/status`, `GET /api/archive/history`. |
+| `handlers/likes.py` | Like identity issuance/spending, count queries, stats. Atomic SQLite persistence with thread locking. |
 | `handlers/demo.py` | Demo data generator, version/health probes, GitHub star caching. |
 
 Design principle: **Handlers depend downward**, never upward or sideways. They consume services from `electrifyszu.dorm.*`, `electrifyszu.subscription.*`, `electrifyszu.apartment.*`, and `electrifyszu.ranking.*`.
@@ -247,6 +277,29 @@ Fundamental difference: whereas `dorm/` downloads Excel spreadsheets, `apartment
 | `test_delivery.py` | Self-contained smoke test: constructs temporary subscription → sends real email → verifies SMTP pipeline. Runs offline (fabricates room data). |
 
 Key architectural insight: **grouped room fetching** avoids N API calls for N subscribers watching the same room. Five people subscribing to room 713 costs ONE campus API call per alert cycle.
+
+---
+
+### `electrifyszu/archive/` — Power Archive & Data Cache
+
+Persistence engine that transforms the app from pure passthrough to cache-with-refresh. Every live campus-API fetch is persisted to SQLite, enabling sub-millisecond cache hits on subsequent reads for both the HTTP server and alert worker.
+
+| File | Role |
+|------|------|
+| `mapping_repo.py` | `MappingRepository` — room-to-internal-ID cache backed by SQLite. Eliminates redundant 3-step campus-web scraping after the first discovery. Entries carry TTL (default 30 days). |
+| `snapshot_repo.py` | `SnapshotStorage` — ingests `get_status()` dicts into 4 normalized tables (`room_snapshots`, `daily_consumption`, `charge_events`) with cascade-delete FKs. Provides read-back for latest snapshot, historical trends, and charge events. |
+| `collector.py` | `PowerCollector` — facade adapting both `DormApi` and `ApartmentPowerApi` into a uniform `collect_one_room()` interface. Handles dorm room-id discovery and apartment room-code extraction transparently. |
+| `tasks.py` | `CollectionTaskManager` — collection-task scheduler. Enqueues rooms from active subscriptions (prio 0), manual additions (prio 1), ranking samples (prio 2). Tracks consecutive failures and auto-disables broken tasks (>5 fails). Logs each batch run with timing and hit/miss metrics. |
+| `cli.py` | Interactive CLI with 6 subcommands: `collect` (grab one room now), `batch` (drain overdue tasks), `backfill` (deep history, up to 1 year), `status` (row-count overview), `mappings` (list/purge cached room IDs), `history` (stored consumption trend). |
+| `seed_mappings.py` | One-time bootstrap script. Scans active subscriptions, discovers missing room IDs via campus web, and fills mapping cache. |
+
+Key innovation: **cache-first response** for `/api/status` — majority of requests never touch the campus network:
+
+```
+Request → check SQLite snapshot (<24h)
+  ├─ HIT  → return immediately with _source="cache"
+  └─ MISS → live fetch → persist → return with _source="live"
+```
 
 ---
 
@@ -315,10 +368,10 @@ Lazy-loaded: `chart.js` library and subscription module deferred until user inte
 | Decision | Alternatives Considered | Reasoning |
 |----------|------------------------|-----------|
 | **Stdlib HTTP server** | Flask, FastAPI, aiohttp | Zero dependencies, simpler deployment, adequate throughput for low-volume academic use. Trade-off: no async, no auto-docs. |
-| **CSV over SQLite** | SQLite, PostgreSQL | Simpler debugging (open in spreadsheet), git-trackable diffs, no migration headaches. Trade-off: no indexes, linear scans on growth. |
+| **CSV → SQLite migration** | Pure SQLite from start | Originally CSV for simplicity. Migration to SQLite (Phase 4) brought indexes, WAL-mode concurrency, cascade deletes, and unified schema for the Power Archive subsystem. Legacy CSV/JSON auto-migrated on first startup. |
 | **Double opt-in** | Immediate activation | Spam mitigation: confirmed intent reduces junk subscriptions. Aligns with industry best practice. |
 | **Grouped room fetching** | Naive per-subscriber loop | Dramatically reduces campus API pressure. 5 subscribers on same room = 1 call vs 5. |
 | **Route-table dispatch** | Decorator-based routers | Declarative, inspectable, no metaclass magic. Easy to audit completeness. |
 | **Euler-number versions** | Semantic versioning | Fun progressive numbering converging toward *e*; communicates incremental improvement philosophy. |
-| **Atomic writes everywhere** | In-place append/edit | Crash resilience. Brief inconsistency window eliminated. Worth minor complexity cost. |
+| **Atomic writes everywhere** | In-place append/edit | Crash resilience. Brief inconsistency window eliminated. SQLite WAL mode provides this natively for DB-backed data; JSON/CSV legacy stores retained temp-file-rename pattern. |
 | **Monorepo structure** | Split repos | Cohesible product, shared infra, single CI pipeline. |

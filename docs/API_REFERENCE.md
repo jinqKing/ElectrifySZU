@@ -16,6 +16,9 @@ Complete specification for all ElectrifySZU REST endpoints.
 | GET | `/api/subscriptions/verify` | none | Confirm subscription via token |
 | GET | `/api/unsubscribe` | none | Cancel subscription via token |
 | POST | `/api/alerts/check` | **admin** | Trigger immediate alert sweep |
+| POST | `/api/archive/batch` | **admin** | Trigger batch collection of overdue rooms |
+| GET | `/api/archive/status` | **admin** | Archive table row counts + recent runs |
+| GET | `/api/archive/history` | **admin** | Historical trend & charges for a room |
 | POST | `/api/like/init` | none (+ XSRF) | Issue unique like identity |
 | POST | `/api/like` | none (+ XSRF) | Submit a like |
 | GET | `/api/like/count` | none | Total like count |
@@ -58,6 +61,7 @@ All responses carry `Referrer-Policy: no-referrer` header.
 | `BUILDING_NOT_FOUND` | 404 | Unknown apartment building code | `/api/apartment/floors`, `/api/apartment/rooms` |
 | `FORBIDDEN_ORIGIN` | 403 | Cross-site POST detected | all POST endpoints |
 | `UNAUTHORIZED` | 401 | Invalid/missing `X-Admin-Token` | `/api/alerts/check` |
+| `ADMIN_AUTH_REQUIRED` | 401 | Missing/invalid `X-Admin-Token` on archive endpoint | `/api/archive/*` |
 | `NOT_FOUND` | 404 | No route matches | all unmatched POST |
 | `INVALID_EMAIL` | 400 | Malformed email address | `/api/subscriptions` |
 | `INVALID_EMAIL_DOMAIN` | 400 | Domain not in allow-list | `/api/subscriptions` |
@@ -78,11 +82,107 @@ All responses carry `Referrer-Policy: no-referrer` header.
 
 ## Endpoint Details
 
+### Archive Admin
+
+#### `POST /api/archive/batch`
+
+Trigger synchronous batch collection of all overdue rooms. Requires authentication.
+
+**Auth:** Header `X-Admin-Token` must match `ALERT_ADMIN_TOKEN` env var.
+
+**Success Response**
+
+```json
+{
+  "ok": true,
+  "queued": 5,
+  "done": 4,
+  "failed": 1,
+  "elapsed_s": 12.3
+}
+```
+
+Internally calls `enqueue_from_subscriptions()` to register any newly subscribed rooms, then drains all pending collection tasks, disabling tasks with >5 consecutive failures.
+
+---
+
+#### `GET /api/archive/status`
+
+Report archive table sizes and recent collection runs. Requires authentication.
+
+**Auth:** Header `X-Admin-Token`.
+
+**Success Response**
+
+```json
+{
+  "ok": true,
+  "tables": {
+    "room_mappings": 42,
+    "room_snapshots": 156,
+    "daily_consumption": 2890,
+    "charge_events": 34,
+    "collection_tasks": 12,
+    "collection_runs": 8
+  },
+  "table_count": 6,
+  "oldest_snapshot": "2026-05-20T10:00:00",
+  "newest_snapshot": "2026-05-27T22:00:00",
+  "recent_runs": []
+}
+```
+
+---
+
+#### `GET /api/archive/history`
+
+Browse historical consumption data for a given room. Requires authentication.
+
+**Auth:** Header `X-Admin-Token`.
+
+**Parameters**
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `buildingId` | string | yes | — | Building identifier |
+| `roomName` | string | yes | — | Room number |
+| `source` | string | no | `dorm` | `dorm` or `apartment` |
+| `client` | string | no | from `.env` | Campus client IP |
+| `days` | integer | no | `30` | Days of historical trend to return |
+
+**Success Response**
+
+```json
+{
+  "ok": true,
+  "building_id": "7126",
+  "room_name": "713",
+  "trend": [
+    { "date": "2026-05-14", "daily_used_kwh": 1.5, "remaining": 27.8 }
+  ],
+  "latest_snapshot": {
+    "captured_at": "2026-05-27T18:00:00",
+    "remaining": 18.6,
+    "total_used_kwh": 42.8,
+    "daily_avg_kwh": 1.43,
+    "est_days_left": 13.0,
+    "status": "low"
+  },
+  "recent_charges": []
+}
+```
+
+---
+
 ### Dorm Status
 
 #### `GET /api/status`
 
 Query electric balance, 30-day trend, and recharge records for a dorm room.
+
+**Cache strategy:** Cache-first. Tries SQLite snapshot <24h old first; on hit, returns immediately with `_source: "cache"`. On miss, performs live campus-api fetch, persists to archive, and returns with `_source: "live"`.
+
+**Parameters**
 
 **Parameters**
 
@@ -119,6 +219,8 @@ Query electric balance, 30-day trend, and recharge records for a dorm room.
     "daily_avg_kwh": 1.43,
     "est_days_left": 13.0,
     "last_record": "2026-05-20",
+    "_source": "live",
+    "_captured_at": "2026-05-27T18:00:00",
     "building_percentile": 72,
     "building_rank": 28,
     "building_rank_total": 39,
@@ -135,11 +237,13 @@ Query electric balance, 30-day trend, and recharge records for a dorm room.
 ```
 
 Fields `building_percentile`, `building_rank`, `building_rank_total` are present only when ranking cache exists for the queried building.
+Fields `_source` (`"cache"` or `"live"`) and `_captured_at` (ISO timestamp) indicate data provenance and are present when served from the Power Archive cache.
 
 **Notes**
 
 - Requests with `client=172.21.101.11` and `buildingId` in `{01..06}` automatically route to the apartment (丽湖) subsystem.
-- Requires connectivity to the campus intranet API at `DORM_API_BASE`.
+- Cache-first strategy: SQLite snapshot <24h old is served without any campus-network round-trip. On cache miss, live fetch runs and result is persisted.
+- Requires connectivity to the campus intranet API at `DORM_API_BASE` (for cache misses).
 
 ---
 
@@ -385,6 +489,8 @@ Manually trigger one alert-pass sweep. Requires authentication.
 ```
 
 Subscriptions grouped by `(client, campus_name, building_id, room_name)` so identical rooms share one API call.
+
+In production mode, `_fetch_room_data()` first attempts a SQLite snapshot with extended TTL (48h — reliability over real-time). Falls through to live campus-API fetch only on cache miss.
 
 ---
 
