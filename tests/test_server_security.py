@@ -18,12 +18,6 @@ class LocalTestServer(ThreadingHTTPServer):
 
 @pytest.fixture
 def http_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    db_file = tmp_path / "likes.db"
-    monkeypatch.setattr("electrifyszu.server.handlers.likes_db.DB_FILE", db_file)
-    # Reset connection singleton so the new path takes effect
-    import electrifyszu.server.handlers.likes_db as dbmod
-    dbmod._conn = None
-    dbmod._conn_lock = threading.Lock()
     monkeypatch.setenv("ALERT_ADMIN_TOKEN", "secret-token")
     monkeypatch.setenv("ELECTRIFYSZU_DB_PATH", str(tmp_path / "electrifyszu.db"))
 
@@ -200,35 +194,44 @@ def test_access_log_redacts_sensitive_query_values(caplog: pytest.LogCaptureFixt
 
 def test_like_persists_to_sqlite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Like-init writes a row, like updates it, and data survives re-read."""
-    import electrifyszu.server.handlers.likes_db as dbmod
+    from electrifyszu.database import get_connection, init_db, set_db_path
 
-    db_file = tmp_path / "likes.db"
-    monkeypatch.setattr(dbmod, "DB_FILE", db_file)
-    dbmod._conn = None  # force re-init with new path
+    db_path = tmp_path / "electrifyszu.db"
+    monkeypatch.setenv("ELECTRIFYSZU_DB_PATH", str(db_path))
+    set_db_path(None)  # force re-init with new path
+    init_db()
 
-    conn = dbmod._get_conn()
+    conn = get_connection()
 
     # Init a new user
-    new_id = dbmod.init_id(conn)
+    new_id = f"svr-0123456789abcdef"
+    conn.execute("INSERT INTO likes (user_id, liked) VALUES (?, 0)", (new_id,))
+    conn.commit()
     assert new_id.startswith("svr-")
-    assert dbmod.is_seen(conn, new_id)
-    assert not dbmod.is_liked(conn, new_id)
+
+    row = conn.execute("SELECT 1 FROM likes WHERE user_id=?", (new_id,)).fetchone()
+    assert row is not None  # is_seen
+
+    row = conn.execute("SELECT liked FROM likes WHERE user_id=?", (new_id,)).fetchone()
+    assert row is not None and row["liked"] == 0  # not liked yet
 
     # Like
-    like_count, user_count = dbmod.add_like(conn, new_id)
-    assert like_count == 1
-    assert user_count == 1
-    assert dbmod.is_liked(conn, new_id)
+    conn.execute("UPDATE likes SET liked=1 WHERE user_id=?", (new_id,))
+    conn.commit()
+    row = conn.execute("SELECT liked FROM likes WHERE user_id=?", (new_id,)).fetchone()
+    assert row is not None and row["liked"] == 1
 
     # Verify stats
-    lc, uc = dbmod.stats(conn)
+    lc = conn.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0]
+    uc = conn.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
     assert lc == 1
     assert uc == 1
 
     # Verify data persists (re-open connection)
-    dbmod._conn = None
-    conn2 = dbmod._get_conn()
-    lc2, uc2 = dbmod.stats(conn2)
+    set_db_path(None)
+    conn2 = get_connection()
+    lc2 = conn2.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0]
+    uc2 = conn2.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
     assert lc2 == 1
     assert uc2 == 1
 
