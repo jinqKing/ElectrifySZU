@@ -25,6 +25,11 @@ ROUTES: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", "/api/like/count"):       ("likes", "handle_like_count"),
     ("GET", "/api/like/my"):          ("likes", "handle_like_my"),
 
+    # ── Archive Admin ──
+    ("POST", "/api/archive/batch"):   ("archive", "handle_archive_batch"),
+    ("GET", "/api/archive/status"):   ("archive", "handle_archive_status"),
+    ("GET", "/api/archive/history"):  ("archive", "handle_archive_history"),
+
     # ── Stats / Health ──
     ("GET", "/api/stats"):            ("likes", "handle_stats"),
     ("GET", "/api/version"):          ("demo", "handle_version"),

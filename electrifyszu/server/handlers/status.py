@@ -1,4 +1,9 @@
-"""GET /api/status — dormitory power query handler."""
+"""GET /api/status — dormitory power query handler.
+
+Strategy: cache-first. Attempts to serve a fresh snapshot (<24h) from the
+power-archive SQLite tables before falling back to a live campus-network
+scrape. Live fetches persist their results for subsequent cache hits.
+"""
 
 from __future__ import annotations
 
@@ -17,12 +22,23 @@ from electrifyszu.server.handlers.types import (
 )
 
 import electrifyszu.apartment.api as _apt_api
+from electrifyszu.archive.snapshot_repo import SnapshotStorage
 
 logger = logging.getLogger("server")
 
 # Ranking cache (lazy-loaded on first request)
 _RANKING_CACHE: dict = {}
 _RANKING_CACHE_LOADED: bool = False
+
+# Singleton snapshot store (thread-safe via thread-local conn)
+_SSTORE: SnapshotStorage | None = None
+
+
+def _snapshot_store() -> SnapshotStorage:
+    global _SSTORE
+    if _SSTORE is None:
+        _SSTORE = SnapshotStorage()
+    return _SSTORE
 
 
 def _get_ranking_cache() -> dict:
@@ -49,25 +65,75 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
 
         config = Config.from_env(str(ENV_FILE))
         config.client = client or config.client
-        room_id = discover_room_id(
-            building_id=building_id or config.building_id,
-            room_name=room_name or config.room_name,
-            client_ip=config.client,
-            base_url=config.base_url,
-        )
-        if not room_id:
-            raise LookupError(f"未找到 {campus_name} {building_name} {room_name} 房间。")
+        eff_client = client or config.client
+        eff_bi = building_id or config.building_id
+        eff_rn = room_name or config.room_name
 
-        result = DormApi(config).get_status(
-            room_id=room_id,
-            room_name=room_name or config.room_name,
-            days=days,
-            threshold=config.low_power_threshold,
-        )
-        result["client"] = client or config.client
-        result["campus_name"] = campus_name or config.campus_name
-        result["building_id"] = building_id or config.building_id
-        result["building_name"] = building_name or config.building_name
+        # ── Cache-fast path: try archive snapshot ≤24h ──
+        cached_result: dict | None = None
+        try:
+            snap = _snapshot_store().latest_snapshot(
+                source="dorm", client=eff_client,
+                building_id=eff_bi, room_name=eff_rn,
+                max_age_hours=24,
+            )
+            if snap:
+                cached_result = {
+                    "remaining": snap["remaining"],
+                    "total_used_kwh": snap["total_used_kwh"],
+                    "daily_avg_kwh": snap["daily_avg_kwh"],
+                    "est_days_left": snap["est_days_left"],
+                    "unit_price": snap["unit_price"],
+                    "status": snap["status"],
+                    "period": snap["period"],
+                    "client": eff_client,
+                    "campus_name": campus_name or config.campus_name,
+                    "building_id": eff_bi,
+                    "building_name": building_name or config.building_name,
+                    "_source": "cache",
+                    "_captured_at": snap["captured_at"],
+                }
+                logger.info("cache HIT %s %s (%s)", eff_bi, eff_rn, snap["captured_at"])
+        except Exception as cx:
+            logger.debug("cache read error (ignoring): %s", cx)
+
+        if cached_result:
+            result = cached_result
+        else:
+            # ── Cache-miss: live fetch ──
+            logger.info("cache MISS %s %s — fetching live", eff_bi, eff_rn)
+            room_id = discover_room_id(
+                building_id=eff_bi,
+                room_name=eff_rn,
+                client_ip=eff_client,
+                base_url=config.base_url,
+            )
+            if not room_id:
+                raise LookupError(f"未找到 {campus_name} {building_name} {eff_rn} 房间。")
+
+            result = DormApi(config).get_status(
+                room_id=room_id,
+                room_name=eff_rn,
+                days=days,
+                threshold=config.low_power_threshold,
+            )
+            result["client"] = eff_client
+            result["campus_name"] = campus_name or config.campus_name
+            result["building_id"] = eff_bi
+            result["building_name"] = building_name or config.building_name
+            result["_source"] = "live"
+
+            # Persist fetched result into archive
+            try:
+                _snapshot_store().ingest_status(
+                    source="dorm", client=eff_client,
+                    campus_name=result.get("campus_name", ""),
+                    building_id=eff_bi, building_name=result.get("building_name", ""),
+                    room_name=eff_rn, status=result,
+                )
+                logger.info("persisted live snapshot %s %s", eff_bi, eff_rn)
+            except Exception as px:
+                logger.warning("archive ingest error (non-fatal): %s", px)
 
         # 楼栋排行百分位
         try:
@@ -103,18 +169,69 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
 def _handle_apartment_status(
     handler: BaseHTTPRequestHandler, building_code: str, room_name: str, days: int
 ) -> None:
+    CLIENT_APT = "172.21.101.11"
+    CAMPUS_APT = "西丽校区"
     try:
         apt_config = ApartmentConfig.from_env(str(ENV_FILE))
-        api = _apt_api.ApartmentPowerApi(apt_config)
-        result = api.get_status(
-            building_code=building_code,
-            room_name=room_name,
-            days=days,
-            threshold=apt_config.low_power_threshold,
-        )
-        result["client"] = CAMPUS_GROUP["lihu"]
-        result["campus_name"] = "西丽校区"
-        result["building_id"] = building_code
+
+        # ── Cache-fast path ──
+        cached_result: dict | None = None
+        try:
+            snap = _snapshot_store().latest_snapshot(
+                source="apartment", client=CLIENT_APT,
+                building_id=building_code, room_name=room_name,
+                max_age_hours=24,
+            )
+            if snap:
+                cached_result = {
+                    "remaining": snap["remaining"],
+                    "total_used_kwh": snap["total_used_kwh"],
+                    "daily_avg_kwh": snap["daily_avg_kwh"],
+                    "est_days_left": snap["est_days_left"],
+                    "unit_price": snap["unit_price"],
+                    "status": snap["status"],
+                    "period": snap["period"],
+                    "client": CLIENT_APT,
+                    "campus_name": CAMPUS_APT,
+                    "building_id": building_code,
+                    "_source": "cache",
+                    "_captured_at": snap["captured_at"],
+                }
+                logger.info("apt cache HIT %s %s", building_code, room_name)
+        except Exception as cx:
+            logger.debug("apt cache read error (ignoring): %s", cx)
+
+        if cached_result:
+            result = cached_result
+        else:
+            # ── Cache-miss: live fetch ──
+            logger.info("apt cache MISS %s %s — fetching live", building_code, room_name)
+            api = _apt_api.ApartmentPowerApi(apt_config)
+            result = api.get_status(
+                building_code=building_code,
+                room_name=room_name,
+                days=days,
+                threshold=apt_config.low_power_threshold,
+            )
+            result["client"] = CLIENT_APT
+            result["campus_name"] = CAMPUS_APT
+            result["building_id"] = building_code
+            result["_source"] = "live"
+
+            # Persist into archive
+            try:
+                _snapshot_store().ingest_status(
+                    source="apartment", client=CLIENT_APT,
+                    campus_name=CAMPUS_APT,
+                    building_id=building_code,
+                    building_name=result.get("building_name", ""),
+                    room_name=room_name, status=result,
+                )
+                logger.info("persisted apt snapshot %s %s", building_code, room_name)
+            except Exception as px:
+                logger.warning("apt archive ingest error (non-fatal): %s", px)
+
+ (feat: integrate Power Archive into server and alerts workflows)
         send_json(handler, {"ok": True, "data": result})
     except LookupError as exc:
         send_error(

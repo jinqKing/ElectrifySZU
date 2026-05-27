@@ -206,7 +206,11 @@ class AlertRunner:
     ) -> dict[str, object] | None:
         """Return the room status dict (or None on skip).
 
-        When *force* is True, returns fabricated data without hitting the API.
+        Strategy (production mode): tries archive snapshot first (zero-latency);
+        falls back to live campus-API fetch only on cache miss.
+
+        When *force* is True (testing mode), returns fabricated data without
+        hitting the API or the archive.
         """
         if force:
             return {
@@ -222,6 +226,46 @@ class AlertRunner:
                 "recharges": [],
             }
 
+        # Production mode: try archive snapshot first (extends max age to 48h
+        # for alerts because near-real-time precision is less important than
+        # reliability — the batch collector keeps data reasonably fresh).
+        if self.settings.mode == "production":
+            try:
+                from electrifyszu.archive.snapshot_repo import SnapshotStorage
+                snap = SnapshotStorage().latest_snapshot(
+                    source="dorm",
+                    client=subscription.client,
+                    building_id=subscription.building_id,
+                    room_name=subscription.room_name,
+                    max_age_hours=48,
+                )
+                if snap:
+                    logger.info(
+                        "archive-HIT %s %s (%s)",
+                        subscription.building_id, subscription.room_name,
+                        snap["captured_at"],
+                    )
+                    return {
+                        "room_name": subscription.room_name,
+                        "remaining": snap["remaining"],
+                        "total_used_kwh": snap["total_used_kwh"],
+                        "daily_avg_kwh": snap["daily_avg_kwh"],
+                        "est_days_left": snap["est_days_left"],
+                        "unit_price": snap["unit_price"],
+                        "status": snap["status"],
+                        "threshold_kwh": subscription.threshold_kwh,
+                        "period": snap["period"],
+                        "trend": [],
+                        "recharges": [],
+                    }
+                logger.info(
+                    "archive-MISS %s %s", subscription.building_id,
+                    subscription.room_name,
+                )
+            except Exception as cx:
+                logger.debug("archive read error in alerts (fallthrough): %s", cx)
+
+        # Cache miss or testing mode: live fetch via campus API
         config = Config.from_env(str(self.settings.env_path))
         config.client = subscription.client
         room_id = discover_room_id(
