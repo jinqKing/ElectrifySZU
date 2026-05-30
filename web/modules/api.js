@@ -28,7 +28,13 @@ export async function fetchJson(url) {
   const response = await fetchWithTimeout(url);
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
   if (!contentType.includes("application/json")) {
-    throw new Error(t("error.nonJson"));
+    if (response.status === 404) {
+      throw new Error(t("error.notFound"));
+    } else if (response.status >= 500) {
+      throw new Error(t("error.serverError", { status: response.status }));
+    } else {
+      throw new Error(t("error.nonJson", { status: response.status }));
+    }
   }
   const payload = await response.json();
   if (!response.ok) {
@@ -47,7 +53,13 @@ export async function postJson(url, data) {
   });
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
   if (!contentType.includes("application/json")) {
-    throw new Error(t("error.nonJson"));
+    if (response.status === 404) {
+      throw new Error(t("error.notFound"));
+    } else if (response.status >= 500) {
+      throw new Error(t("error.serverError", { status: response.status }));
+    } else {
+      throw new Error(t("error.nonJson", { status: response.status }));
+    }
   }
   const payload = await response.json();
   if (!response.ok) {

@@ -70,16 +70,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         key = ("GET", parsed.path)
         if key in ROUTES:
-            module_name, func_name = ROUTES[key]
-            handler_mod = importlib.import_module(
-                f"electrifyszu.server.handlers.{module_name}"
-            )
-            handler_func = getattr(handler_mod, func_name)
-            if parsed.query:
-                from urllib.parse import parse_qs
-                handler_func(self, parse_qs(parsed.query))
-            else:
-                handler_func(self)
+            try:
+                module_name, func_name = ROUTES[key]
+                handler_mod = importlib.import_module(
+                    f"electrifyszu.server.handlers.{module_name}"
+                )
+                handler_func = getattr(handler_mod, func_name)
+                if parsed.query:
+                    from urllib.parse import parse_qs
+                    handler_func(self, parse_qs(parsed.query))
+                else:
+                    handler_func(self)
+            except Exception:
+                logger.exception("Unhandled error in GET %s", parsed.path)
+                try:
+                    self._send_json(
+                        {"ok": False, "error": "Internal server error", "error_code": "INTERNAL_ERROR"},
+                        status=500,
+                    )
+                except Exception:
+                    pass
         else:
             serve_static(self, parsed.path)
 
@@ -111,16 +121,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             return
 
-        module_name, func_name = ROUTES[key]
-        handler_mod = importlib.import_module(
-            f"electrifyszu.server.handlers.{module_name}"
-        )
-        handler_func = getattr(handler_mod, func_name)
-        if parsed.query:
-            from urllib.parse import parse_qs
-            handler_func(self, parse_qs(parsed.query))
-        else:
-            handler_func(self)
+        try:
+            module_name, func_name = ROUTES[key]
+            handler_mod = importlib.import_module(
+                f"electrifyszu.server.handlers.{module_name}"
+            )
+            handler_func = getattr(handler_mod, func_name)
+            if parsed.query:
+                from urllib.parse import parse_qs
+                handler_func(self, parse_qs(parsed.query))
+            else:
+                handler_func(self)
+        except Exception:
+            logger.exception("Unhandled error in POST %s", parsed.path)
+            try:
+                self._send_json(
+                    {"ok": False, "error": "Internal server error", "error_code": "INTERNAL_ERROR"},
+                    status=500,
+                )
+            except Exception:
+                pass
 
     def log_message(self, fmt: str, *args: object) -> None:
         """Structured access log with timing."""
