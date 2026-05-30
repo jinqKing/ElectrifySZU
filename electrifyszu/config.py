@@ -151,3 +151,7 @@ def client_for_group(group_name: str) -> str:
 # ── Backward-compatible alias ──────────────────────────────────────────────
 
 Config = DormConfig
+
+# ── Query limits ────────────────────────────────────────────────────────────
+
+MAX_QUERY_DAYS = 365  # 服务端 days 参数上限（前端限制为 180）

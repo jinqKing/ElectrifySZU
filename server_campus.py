@@ -22,6 +22,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from electrifyszu.logging import setup_logging
+from electrifyszu.server.rate_limit import check_rate_limit
 from electrifyszu.version import __version__
 
 logger = logging.getLogger("server")
@@ -52,6 +53,8 @@ class CampusAPIHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         self._request_start = time.time()
+        if not check_rate_limit(self):
+            return
         parsed = urlparse(self.path)
         key = ("GET", parsed.path)
 

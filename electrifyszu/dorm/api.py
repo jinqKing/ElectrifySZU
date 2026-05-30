@@ -5,7 +5,7 @@ import urllib.request
 from datetime import datetime, timedelta
 from typing import Any, Callable
 
-from electrifyszu.config import DormConfig as Config
+from electrifyszu.config import DormConfig as Config, MAX_QUERY_DAYS
 from electrifyszu.version import __version__
 
 
@@ -43,7 +43,8 @@ class DormApi:
 
     def _fetch(self, url: str) -> bytes:
         req = urllib.request.Request(url, headers={"User-Agent": f"ElectrifySZU/{__version__}"})
-        proxy = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+        from electrifyszu.dorm.proxy import get_safe_proxy
+        proxy = get_safe_proxy()
         if proxy:
             handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
             opener = urllib.request.build_opener(handler)
@@ -105,7 +106,7 @@ class DormApi:
             reconstruct_dorm_status,
         )
 
-        days = max(days, 1)
+        days = min(max(days, 1), MAX_QUERY_DAYS)
         today = datetime.now()
         begin = (today - timedelta(days=days + 1)).strftime("%Y-%m-%d")
         end = today.strftime("%Y-%m-%d")

@@ -25,7 +25,12 @@ services:
     image: electrifyszu-campus:local
     container_name: electrifyszu-campus
     restart: unless-stopped
-    network_mode: host                      # Access campus network APIs
+    # host 网络：校园网机器需要直接访问内网 API (DORM_API_BASE / APARTMENT_POWER_BASE)
+    network_mode: host
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     env_file:
       - path: ./.env
         required: false

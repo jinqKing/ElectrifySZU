@@ -5,7 +5,13 @@ services:
     image: electrifyszu:local
     container_name: electrifyszu
     restart: unless-stopped
+    # host 网络是访问校园网 API (DORM_API_BASE / APARTMENT_POWER_BASE) 的必要配置。
+    # 移除 host 网络会导致无法查询电费数据。
     network_mode: host
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     env_file:
       - path: ./.env
         required: false

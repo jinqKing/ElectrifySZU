@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from electrifyszu.config import MAX_QUERY_DAYS
 from electrifyszu.ranking.floor_probe import DEFAULT_FLOOR_RANGE_FILE, candidate_floor_range, floor_range_key, load_floor_ranges
 from electrifyszu.ranking.ranking import mask_room_name
 
@@ -167,7 +168,7 @@ def demo_ranking_from_plan(
     rng = random.Random(seed)
     generated_at = generated_at or datetime.now().isoformat(timespec="seconds")
     end_date = datetime.fromisoformat(generated_at[:19]).date()
-    begin_date = end_date - timedelta(days=max(days, 1))
+    begin_date = end_date - timedelta(days=min(max(days, 1), MAX_QUERY_DAYS))
     rows = []
 
     for room_name in plan.get("sample_rooms", []):

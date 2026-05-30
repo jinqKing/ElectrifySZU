@@ -11,7 +11,7 @@ from http.cookiejar import CookieJar
 from typing import Any
 
 from electrifyszu.apartment.buildings import Building, get_building, load_buildings, normalize_building_code
-from electrifyszu.config import ApartmentConfig as Config, CAMPUS_GROUP
+from electrifyszu.config import ApartmentConfig as Config, CAMPUS_GROUP, MAX_QUERY_DAYS
 from electrifyszu.version import __version__
 
 SELECT_FIELDS = {
@@ -132,7 +132,7 @@ class ApartmentPowerApi:
         days: int = 30,
         threshold: float | None = None,
     ) -> dict[str, Any]:
-        days = max(days, 1)
+        days = min(max(days, 1), MAX_QUERY_DAYS)
         today = datetime.now()
         begin = (today - timedelta(days=days)).strftime("%Y-%m-%d")
         end = today.strftime("%Y-%m-%d")

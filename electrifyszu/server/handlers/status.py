@@ -6,7 +6,7 @@ import logging
 from http.server import BaseHTTPRequestHandler
 
 from electrifyszu.config import (
-    CAMPUS_GROUP,
+    CAMPUS_GROUP, MAX_QUERY_DAYS,
     DormConfig as Config,
     ApartmentConfig,
     client_for_group,
@@ -48,7 +48,11 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
         campus_name = query_value(query, "campusName") or ""
         building_name = query_value(query, "buildingName") or ""
         room_name = query_value(query, "roomName") or ""
-        days = int(query_value(query, "days") or "30")
+        try:
+            days = int(query_value(query, "days") or "30")
+        except (ValueError, TypeError):
+            days = 30
+        days = min(max(days, 1), MAX_QUERY_DAYS)
 
         # 丽湖校区内，公寓系统楼栋（编码01-06）走 ApartmentPowerApi
         lihu_ip = CAMPUS_GROUP.get("lihu", "")

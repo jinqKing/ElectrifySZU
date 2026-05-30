@@ -21,6 +21,10 @@ services:
     image: electrifyszu-public:local
     container_name: electrifyszu-public
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     env_file:
       - path: ./.env
         required: false
@@ -39,7 +43,10 @@ services:
     image: nginx:alpine
     container_name: electrifyszu-nginx
     restart: unless-stopped
-    network_mode: host                      # Access SSH tunnel on localhost:18080
+    # host 网络：需要访问 localhost:18080 SSH 隧道和绑定 :80 端口
+    network_mode: host
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./deploy/nginx/electrifyszu.conf:/etc/nginx/conf.d/default.conf:ro
       - ./web:/usr/share/nginx/html:ro
