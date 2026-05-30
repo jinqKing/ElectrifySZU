@@ -53,7 +53,8 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: url('pic/ElectrifySZU_bird_light.png') center 80% / 120% auto no-repeat;
+  background: url('pic/ElectrifySZU_bird_light.webp') center 80% / 120% auto no-repeat,
+              url('pic/ElectrifySZU_bird_light.png') center 80% / 120% auto no-repeat;
   opacity: 0.12;
   pointer-events: none;
   z-index: -1;
@@ -239,6 +240,14 @@ select {
   font-size: 12px;
   font-weight: 800;
   text-transform: none;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.version-label:hover,
+.version-label:focus-visible {
+  color: var(--blue);
 }
 
 h1,
