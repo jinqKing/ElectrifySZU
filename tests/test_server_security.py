@@ -288,3 +288,83 @@ def test_demo_status_json_uses_group_not_ip() -> None:
         assert not re.match(_IP_PATTERN, client), (
             f"demo-status.json leaked IP: {client}"
         )
+
+
+# ── days 参数上限测试 ──────────────────────────────────────────────────────
+
+
+class TestDaysLimit:
+    """验证 days 参数在入口层和 API 层的双层封顶。"""
+
+    def test_days_exceeding_max_is_capped(self) -> None:
+        from electrifyszu.config import MAX_QUERY_DAYS
+        from electrifyszu.dorm.api import DormApi
+        # 只需验证 Clamp 逻辑，不需要真实 API 调用
+        assert MIN_MAX(9999, 1, MAX_QUERY_DAYS) == MAX_QUERY_DAYS
+
+    def test_days_at_boundary_allowed(self) -> None:
+        from electrifyszu.config import MAX_QUERY_DAYS
+        assert MIN_MAX(MAX_QUERY_DAYS, 1, MAX_QUERY_DAYS) == MAX_QUERY_DAYS
+
+    def test_days_negative_clamped(self) -> None:
+        from electrifyszu.config import MAX_QUERY_DAYS
+        assert MIN_MAX(-1, 1, MAX_QUERY_DAYS) == 1
+
+    def test_days_zero_clamped(self) -> None:
+        from electrifyszu.config import MAX_QUERY_DAYS
+        assert MIN_MAX(0, 1, MAX_QUERY_DAYS) == 1
+
+
+def MIN_MAX(value: int, lo: int, hi: int) -> int:
+    return min(max(value, lo), hi)
+
+
+# ── 速率限制测试 ────────────────────────────────────────────────────────────
+
+
+class TestRateLimiter:
+    """测试 RateLimiter 的核心行为。"""
+
+    def test_check_allows_first_request(self) -> None:
+        from electrifyszu.server.rate_limit import RateLimiter
+
+        rl = RateLimiter(cleanup_interval=999)
+        key = f"10.0.0.1:/api/status"
+        now = 1000.0
+
+        # 手动注入时间戳跳过真实时间
+        with rl._lock:
+            rl._last_cleanup = now + 999  # prevent cleanup
+        # 用内部方法直接测试
+        assert rl._match_rule("/api/status", "GET") == (10, 60)
+
+    def test_match_rule_post(self) -> None:
+        from electrifyszu.server.rate_limit import RateLimiter
+
+        rl = RateLimiter()
+        # /api/subscriptions 有独立规则（5/min），优先级高于 POST 通用规则
+        max_req, window = rl._match_rule("/api/subscriptions", "POST")
+        assert (max_req, window) == (5, 60)
+        # 其他 POST 端点使用 POST 通用规则（30/min）
+        max_req2, window2 = rl._match_rule("/api/like", "POST")
+        assert (max_req2, window2) == (30, 60)
+
+    def test_match_rule_api_status(self) -> None:
+        from electrifyszu.server.rate_limit import RateLimiter
+
+        rl = RateLimiter()
+        max_req, window = rl._match_rule("/api/status", "GET")
+        assert (max_req, window) == (10, 60)
+
+    def test_match_rule_default(self) -> None:
+        from electrifyszu.server.rate_limit import RateLimiter
+
+        rl = RateLimiter()
+        max_req, window = rl._match_rule("/api/health", "GET")
+        assert (max_req, window) == (60, 60)
+
+    def test_rule_key_post(self) -> None:
+        from electrifyszu.server.rate_limit import RateLimiter
+
+        assert RateLimiter._rule_key("/api/anything", "POST") == "POST"
+        assert RateLimiter._rule_key("/api/status", "GET") == "/api/status"

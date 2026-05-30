@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Callable
 
+from electrifyszu.config import MAX_QUERY_DAYS
 from electrifyszu.ranking.floor_probe import (
     DEFAULT_FLOOR_RANGE_FILE,
     candidate_floor_range,
@@ -50,7 +51,7 @@ def build_ranking(
     max_floor: int | None = None,
     sample_rooms: list[str] | None = None,
 ) -> dict[str, Any]:
-    days = max(int(days), 1)
+    days = min(max(int(days), 1), MAX_QUERY_DAYS)
     config.client = client
     api = api_factory(config)
 

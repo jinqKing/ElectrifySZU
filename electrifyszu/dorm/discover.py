@@ -26,7 +26,8 @@ from electrifyszu.config import DormConfig as Config
 
 
 def get_proxy() -> str:
-    return os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy") or ""
+    from electrifyszu.dorm.proxy import get_safe_proxy
+    return get_safe_proxy()
 
 
 def _base_url(value: str = "") -> str:

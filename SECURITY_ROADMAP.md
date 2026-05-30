@@ -61,8 +61,8 @@
 
 **方案:**
 
-- [ ] 在所有 handler 的 `int(query_value(query, "days") or "30")` 后添加 `min(max(days, 1), 365)`
-- [ ] 同步检查 `alerts.py` 中 `run_once` 的 `days` 使用
+- [x] 在所有 handler 的 `int(query_value(query, "days") or "30")` 后添加 `min(max(days, 1), 365)`
+- [x] 同步检查 `alerts.py` 中 `run_once` 的 `days` 使用（硬编码 30，无需改动）
 
 ### 2.2 HTTP_PROXY 环境变量白名单校验
 
@@ -72,9 +72,9 @@
 
 **方案:**
 
-- [ ] 添加 `is_safe_proxy_url(url)` 校验函数，仅允许 `127.0.0.1` / 内网 IP 范围的代理
-- [ ] 或添加 `ALLOWED_PROXY_HOSTS` 环境变量白名单
-- [ ] 在日志中记录使用的代理地址
+- [x] 添加 `is_safe_proxy_url(url)` 校验函数，仅允许 `127.0.0.1` / 内网 IP 范围的代理
+- [x] 添加 `ALLOWED_PROXY_HOSTS` 环境变量白名单
+- [x] 在日志中记录使用的代理地址
 
 ### 2.3 Docker 安全加固
 
@@ -84,9 +84,10 @@
 
 **方案:**
 
-- [ ] `compose.public.yml` — `.env` 挂载添加 `:ro`
-- [ ] `compose.campus.yml` — `.env` 挂载添加 `:ro`
-- [ ] `compose.yml` — `.env` 挂载添加 `:ro`
+- [x] `compose.yml` — `security_opt: no-new-privileges:true` + `cap_drop: ALL` + host 网络注释
+- [x] `compose.public.yml` — 两个 service 添加 security_opt + cap_drop
+- [x] `compose.campus.yml` — security_opt + cap_drop + host 网络注释
+- [x] `deploy/campus/Dockerfile` — 新增 HEALTHCHECK
 - [ ] `Dockerfile` — 健康检查改用 `curl` 或预编译的简单 HTTP 客户端（可选）
 
 ### 2.4 添加 Python 层面速率限制
@@ -97,9 +98,9 @@
 
 **方案:**
 
-- [ ] 在 `server/middleware.py` 中添加简单的基于 IP 的内存速率限制（滑动窗口）
-- [ ] 对 `/api/status` 端点限制为每分钟 10 次
-- [ ] 对 `/api/subscriptions` 端点限制为每分钟 5 次
+- [x] 新建 `electrifyszu/server/rate_limit.py` — 基于 deque 的滑动窗口限流器
+- [x] 在 `server.py` / `server_public.py` / `server_campus.py` 的 do_GET/do_POST 入口集成
+- [x] `/api/status` 10次/60s，`/api/subscriptions` 5次/60s，POST 通用 30次/60s，默认 60次/60s
 
 ---
 
@@ -157,6 +158,8 @@
 - [ ] 或者仅对 GET 请求保持宽松，POST 请求严格要求
 
 ---
+
+> **额外发现 (2026-05-31)**：MTT 服务器上 Cloudflare Tunnel 的 token 可通过 `docker inspect` 在命令行参数中查看。属于宿主机权限泄露——任何能执行 docker 命令的用户都可获取该 token。建议改用 Docker secret 或环境变量注入 token。
 
 ## 第四阶段：持续安全实践
 

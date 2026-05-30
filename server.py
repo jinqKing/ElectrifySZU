@@ -24,6 +24,7 @@ from electrifyszu.server.middleware import (
     validate_admin_token,
     redact_access_log,
 )
+from electrifyszu.server.rate_limit import check_rate_limit
 from electrifyszu.server.static import serve_static
 from electrifyszu.subscription.alerts import (
     AlertRunner,
@@ -64,6 +65,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         self._request_start = time.time()
+        if not check_rate_limit(self):
+            return
         parsed = urlparse(self.path)
         key = ("GET", parsed.path)
         if key in ROUTES:
@@ -82,6 +85,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         self._request_start = time.time()
+        if not check_rate_limit(self):
+            return
         if not validate_same_origin(self):
             self._send_json(
                 {"ok": False, "error": "Forbidden origin", "error_code": "FORBIDDEN_ORIGIN"},
