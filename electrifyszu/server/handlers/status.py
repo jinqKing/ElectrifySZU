@@ -104,7 +104,7 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
     except LookupError as exc:
         send_error(
             handler, "ROOM_NOT_FOUND", str(exc),
-            "请确认校区、楼栋与房间号是否正确。", status=502,
+            "请确认校区、楼栋与房间号是否正确。", status=404,
         )
     except Exception as exc:
         send_error(
@@ -132,7 +132,7 @@ def _handle_apartment_status(
     except LookupError as exc:
         send_error(
             handler, "ROOM_NOT_FOUND", str(exc),
-            "请确认楼栋与房间号是否正确。", status=502,
+            "请确认楼栋与房间号是否正确。", status=404,
         )
     except Exception as exc:
         send_error(
