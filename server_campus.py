@@ -59,12 +59,22 @@ class CampusAPIHandler(BaseHTTPRequestHandler):
         key = ("GET", parsed.path)
 
         if key in CAMPUS_ROUTES:
-            module_name, func_name = CAMPUS_ROUTES[key]
-            handler_func = _import_handler(module_name, func_name)
-            if parsed.query:
-                handler_func(self, parse_qs(parsed.query))
-            else:
-                handler_func(self)
+            try:
+                module_name, func_name = CAMPUS_ROUTES[key]
+                handler_func = _import_handler(module_name, func_name)
+                if parsed.query:
+                    handler_func(self, parse_qs(parsed.query))
+                else:
+                    handler_func(self)
+            except Exception:
+                logger.exception("Unhandled error in GET %s", parsed.path)
+                try:
+                    self._send_json(
+                        {"ok": False, "error": "Internal server error", "error_code": "INTERNAL_ERROR"},
+                        status=500,
+                    )
+                except Exception:
+                    pass
         else:
             self._send_json(
                 {"ok": False, "error": "Not found here", "error_code": "NOT_FOUND"},
