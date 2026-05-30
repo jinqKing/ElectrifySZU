@@ -40,3 +40,6 @@ building_power_ranking/data/sample_plan.json
 # Logs
 *.log
 logs/
+
+nul
+AGENTS.md
