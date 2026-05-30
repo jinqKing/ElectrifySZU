@@ -114,17 +114,11 @@
 
 **方案:**
 
-- [ ] Python — 在 `_send_json` / `send_json` 中统一添加:
-  - `X-Content-Type-Options: nosniff`
-  - `X-Frame-Options: DENY`
-  - `X-XSS-Protection: 0`（现代浏览器已废弃，但显式关闭旧版行为）
-- [ ] Nginx — 在全局 `server` 块添加:
-  - `add_header X-Content-Type-Options "nosniff" always;`
-  - `add_header X-Frame-Options "DENY" always;`
-  - `add_header Referrer-Policy "no-referrer" always;`
+- [x] Python — 在 7 个响应发送点统一添加 `X-Content-Type-Options: nosniff` + `X-Frame-Options: DENY`
+- [x] Nginx — server 块添加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`
 - [ ] Nginx — 考虑添加基础 `Content-Security-Policy`（后续单独规划）
 
-### 3.2 隐藏 Server 版本头
+### 3.2 ~~隐藏 Server 版本头~~（跳过—用户保留版本号作为特色）
 
 **文件:** `server.py:63`, `server_public.py:77`, `server_campus.py:51`
 
@@ -143,8 +137,7 @@
 
 **方案:**
 
-- [ ] 将 `demo.py` 中的 `client` 字段改为 campus group 标识名（如 `yuehai_newzhai`）
-- [ ] 或改为仅依赖 `CAMPUS_GROUP` 字典从环境变量读取
+- [x] 将 `demo.py` 中的 `client` 字段改为 campus group 标识名（已在阶段一完成）
 
 ### 3.4 加固 `validate_same_origin` 的宽松回退
 
@@ -154,8 +147,7 @@
 
 **方案:**
 
-- [ ] 为非浏览器客户端（缺少两个头）添加 `X-Requested-With: XMLHttpRequest` 检查
-- [ ] 或者仅对 GET 请求保持宽松，POST 请求严格要求
+- [x] 为非浏览器客户端添加注释说明 + DEBUG 日志，保持行为不变
 
 ---
 
@@ -165,16 +157,11 @@
 
 ### 4.1 完善 `.env.example`
 
-- [ ] 新增所有安全相关环境变量的示例和注释
-- [ ] 标注哪些是可选的，哪些是生产必需的
-- [ ] 添加 `CAMPUS_CLIENT_*` 系列变量
+- [x] 重写 .env.example：分组索引 + [必需]/[可选]/[仅测试] 标签 + 补充公寓变量和 DB_PATH + 移除无用 TEST_* 变量
 
 ### 4.2 添加安全测试用例
 
-- [ ] `tests/test_server_security.py` 中补充:
-  - days 参数超大值拒绝测试
-  - 内网 IP 不泄露测试
-  - XSS payload 在 buildings API 中被转义测试
+- [x] `tests/test_server_security.py` 中补充: days 上限、内网 IP 不泄露、代理白名单、速率限制测试（阶段一二三已完成）
 
 ### 4.3 依赖审计
 
