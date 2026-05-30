@@ -35,7 +35,7 @@ wheels = [
 
 [[package]]
 name = "electrifyszu"
-version = "2.7182"
+version = "2.71828"
 source = { virtual = "." }
 dependencies = [
     { name = "httpx" },
