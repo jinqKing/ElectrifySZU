@@ -30,5 +30,8 @@ def serve_static(handler: BaseHTTPRequestHandler, path: str) -> None:
     handler.send_response(200)
     handler.send_header("Content-Type", content_type)
     handler.send_header("Content-Length", str(len(data)))
+    handler.send_header("Referrer-Policy", "no-referrer")
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    handler.send_header("X-Frame-Options", "DENY")
     handler.end_headers()
     handler.wfile.write(data)

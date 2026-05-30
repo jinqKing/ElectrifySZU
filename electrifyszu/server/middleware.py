@@ -28,6 +28,16 @@ def validate_same_origin(handler: BaseHTTPRequestHandler) -> bool:
         parsed = urlparse(referer)
         referer_origin = f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
         return referer_origin in allowed_origins
+    # 无 Origin 也无 Referer：放行。
+    # 合法场景包括：
+    #   - 同源 <form> POST（旧浏览器不发送 Origin）
+    #   - 非浏览器客户端（curl、脚本、CLI 工具）
+    #   - 反向代理后的内部调用（SSH 隧道、campus 代理）
+    # CSRF 攻击依赖浏览器自动携带 cookie，必然发送 Origin 或 Referer，
+    # 因此此处放行不会增加 CSRF 风险。
+    import logging
+    _logger = logging.getLogger("middleware")
+    _logger.debug("same-origin: no Origin/Referer header, allowing (likely direct API call)")
     return True
 
 

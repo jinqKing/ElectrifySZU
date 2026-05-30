@@ -124,6 +124,8 @@ def send_json(handler: BaseHTTPRequestHandler, payload: dict[str, object], statu
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(data)))
     handler.send_header("Referrer-Policy", "no-referrer")
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    handler.send_header("X-Frame-Options", "DENY")
     handler.end_headers()
     handler.wfile.write(data)
 
@@ -147,6 +149,8 @@ def redirect_to(handler: BaseHTTPRequestHandler, path: str) -> None:
     handler.send_header("Location", path)
     handler.send_header("Content-Length", "0")
     handler.send_header("Referrer-Policy", "no-referrer")
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    handler.send_header("X-Frame-Options", "DENY")
     handler.end_headers()
 
 
