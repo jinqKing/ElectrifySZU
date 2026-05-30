@@ -1,5 +1,5 @@
 # SZU apartment power monitor building list
-# Endpoint: http://172.25.100.105:8010/
+# Endpoint: configured via APARTMENT_POWER_BASE env var
 #
 # The website encodes a room as:
 #   room_code = <building_code><floor:02d><room_ordinal:02d>

@@ -2,8 +2,8 @@
 #
 # Deployed on the campus-internal machine (behind SZU firewall).
 # This machine has access to:
-#   - http://192.168.84.3:9090/cgcSims   (dorm power system)
-#   - http://172.25.100.105:8010/        (apartment power system)
+#   - DORM_API_BASE     (dorm power system env var)
+#   - APARTMENT_POWER_BASE  (apartment power system env var)
 #
 # The campus machine connects to the public server via SSH tunnel.
 # No public ports are needed — only SSH outbound to the public server.

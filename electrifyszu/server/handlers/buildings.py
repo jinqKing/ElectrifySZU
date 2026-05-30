@@ -6,15 +6,17 @@ import re
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
-from electrifyszu.config import CAMPUS_GROUP, DormConfig as Config
+from electrifyszu.config import CAMPUS_GROUP, DormConfig as Config, group_for_client, client_for_group
 
 
 def _campus_group(client: str) -> str:
-    """Map a campus client IP to its logical group identifier."""
-    for group_name, group_client in CAMPUS_GROUP.items():
-        if group_client == client:
-            return group_name
-    return ""
+    """Map a campus client IP to its logical group identifier.
+
+    Deprecated: use ``group_for_client()`` from electrifyszu.config instead.
+    Kept for backward compatibility with ``load_buildings_file()`` which
+    uses this function as a module-level symbol during parsing.
+    """
+    return group_for_client(client)
 from electrifyszu.ranking.cache import cached_ranking_for
 from electrifyszu.server.handlers.types import (
     ENV_FILE,
@@ -76,7 +78,9 @@ def handle_apartment_rooms(handler: BaseHTTPRequestHandler, query: dict[str, lis
 def handle_building_ranking(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) -> None:
     try:
         config = Config.from_env(str(ENV_FILE))
-        client = query_value(query, "client") or config.client
+        client_raw = query_value(query, "client") or ""
+        # Accept either campus group name (new) or legacy IP
+        client = client_for_group(client_raw) or client_raw or config.client
         building_id = query_value(query, "buildingId") or config.building_id
         result = cached_ranking_for(load_ranking_cache_from_cache(), client=client, building_id=building_id)
         if result is None:
@@ -99,17 +103,19 @@ def load_buildings_file() -> list[dict[str, object]]:
     if not BUILDINGS_FILE.is_file():
         return campuses
 
-    campus_pattern = re.compile(r"^##\s+(.+?)\s+client=([^\s]+)")
+    campus_pattern = re.compile(r"^##\s+(.+?)\s+(?:client|group)=([^\s]+)")
     building_pattern = re.compile(r"buildingId=\s*(\d+)\s+(.+?)\s*$")
     current: dict[str, object] | None = None
     for line in BUILDINGS_FILE.read_text(encoding="utf-8").splitlines():
         campus_match = campus_pattern.search(line)
         if campus_match:
-            client = campus_match.group(2).strip()
+            raw_value = campus_match.group(2).strip()
+            # Normalise: IP → group name (new "group=" format already is a group name)
+            group = group_for_client(raw_value) or raw_value
             current = {
-                "client": client,
+                "client": group,
                 "name": campus_match.group(1).strip(),
-                "group": _campus_group(client),
+                "group": group,
                 "buildings": [],
             }
             campuses.append(current)
@@ -124,10 +130,11 @@ def load_buildings_file() -> list[dict[str, object]]:
 
 
 def default_campuses(config: Config) -> list[dict[str, object]]:
+    group = group_for_client(config.client) or config.client
     return [{
-        "client": config.client,
+        "client": group,
         "name": config.campus_name,
-        "group": _campus_group(config.client),
+        "group": group,
         "buildings": [{"id": config.building_id, "name": config.building_name}],
     }]
 
@@ -143,7 +150,7 @@ def merge_campuses(*groups: list[dict[str, object]]) -> list[dict[str, object]]:
                 continue
             target = campuses_by_client.get(client)
             if target is None:
-                target = {"client": client, "name": name, "group": _campus_group(client), "buildings": []}
+                target = {"client": client, "name": name, "group": campus.get("group") or _campus_group(client) or client, "buildings": []}
                 campuses_by_client[client] = target
                 merged.append(target)
             seen_buildings = {building["id"] for building in target["buildings"]}
@@ -174,7 +181,7 @@ def _merge_apartment_into_lihu(data: list[dict[str, object]]) -> None:
                     seen.add(building["id"])
             return
     data.append({
-        "client": CAMPUS_GROUP["lihu"],
+        "client": "lihu",
         "name": "西丽校区",
         "group": "lihu",
         "buildings": apt_list,

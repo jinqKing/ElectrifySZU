@@ -218,8 +218,8 @@ export function renderBuildingOptionsForList(fields, options, rawKeyword = "", {
     div.setAttribute("aria-selected", "false");
     const label = keywordLower
       ? highlightBuildingText(choice.displayLabel, rawKeyword)
-      : choice.displayLabel;
-    const campusInfo = `${bilingualCampusName(choice.campusName)} · ${choice.sourceCampusLabel}`;
+      : escapeHtml(choice.displayLabel);
+    const campusInfo = escapeHtml(`${bilingualCampusName(choice.campusName)} · ${choice.sourceCampusLabel}`);
     div.innerHTML = `${label}<small>${campusInfo}</small>`;
     div.addEventListener("pointerdown", (e) => {
       e.preventDefault();
@@ -233,9 +233,10 @@ export function renderBuildingOptionsForList(fields, options, rawKeyword = "", {
 }
 
 export function highlightBuildingText(text, rawKeyword) {
-  if (!rawKeyword) return text;
+  if (!rawKeyword) return escapeHtml(text);
+  const safeText = escapeHtml(text);
   const escaped = rawKeyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return text.replace(new RegExp(`(${escaped})`, "gi"), "<mark>$1</mark>");
+  return safeText.replace(new RegExp(`(${escaped})`, "gi"), "<mark>$1</mark>");
 }
 
 export function updateActiveDescendant(fields, options) {

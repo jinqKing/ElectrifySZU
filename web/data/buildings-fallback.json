@@ -1,6 +1,6 @@
 [
   {
-    "client": "192.168.84.1",
+    "client": "yuehai_north",
     "group": "yuehai_north",
     "name": "北校区",
     "buildings": [
@@ -40,7 +40,7 @@
     ]
   },
   {
-    "client": "192.168.84.110",
+    "client": "yuehai_south",
     "group": "yuehai_south",
     "name": "南校区",
     "buildings": [
@@ -56,7 +56,7 @@
     ]
   },
   {
-    "client": "172.21.101.11",
+    "client": "lihu",
     "group": "lihu",
     "name": "丽湖校区",
     "buildings": [
@@ -66,7 +66,7 @@
     ]
   },
   {
-    "client": "192.168.84.87",
+    "client": "yuehai_newzhai",
     "group": "yuehai_newzhai",
     "name": "深大新斋区",
     "buildings": [

@@ -54,7 +54,7 @@ class _FormPage:
 
 
 class ApartmentPowerApi:
-    """Client for http://172.25.100.105:8010/ WebForms power records."""
+    """Client for the campus apartment power query endpoint (APARTMENT_POWER_BASE)."""
 
     def __init__(self, config: Config):
         self.base_url = _normalize_base_url(config.base_url)

@@ -1,9 +1,11 @@
 # ElectrifySZU building list
 # Format:
-#   ## <campus_name> client=<client_ip> count=<building_count>
+#   ## <campus_name> group=<campus_group_name> count=<building_count>
 #   buildingId=<building_id>\t<building_name>
+#
+# Legacy format (client=<ip>) is still supported for backward compatibility.
 
-## 北校区 client=192.168.84.1 count=33
+## 北校区 group=yuehai_north count=33
 buildingId=6363	乔林11-12层
 buildingId=6364	乔木11-12层
 buildingId=6875	乔森阁2-10层
@@ -38,7 +40,7 @@ buildingId=76	云杉轩
 buildingId=77	紫藤轩
 buildingId=8147	留学生公寓
 
-## 南校区 client=192.168.84.110 count=9
+## 南校区 group=yuehai_south count=9
 buildingId=6875	春笛3-8楼
 buildingId=6876	夏筝3-17楼
 buildingId=6877	秋瑟3-8楼
@@ -49,12 +51,12 @@ buildingId=8240	冬筑7-10楼
 buildingId=8241	冬筑11-14楼
 buildingId=8242	冬筑15-17楼
 
-## 西丽校区 client=172.21.101.11 count=3
+## 西丽校区 group=lihu count=3
 buildingId=10057	A栋风信子
 buildingId=10934	B栋山楂树
 buildingId=10935	C栋胡杨林
 
-## 深大新斋区 client=192.168.84.87 count=6
+## 深大新斋区 group=yuehai_newzhai count=6
 buildingId=7126	风槐斋
 buildingId=7603	雨鹃斋
 buildingId=17887	蓬莱客舍

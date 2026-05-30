@@ -99,13 +99,54 @@ class ApartmentConfig:
 # ── Campus group identifiers ─────────────────────────────────────────────────
 # Maps logical campus groups to their network client IPs.
 # Used by handlers and frontend to identify campus without hardcoding IPs.
+#
+# Production: configure via CAMPUS_GROUP_<KEY> env vars (e.g. CAMPUS_GROUP_LIHU).
+# Development: the hardcoded defaults below suffice.
 
-CAMPUS_GROUP = {
+_CAMPUS_GROUP_DEFAULTS = {
     "lihu":           "172.21.101.11",   # 西丽校区（丽湖）
     "yuehai_north":   "192.168.84.1",    # 粤海/北校区
     "yuehai_south":   "192.168.84.110",  # 粤海/南校区
     "yuehai_newzhai": "192.168.84.87",   # 粤海/新斋区
 }
+
+
+def _load_campus_group() -> dict[str, str]:
+    """Load campus-group → IP mapping from CAMPUS_GROUP_<KEY> env vars.
+
+    Returns an empty dict when no such env vars are set, so callers
+    can fall back to ``_CAMPUS_GROUP_DEFAULTS``.
+    """
+    prefix = "CAMPUS_GROUP_"
+    result: dict[str, str] = {}
+    for key, value in os.environ.items():
+        if key.startswith(prefix) and value.strip():
+            group_name = key[len(prefix):].lower()
+            result[group_name] = value.strip()
+    return result
+
+
+# Populated at import time: defaults as base, env vars override per-key.
+CAMPUS_GROUP: dict[str, str] = dict(_CAMPUS_GROUP_DEFAULTS) | _load_campus_group()
+
+
+def group_for_client(client_ip: str) -> str:
+    """Translate a client IP back to its campus group name.
+
+    Returns an empty string when the IP is not recognised.
+    """
+    for group_name, ip in CAMPUS_GROUP.items():
+        if ip == client_ip:
+            return group_name
+    return ""
+
+
+def client_for_group(group_name: str) -> str:
+    """Translate a campus group name to its client IP.
+
+    Returns an empty string when the group name is not recognised.
+    """
+    return CAMPUS_GROUP.get(group_name.strip().lower(), "")
 
 # ── Backward-compatible alias ──────────────────────────────────────────────
 

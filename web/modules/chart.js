@@ -146,7 +146,7 @@ function renderRecharges(recharges, view) {
     row.innerHTML = `
       <div>
         <strong>+${formatNumber(item.kwh)} kWh</strong>
-        <span>${item.time || t("empty.unknownTime")} · ${paymentMethodText(item.method)}</span>
+        <span>${escapeHtml(item.time || t("empty.unknownTime"))} · ${escapeHtml(paymentMethodText(item.method))}</span>
       </div>
       <strong>${formatNumber(item.yuan)} ${t("unit.yuan")}</strong>`;
     view.rechargeList.append(row);
