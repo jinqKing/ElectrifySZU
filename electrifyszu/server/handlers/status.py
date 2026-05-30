@@ -5,7 +5,13 @@ from __future__ import annotations
 import logging
 from http.server import BaseHTTPRequestHandler
 
-from electrifyszu.config import CAMPUS_GROUP, DormConfig as Config, ApartmentConfig
+from electrifyszu.config import (
+    CAMPUS_GROUP,
+    DormConfig as Config,
+    ApartmentConfig,
+    client_for_group,
+    group_for_client,
+)
 from electrifyszu.dorm.api import DormApi
 from electrifyszu.dorm.discover import discover_room_id
 from electrifyszu.ranking.cache import cached_ranking_for, load_ranking_cache
@@ -35,7 +41,9 @@ def _get_ranking_cache() -> dict:
 
 def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) -> None:
     try:
-        client = query_value(query, "client") or ""
+        client_raw = query_value(query, "client") or ""
+        # Accept either campus group name (new) or legacy IP
+        client_ip = client_for_group(client_raw) or client_raw
         building_id = query_value(query, "buildingId") or ""
         campus_name = query_value(query, "campusName") or ""
         building_name = query_value(query, "buildingName") or ""
@@ -43,12 +51,13 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
         days = int(query_value(query, "days") or "30")
 
         # 丽湖校区内，公寓系统楼栋（编码01-06）走 ApartmentPowerApi
-        if client == CAMPUS_GROUP["lihu"] and building_id in ("01", "02", "03", "04", "05", "06"):
+        lihu_ip = CAMPUS_GROUP.get("lihu", "")
+        if (client_raw == "lihu" or client_ip == lihu_ip) and building_id in ("01", "02", "03", "04", "05", "06"):
             _handle_apartment_status(handler, building_id, room_name, days)
             return
 
         config = Config.from_env(str(ENV_FILE))
-        config.client = client or config.client
+        config.client = client_ip or config.client
         room_id = discover_room_id(
             building_id=building_id or config.building_id,
             room_name=room_name or config.room_name,
@@ -64,7 +73,7 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
             days=days,
             threshold=config.low_power_threshold,
         )
-        result["client"] = client or config.client
+        result["client"] = client_raw or group_for_client(config.client)
         result["campus_name"] = campus_name or config.campus_name
         result["building_id"] = building_id or config.building_id
         result["building_name"] = building_name or config.building_name
@@ -112,7 +121,7 @@ def _handle_apartment_status(
             days=days,
             threshold=apt_config.low_power_threshold,
         )
-        result["client"] = CAMPUS_GROUP["lihu"]
+        result["client"] = "lihu"
         result["campus_name"] = "西丽校区"
         result["building_id"] = building_code
         send_json(handler, {"ok": True, "data": result})

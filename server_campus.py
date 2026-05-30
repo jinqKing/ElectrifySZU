@@ -28,8 +28,8 @@ logger = logging.getLogger("server")
 
 # ── Campus-dependent routes (need SZU internal network) ────────────────────
 # These require access to:
-#   - http://<CAMPUS_DORM_HOST>:9090/cgcSims   (dorm power system)
-#   - http://<CAMPUS_APARTMENT_HOST>:8010/        (apartment power system)
+#   - DORM_API_BASE  (dorm power system)
+#   - APARTMENT_POWER_BASE  (apartment power system)
 #   - Building discovery / room ID resolution
 CAMPUS_ROUTES: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", "/api/status"):            ("status", "handle_status"),

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import parse_qs
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]  # project root
 ENV_FILE = ROOT / ".env"
 LIKES_FILE = ROOT / "data" / "likes.json"
 MAX_REQUEST_BODY_BYTES = 64 * 1024

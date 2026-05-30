@@ -74,7 +74,7 @@ def handle_github_stars(handler: BaseHTTPRequestHandler) -> None:
 def demo_status() -> dict[str, object]:
     data = {
         "building_id": "7126",
-        "client": "<CAMPUS_CLIENT_IP>",
+        "client": "yuehai_newzhai",
         "campus_name": "粤海",
         "building_name": "风槐斋",
         "room_id": "7322",

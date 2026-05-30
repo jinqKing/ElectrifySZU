@@ -239,3 +239,52 @@ def test_like_persists_to_sqlite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 def test_base_url_prefers_public_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://power.example.com/")
     assert server._valid_public_base_url("https://power.example.com/")
+
+
+# ── IP 泄露防护测试 ──────────────────────────────────────────────────────────
+
+_IP_PATTERN = r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"
+
+
+def test_demo_status_uses_group_not_ip() -> None:
+    """演示数据中 client 字段不应返回内网 IP。"""
+    import re
+    from electrifyszu.server.handlers.demo import demo_status
+
+    data = demo_status()["data"]
+    client_value = str(data.get("client", ""))
+    assert not re.match(_IP_PATTERN, client_value), (
+        f"demo_status client field leaked IP: {client_value}"
+    )
+
+
+def test_buildings_fallback_json_uses_group_not_ip() -> None:
+    """buildings-fallback.json 中 client 字段不应含 IP。"""
+    import json
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    fb = root / "web" / "data" / "buildings-fallback.json"
+    data = json.loads(fb.read_text(encoding="utf-8"))
+    for campus in data:
+        client = str(campus.get("client", ""))
+        assert not re.match(_IP_PATTERN, client), (
+            f"buildings-fallback.json leaked IP: {client}"
+        )
+
+
+def test_demo_status_json_uses_group_not_ip() -> None:
+    """demo-status.json 中 client 字段不应含 IP。"""
+    import json
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    fp = root / "web" / "data" / "demo-status.json"
+    data = json.loads(fp.read_text(encoding="utf-8"))
+    for scenario in data:
+        client = str(scenario.get("client", ""))
+        assert not re.match(_IP_PATTERN, client), (
+            f"demo-status.json leaked IP: {client}"
+        )
