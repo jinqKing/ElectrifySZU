@@ -91,6 +91,13 @@ CREATE TABLE IF NOT EXISTS likes (
 CREATE INDEX IF NOT EXISTS idx_likes_liked ON likes(liked);
 CREATE INDEX IF NOT EXISTS idx_likes_user ON likes(user_id);
 
+CREATE TABLE IF NOT EXISTS visitors (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    visitor_id  TEXT UNIQUE NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_visitors_id ON visitors(visitor_id);
+
 CREATE TABLE IF NOT EXISTS usage_records (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     client      TEXT NOT NULL,
@@ -378,3 +385,14 @@ def ensure_db() -> bool:
     # DB exists — ensure tables exist
     init_db()
     return False
+
+
+def register_visitor(visitor_id: str) -> None:
+    """Record a unique visitor. Idempotent — ignores duplicates."""
+    ensure_db()
+    conn = get_connection()
+    conn.execute(
+        "INSERT OR IGNORE INTO visitors (visitor_id) VALUES (?)",
+        (visitor_id,),
+    )
+    conn.commit()

@@ -28,6 +28,9 @@ from electrifyszu.server.handlers.types import (
 
 ROOT = Path(__file__).resolve().parents[3]
 LIKE_ID_PATTERN = re.compile(r"^svr-[0-9a-f]{16}$")
+VISITOR_ID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+)
 
 _likes_lock = threading.Lock()
 logger = logging.getLogger("server")
@@ -122,11 +125,30 @@ def handle_like_my(handler: BaseHTTPRequestHandler, query: dict[str, list[str]])
 def handle_stats(handler: BaseHTTPRequestHandler) -> None:
     ensure_db()
     conn = get_connection()
-    likes_count = conn.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0]
-    users_count = conn.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
+    likes_count = conn.execute(
+        "SELECT COUNT(*) FROM likes WHERE liked=1"
+    ).fetchone()[0]
+    users_count = conn.execute(
+        "SELECT COUNT(*) FROM visitors"
+    ).fetchone()[0]
+    subscriptions_count = conn.execute(
+        "SELECT COUNT(*) FROM subscriptions WHERE verified=1"
+    ).fetchone()[0]
+    alert_subs_count = conn.execute(
+        "SELECT COUNT(*) FROM subscriptions WHERE verified=1 AND alert_enabled=1"
+    ).fetchone()[0]
+    daily_report_subs_count = conn.execute(
+        "SELECT COUNT(*) FROM subscriptions WHERE verified=1 AND daily_report_enabled=1"
+    ).fetchone()[0]
     send_json(handler, {
         "ok": True,
-        "data": {"likes": likes_count, "users": users_count},
+        "data": {
+            "likes": likes_count,
+            "users": users_count,
+            "subscriptions": subscriptions_count,
+            "alertSubs": alert_subs_count,
+            "dailyReportSubs": daily_report_subs_count,
+        },
     })
 
 
@@ -167,6 +189,10 @@ def _save_likes(data: dict[str, object]) -> None:
 
 def _is_valid_like_id(value: str) -> bool:
     return bool(LIKE_ID_PATTERN.fullmatch(value))
+
+
+def _is_valid_visitor_id(value: str) -> bool:
+    return bool(VISITOR_ID_PATTERN.fullmatch(value))
 
 
 def _safe_like_id(value: str) -> str:

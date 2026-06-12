@@ -1,6 +1,7 @@
 // ── Shared mutable state ───────────────────────────────────────────
 
 export const LIKE_ID_KEY = "electrifyszu.likeId";
+export const VISITOR_ID_KEY = "electrifyszu.visitorId";
 export const USAGE_LEVEL_STORAGE_KEY = "electrifyszu.usageLevels";
 export const BUILDINGS_CACHE_KEY = "electrifyszu.buildings";
 export const BUILDINGS_CACHE_TTL = 3600 * 1000; // 1 hour

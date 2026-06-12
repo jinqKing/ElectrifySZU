@@ -15,6 +15,8 @@ from electrifyszu.config import (
 from electrifyszu.dorm.api import DormApi
 from electrifyszu.dorm.discover import discover_room_id
 from electrifyszu.ranking.cache import cached_ranking_for, load_ranking_cache
+from electrifyszu.database import register_visitor
+from electrifyszu.server.handlers.likes import _is_valid_visitor_id
 from electrifyszu.server.handlers.types import (
     ENV_FILE,
     query_value,
@@ -53,6 +55,14 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
         except (ValueError, TypeError):
             days = 30
         days = min(max(days, 1), MAX_QUERY_DAYS)
+
+        # 访客注册 — 查询即使用，fire-and-forget 不影响主流程
+        visitor_id = query_value(query, "visitorId")
+        if visitor_id and _is_valid_visitor_id(visitor_id):
+            try:
+                register_visitor(visitor_id)
+            except Exception:
+                pass
 
         # 丽湖校区内，公寓系统楼栋（编码01-06）走 ApartmentPowerApi
         lihu_ip = CAMPUS_GROUP.get("lihu", "")
