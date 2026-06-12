@@ -246,6 +246,7 @@ export function renderBuildingOptionsForList(fields, options, rawKeyword = "", {
     div.addEventListener("click", (e) => {
       e.stopPropagation();
       setState("buildingDropdownJustSelected", true);
+      setState("suppressNextRender", true);
       fields.buildingSearch.value = choice.displayLabel;
       syncSelectedBuilding(fields);
       closeBuildingOptions(fields);
