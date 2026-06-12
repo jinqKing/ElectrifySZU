@@ -220,24 +220,8 @@ def init_db() -> None:
     """Create tables if they don't exist. Safe to call repeatedly."""
     conn = get_connection()
     conn.executescript(SCHEMA_SQL)
-    _backfill_visitors_from_likes(conn)
     conn.commit()
     logger.info("Database initialized at %s", get_db_path())
-
-
-def _backfill_visitors_from_likes(conn) -> None:
-    """One-time: seed visitors from existing likes data so stats carry over."""
-    try:
-        if conn.execute("SELECT COUNT(*) FROM visitors").fetchone()[0] == 0:
-            n = conn.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
-            if n > 0:
-                conn.execute(
-                    "INSERT OR IGNORE INTO visitors (visitor_id, created_at) "
-                    "SELECT user_id, created_at FROM likes"
-                )
-                logger.info("Backfilled %d visitors from likes", n)
-    except Exception:
-        pass  # migration must never block startup
 
 
 # ── Migration helpers ────────────────────────────────────────────────────────
