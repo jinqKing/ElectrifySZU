@@ -245,6 +245,7 @@ export function renderBuildingOptionsForList(fields, options, rawKeyword = "", {
     div.innerHTML = `${label}<small>${campusInfo}</small>`;
     div.addEventListener("click", (e) => {
       e.stopPropagation();
+      e.preventDefault();  // Block label→input synthetic click
       setState("buildingDropdownJustSelected", true);
       setState("suppressNextRender", true);
       fields.buildingSearch.value = choice.displayLabel;
