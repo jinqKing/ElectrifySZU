@@ -376,10 +376,15 @@ languageButtons.forEach((button) => {
     syncEmailInputState();
     const btn = document.querySelector("#chartUnitToggle");
     if (btn) btn.textContent = t("chart.unitToggle");
-    if (userCount && userCount.dataset.count) {
-      const n = Number(userCount.dataset.count);
-      if (Number.isFinite(n)) userCount.textContent = t("stats.usersFormat", { count: n.toLocaleString() });
-    }
+    [userCount, document.querySelector("#alertSubCount"), document.querySelector("#dailySubCount")].forEach(el => {
+      if (el && el.dataset.count) {
+        const n = Number(el.dataset.count);
+        const key = el === userCount ? "stats.usersFormat"
+                  : el.id === "alertSubCount" ? "stats.alertSubsFormat"
+                  : "stats.dailySubsFormat";
+        if (Number.isFinite(n)) el.textContent = t(key, { count: n.toLocaleString() });
+      }
+    });
   });
 });
 
