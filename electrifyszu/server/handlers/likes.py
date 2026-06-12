@@ -73,12 +73,7 @@ def handle_like(handler: BaseHTTPRequestHandler) -> None:
 
         if row["liked"]:
             # Already liked — return current counts
-            count = conn.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0]
-            total = conn.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
-            send_json(handler, {
-                "ok": True, "already_liked": True,
-                "count": count, "users": total,
-            })
+            send_json(handler, _like_response(conn, True))
             return
 
         # First time liking
@@ -86,14 +81,11 @@ def handle_like(handler: BaseHTTPRequestHandler) -> None:
             "UPDATE likes SET liked=1 WHERE user_id=?", (user_id,)
         )
         conn.commit()
-        count = conn.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0]
-        total = conn.execute("SELECT COUNT(*) FROM likes").fetchone()[0]
 
-    logger.info("Like #%d from %s", count, _safe_like_id(user_id))
-    send_json(handler, {
-        "ok": True, "already_liked": False,
-        "count": count, "users": total,
-    })
+    logger.info("Like #%d from %s",
+                conn.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0],
+                _safe_like_id(user_id))
+    send_json(handler, _like_response(conn, False))
 
 
 def handle_like_count(handler: BaseHTTPRequestHandler) -> None:
@@ -185,6 +177,26 @@ def _save_likes(data: dict[str, object]) -> None:
         if temp_name:
             Path(temp_name).unlink(missing_ok=True)
         raise
+
+
+def _like_response(conn, already_liked: bool) -> dict:
+    """Build the /api/like response payload including subscription stats."""
+    count = conn.execute("SELECT COUNT(*) FROM likes WHERE liked=1").fetchone()[0]
+    users = conn.execute("SELECT COUNT(*) FROM visitors").fetchone()[0]
+    subs = conn.execute(
+        "SELECT COUNT(*) FROM subscriptions WHERE verified=1"
+    ).fetchone()[0]
+    alert = conn.execute(
+        "SELECT COUNT(*) FROM subscriptions WHERE verified=1 AND alert_enabled=1"
+    ).fetchone()[0]
+    daily = conn.execute(
+        "SELECT COUNT(*) FROM subscriptions WHERE verified=1 AND daily_report_enabled=1"
+    ).fetchone()[0]
+    return {
+        "ok": True, "already_liked": already_liked,
+        "count": count, "users": users,
+        "subscriptions": subs, "alertSubs": alert, "dailyReportSubs": daily,
+    }
 
 
 def _is_valid_like_id(value: str) -> bool:

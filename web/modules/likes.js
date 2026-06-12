@@ -13,7 +13,7 @@ export async function initLike() {
 
   try {
     const stats = await fetchJson(apiUrl("/api/stats"));
-    updateCounts(stats.data.likes, stats.data.users);
+    updateCounts(stats.data);
   } catch { /* silent */ }
 
   const likeId = localStorage.getItem(LIKE_ID_KEY);
@@ -50,9 +50,11 @@ async function _doHandleLike() {
     }
     const res = await postJson(apiUrl("/api/like"), { id: likeId });
     if (res.already_liked === false) likeBtn.classList.add("liked");
-    updateCounts(res.count, res.users);
+    updateCounts({ likes: res.count, users: res.users,
+                  subscriptions: res.subscriptions, alertSubs: res.alertSubs,
+                  dailyReportSubs: res.dailyReportSubs });
     // Background sync
-    try { const s = await fetchJson(apiUrl("/api/stats")); updateCounts(s.data.likes, s.data.users); } catch { /* */ }
+    try { const s = await fetchJson(apiUrl("/api/stats")); updateCounts(s.data); } catch { /* */ }
     likeBtn.disabled = true;
   } catch (err) {
     if (err?.status === 400 && hadId && !_retried) {
@@ -78,15 +80,26 @@ export async function handleLike() {
   }
 }
 
-function updateCounts(likes, users) {
+function updateCounts(data) {
+  const d = data || {};
   const likeCt = $("#likeCount");
   const userCt = $("#userCount");
+  const alertCt = $("#alertSubCount");
+  const dailyCt = $("#dailySubCount");
   if (likeCt) {
-    const n = Number(likes);
+    const n = Number(d.likes ?? d.count);
     if (Number.isFinite(n)) { likeCt.textContent = n.toLocaleString(); likeCt.dataset.count = String(n); }
   }
   if (userCt) {
-    const n = Number(users);
+    const n = Number(d.users);
     if (Number.isFinite(n)) { userCt.textContent = t("stats.usersFormat", { count: n.toLocaleString() }); userCt.dataset.count = String(n); }
+  }
+  if (alertCt) {
+    const n = Number(d.alertSubs);
+    if (Number.isFinite(n)) { alertCt.textContent = t("stats.alertSubsFormat", { count: n.toLocaleString() }); alertCt.dataset.count = String(n); }
+  }
+  if (dailyCt) {
+    const n = Number(d.dailyReportSubs);
+    if (Number.isFinite(n)) { dailyCt.textContent = t("stats.dailySubsFormat", { count: n.toLocaleString() }); dailyCt.dataset.count = String(n); }
   }
 }
