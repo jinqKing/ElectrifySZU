@@ -741,9 +741,11 @@ select:focus {
 /* ── Building Input Feedback Indicators ─────────────── */
 
 .combo-feedback {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
   visibility: visible;
-  min-height: 0;
-  margin-top: 4px;
   padding: 0 2px;
   color: var(--muted);
   font-size: 12px;
@@ -751,6 +753,10 @@ select:focus {
   line-height: 1.4;
   transition: opacity 180ms ease;
   word-break: break-word;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .combo:not(.has-match-exact):not(.has-match-fuzzy):not(.has-no-match)

@@ -163,19 +163,24 @@ subscriptionForm.addEventListener("submit", async (event) => {
   await saveSubscription();
 });
 
-// ── Campus combobox interactions ──────────────────────────
-// Toggle: clicking the combo container opens or closes the dropdown.
+// ── Campus combo — arrow (pointerdown, before focus) ──────
+document.querySelector(".campus-combo").addEventListener("pointerdown", (e) => {
+  const isArrow = (e.currentTarget.getBoundingClientRect().right - e.clientX) < 34;
+  if (!isArrow || e.target.closest(".combo-option")) return;
+  e.preventDefault();  // block focus + click
+  const open = fields.campusOptions.classList.contains("open");
+  if (open) { closeCampusOptions(fields); fields.campusSearch.blur(); }
+  else { closeBuildingOptions(fields); renderCampusOptions(fields); openCampusOptions(fields); fields.campusSearch.focus(); }
+});
+
+// ── Campus combo — input area (click, natural focus) ──────
 document.querySelector(".campus-combo").addEventListener("click", (e) => {
-  // Don't intercept clicks on the options themselves.
-  if (e.target.closest(".combo-option")) return;
-  if (fields.campusOptions.classList.contains("open")) {
-    closeCampusOptions(fields);
-    fields.campusSearch.blur();
-  } else {
+  const isArrow = (e.currentTarget.getBoundingClientRect().right - e.clientX) < 34;
+  if (isArrow || e.target.closest(".combo-option")) return;
+  if (!fields.campusOptions.classList.contains("open")) {
     closeBuildingOptions(fields);
     renderCampusOptions(fields);
     openCampusOptions(fields);
-    fields.campusSearch.focus();
   }
 });
 
@@ -234,6 +239,30 @@ fields.campusSearch.addEventListener("keydown", (e) => {
       closeCampusOptions(fields);
       fields.campusSearch.blur();
       break;
+  }
+});
+
+// ── Building combo — arrow (pointerdown, before focus) ────
+document.querySelector("#buildingSearch").closest(".combo").addEventListener("pointerdown", (e) => {
+  const isArrow = (e.currentTarget.getBoundingClientRect().right - e.clientX) < 34;
+  if (!isArrow || e.target.closest(".combo-option")) return;
+  e.preventDefault();  // block focus + click
+  const list = document.querySelector("#buildingOptions");
+  if (list.classList.contains("open")) { closeBuildingOptions(fields); fields.buildingSearch.blur(); }
+  else {
+    const v = fields.campusGroupId.value;
+    renderBuildingOptionsForList(fields, v ? buildingChoices.filter(c => c.campusGroup === v) : buildingChoices, "");
+    fields.buildingSearch.focus();
+  }
+});
+
+// ── Building combo — input area (click, natural focus) ────
+document.querySelector("#buildingSearch").closest(".combo").addEventListener("click", (e) => {
+  const isArrow = (e.currentTarget.getBoundingClientRect().right - e.clientX) < 34;
+  if (isArrow || e.target.closest(".combo-option")) return;
+  if (!document.querySelector("#buildingOptions").classList.contains("open")) {
+    const v = fields.campusGroupId.value;
+    renderBuildingOptionsForList(fields, v ? buildingChoices.filter(c => c.campusGroup === v) : buildingChoices, "");
   }
 });
 
