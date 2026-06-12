@@ -1,7 +1,8 @@
 // ── ElectrifySZU — Entry point (ES Module) ─────────────────────────
 import { setLanguage, resolveInitialLocale, t, syncEmailInputState } from './modules/i18n.js';
 import { setState, currentLocale, currentStatusData, customUsageLevels,
-         buildingActiveIndex, allBuildings, buildingChoices, metricMode } from './modules/state.js';
+         buildingActiveIndex, allBuildings, buildingChoices, metricMode,
+         VISITOR_ID_KEY } from './modules/state.js';
 import { escapeHtml, debounce, numberOrNull,
   loadUsageLevelSettings, saveUsageLevelSettings, readUsageLevelInputs } from './modules/utils.js';
 import { canUseBackend, apiUrl, fetchJson } from './modules/api.js';
@@ -101,6 +102,16 @@ export const loadingStatusController =
 
 setState("customUsageLevels", loadUsageLevelSettings());
 
+// ── Visitor ID (persistent, generated once per browser) ──────────
+const visitorId = (() => {
+  let id = localStorage.getItem(VISITOR_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(VISITOR_ID_KEY, id);
+  }
+  return id;
+})();
+
 // ── Concurrency guard ─────────────────────────────────────────────
 let _loadStatusInFlight = false;
 
@@ -114,7 +125,9 @@ form.addEventListener("submit", async (event) => {
     setHeroStatusKey("status.needBackend", {}, "critical");
     return;
   }
-  await loadStatus(apiUrl("/api/status") + "?" + new URLSearchParams(new FormData(form)));
+  const params = new URLSearchParams(new FormData(form));
+  params.set("visitorId", visitorId);
+  await loadStatus(apiUrl("/api/status") + "?" + params);
 });
 
 async function loadStatus(url) {
