@@ -12,9 +12,14 @@ Conda 环境：`D:\anaconda3\envs\electrifyszu`。运行命令前先激活：`co
 
 ## 生产环境
 
-远程linux服务器连接方式：ssh mtt
+公网中转服务器连接方式：`ssh zc`（原 `ssh mtt` 已废弃）
 远程项目文件夹：~/ElectrifySZU
 部署方式：docker
+
+### 网络拓扑
+
+- **Lightstation（校园网内）→ 公网服务器**：使用 `autossh` 建立反向 SSH 隧道，断线自动重连。
+- **公网访问**：仅 `www` 子域名可访问（如 `https://www.electrifyszu.com`），根域名不可访问。可通过 `curl -I` 检查根域名是否返回 301 或无法连接来验证。
 
 ## 常用命令
 
@@ -34,8 +39,8 @@ docker compose up --build -d
 # Docker 查看日志
 docker logs -f electrifyszu
 
-# 部署到 MTT 服务器
-ssh mtt "cd /root/ElectrifySZU && git pull && docker compose up --build -d"
+# 部署到公网中转服务器
+ssh zc "cd /root/ElectrifySZU && git pull && docker compose up --build -d"
 ```
 
 ## 架构概览
@@ -101,4 +106,4 @@ https://github.com/jinqKing/ElectrifySZU
 - Docker 中数据持久化路径为 `/app/data/`，通过 `ELECTRIFYSZU_DATA_DIR` 环境变量控制
 - Git 提交信息使用中文，格式为 `<type>(<scope>): <description>`，如 `fix(likes): ...`，而且提交时不要带claude。
 - 当处于 worktree 环境并需要展示页面时，使用 `uv run server.py --port <未占用端口>` 启动预览服务，每次都要确认端口不冲突
-- 部署前先推到 `deploy/docker-mtt` 分支在 MTT 服务器上验证，确认无误后再合并到 `master`
+- 部署前先推到 `deploy/denmouv` 分支在公网中转服务器（`ssh zc`）上验证，确认无误后再合并到 `master`
