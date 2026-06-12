@@ -278,6 +278,10 @@ fields.buildingSearch.addEventListener("input", () => {
 });
 fields.buildingSearch.addEventListener("focus", () => {
   fields.buildingSearch.select();
+  // Guard: label may re-focus during pointerdown on an option.
+  // If the dropdown is already open, don't rebuild — it would
+  // destroy the option DOM and break the in-flight click handler.
+  if (document.querySelector("#buildingOptions").classList.contains("open")) return;
   const campusVal = fields.campusGroupId.value;
   if (campusVal) {
     const campusBuildings = buildingChoices.filter((c) => c.campusGroup === campusVal);
