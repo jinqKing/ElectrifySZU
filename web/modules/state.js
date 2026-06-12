@@ -14,6 +14,7 @@ export let currentStatusData = null;
 export let currentLocale = "zh-CN";
 export let subscriptionWasPending = false;
 export let lastFocusedElement = null;
+export let buildingDropdownJustSelected = false;
 
 export const metricMode = {
   remaining: "kwh",
@@ -35,6 +36,7 @@ export function setState(key, value) {
     currentLocale(v) { currentLocale = v; },
     subscriptionWasPending(v) { subscriptionWasPending = v; },
     lastFocusedElement(v) { lastFocusedElement = v; },
+    buildingDropdownJustSelected(v) { buildingDropdownJustSelected = v; },
     customUsageLevels(v) { customUsageLevels = v; },
   };
   if (key in setters) setters[key](value);

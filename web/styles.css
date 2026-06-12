@@ -620,6 +620,35 @@ select:focus {
   position: relative;
 }
 
+.combo input {
+  padding-right: 32px;
+}
+
+/* ── Combo chevron arrow ───────────────────────────────── */
+.combo::after {
+  content: '';
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(135deg);
+  transform-origin: 65% 65%;
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: 1;
+}
+
+.combo:has(.combo-list.open)::after {
+  transform: rotate(45deg);
+  opacity: 0.8;
+}
+
 .combo-list {
   position: absolute;
   z-index: 20;

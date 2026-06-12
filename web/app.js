@@ -164,20 +164,23 @@ subscriptionForm.addEventListener("submit", async (event) => {
 });
 
 // ── Campus combobox interactions ──────────────────────────
-fields.campusSearch.addEventListener("focus", () => {
-  renderCampusOptions(fields);
-  openCampusOptions(fields);
-});
-
-fields.campusSearch.addEventListener("click", () => {
-  if (!fields.campusOptions.classList.contains("open")) {
+// Toggle: clicking the combo container opens or closes the dropdown.
+document.querySelector(".campus-combo").addEventListener("click", (e) => {
+  // Don't intercept clicks on the options themselves.
+  if (e.target.closest(".combo-option")) return;
+  if (fields.campusOptions.classList.contains("open")) {
+    closeCampusOptions(fields);
+    fields.campusSearch.blur();
+  } else {
+    closeBuildingOptions(fields);
     renderCampusOptions(fields);
     openCampusOptions(fields);
+    fields.campusSearch.focus();
   }
 });
 
 // Close campus dropdown on outside click
-document.addEventListener("pointerdown", (e) => {
+document.addEventListener("click", (e) => {
   if (!e.target.closest(".campus-combo")) {
     closeCampusOptions(fields);
   }
