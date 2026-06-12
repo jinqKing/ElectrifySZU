@@ -2,7 +2,7 @@
 import { setLanguage, resolveInitialLocale, t, syncEmailInputState } from './modules/i18n.js';
 import { setState, currentLocale, currentStatusData, customUsageLevels,
          buildingActiveIndex, allBuildings, buildingChoices, metricMode,
-         VISITOR_ID_KEY } from './modules/state.js';
+         suppressNextRender, VISITOR_ID_KEY } from './modules/state.js';
 import { escapeHtml, debounce, numberOrNull,
   loadUsageLevelSettings, saveUsageLevelSettings, readUsageLevelInputs } from './modules/utils.js';
 import { canUseBackend, apiUrl, fetchJson } from './modules/api.js';
@@ -267,6 +267,7 @@ document.querySelector("#buildingSearch").closest(".combo").addEventListener("cl
 });
 
 const debouncedBuildingInput = debounce((value) => {
+  if (suppressNextRender) { setState("suppressNextRender", false); return; }
   setState("buildingActiveIndex", -1);
   renderBuildingOptions(fields, value);
   updateBuildingFeedback(fields);
