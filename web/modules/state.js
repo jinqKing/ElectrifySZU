@@ -14,7 +14,6 @@ export let currentStatusData = null;
 export let currentLocale = "zh-CN";
 export let subscriptionWasPending = false;
 export let lastFocusedElement = null;
-export let buildingDropdownJustSelected = false;
 export let suppressNextRender = false;
 
 export const metricMode = {
@@ -37,7 +36,6 @@ export function setState(key, value) {
     currentLocale(v) { currentLocale = v; },
     subscriptionWasPending(v) { subscriptionWasPending = v; },
     lastFocusedElement(v) { lastFocusedElement = v; },
-    buildingDropdownJustSelected(v) { buildingDropdownJustSelected = v; },
     suppressNextRender(v) { suppressNextRender = v; },
     customUsageLevels(v) { customUsageLevels = v; },
   };
