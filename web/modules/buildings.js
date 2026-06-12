@@ -1,5 +1,6 @@
 // ── Buildings — data loading, caching, search ──────────────────────
 import { setState, campuses, allBuildings, buildingChoices, buildingActiveIndex,
+         buildingDropdownJustSelected,
          BUILDINGS_CACHE_KEY, BUILDINGS_CACHE_TTL } from './state.js';
 import { t, bilingualCampusName, bilingualSourceCampusName, bilingualBuildingName,
          buildingEnglishName, campusLabels, sourceCampusLabels, buildingEnglishNames } from './i18n.js';
@@ -53,7 +54,10 @@ export function normalizeCampuses(data) {
 
 export function flattenBuildings(campusData) {
   return campusData.flatMap((campus) => {
-    const campusGroup = campus.group || (campus.client === "apartment" ? "apartment" : "yuehai");
+    const rawGroup = campus.group || (campus.client === "apartment" ? "apartment" : "yuehai");
+    // Normalise backend sub-campus groups (yuehai_north, yuehai_south, etc.)
+    // to the three UI campus groups expected by _CAMPUS_GROUPS.
+    const campusGroup = rawGroup.startsWith("yuehai") ? "yuehai" : rawGroup;
     const uiCampus = campusGroup === "lihu" ? "丽湖" : campusGroup === "apartment" ? "公寓" : "粤海";
     return (campus.buildings || []).map((building) => ({
       id: building.id,
@@ -139,6 +143,10 @@ export function renderCampusOptions(fields) {
     }
     div.addEventListener("click", (e) => {
       e.stopPropagation();
+      e.preventDefault();  // Block label → input click forwarding
+      fields.campusOptions.classList.remove("open");
+      fields.campusSearch.setAttribute("aria-expanded", "false");
+      setState("buildingDropdownJustSelected", true);
       selectCampus(fields, campus.value);
     });
     fields.campusOptions.append(div);
@@ -161,9 +169,17 @@ export function selectCampus(fields, value) {
   fields.campusGroupId.value = value;
   fields.campusSearch.value = t(campus.labelKey);
   closeCampusOptions(fields);
+  fields.campusSearch.blur();
+  setState("buildingDropdownJustSelected", false);
   chooseDefaultBuildingForCampus(fields);
   renderBuildingOptions(fields);
   syncSelectedBuilding(fields);
+  // Auto-open building dropdown after campus selection
+  const list = document.querySelector("#buildingOptions");
+  if (list && list.childElementCount > 0) {
+    list.classList.add("open");
+    fields.buildingSearch.setAttribute("aria-expanded", "true");
+  }
 }
 
 export function renderBuildingOptions(fields, filter = "", { manageOpenState = true } = {}) {
@@ -200,6 +216,12 @@ export function renderBuildingOptionsForList(fields, options, rawKeyword = "", {
   if (!manageOpenState) {
     // Called from applyBuildingsData — leave open state as-is.
     if (wasOpen) { list.classList.add("open"); fields.buildingSearch.setAttribute("aria-expanded", "true"); }
+  } else if (buildingDropdownJustSelected) {
+    // User just selected an option — suppress debounced re-open triggered
+    // by the programmatic value change on buildingSearch.
+    setState("buildingDropdownJustSelected", false);
+    list.classList.remove("open");
+    fields.buildingSearch.setAttribute("aria-expanded", "false");
   } else if (rawKeyword || document.activeElement === fields.buildingSearch) {
     list.classList.add("open");
     fields.buildingSearch.setAttribute("aria-expanded", "true");
@@ -223,6 +245,7 @@ export function renderBuildingOptionsForList(fields, options, rawKeyword = "", {
     div.innerHTML = `${label}<small>${campusInfo}</small>`;
     div.addEventListener("click", (e) => {
       e.stopPropagation();
+      setState("buildingDropdownJustSelected", true);
       fields.buildingSearch.value = choice.displayLabel;
       syncSelectedBuilding(fields);
       closeBuildingOptions(fields);
