@@ -137,8 +137,8 @@ export function renderCampusOptions(fields) {
       div.classList.add("active");
       div.setAttribute("aria-selected", "true");
     }
-    div.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
+    div.addEventListener("click", (e) => {
+      e.stopPropagation();
       selectCampus(fields, campus.value);
     });
     fields.campusOptions.append(div);
@@ -221,8 +221,8 @@ export function renderBuildingOptionsForList(fields, options, rawKeyword = "", {
       : escapeHtml(choice.displayLabel);
     const campusInfo = escapeHtml(`${bilingualCampusName(choice.campusName)} · ${choice.sourceCampusLabel}`);
     div.innerHTML = `${label}<small>${campusInfo}</small>`;
-    div.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
+    div.addEventListener("click", (e) => {
+      e.stopPropagation();
       fields.buildingSearch.value = choice.displayLabel;
       syncSelectedBuilding(fields);
       closeBuildingOptions(fields);
