@@ -29,15 +29,24 @@ translations["en-US"]["subscribe.chooseOne"] ||= "Choose at least one subscripti
 translations["en-US"]["subscribe.dialogResultTitle"] ||= "Subscription submitted";
 
 export const campusLabels = {
-  粤海: "粤海 / Yuehai",
+  全部: "全部 / All",
+  西南: "西南 / Southwest",
+  新斋: "新斋 / Xinzhai",
+  南校区: "南校区 / South",
   丽湖: "丽湖 / Lihu",
+  北校区: "西南 / Southwest",
+  西丽校区: "丽湖 / Lihu",
+  深大新斋区: "新斋 / Xinzhai",
+  粤海新宿舍: "西南 / Southwest",
 };
 
 export const sourceCampusLabels = {
-  北校区: "北校区",
+  北校区: "西南",
   南校区: "南校区",
-  丽湖校区: "丽湖校区",
-  深大新斋区: "深大新斋区",
+  西丽校区: "丽湖",
+  深大新斋区: "新斋",
+  粤海新宿舍: "西南",
+  丽湖校区: "丽湖",
 };
 
 export const buildingEnglishNames = {
