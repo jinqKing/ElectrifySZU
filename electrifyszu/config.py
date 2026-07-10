@@ -96,6 +96,32 @@ class ApartmentConfig:
         )
 
 
+# ── Sftest campus config (后勤部测试系统, 粤海新宿舍) ─────────────────
+
+@dataclass
+class SftestConfig:
+    base_url: str = ""               # 必须通过 SFTEST_API_BASE 环境变量配置
+    openid: str = ""                 # 必须通过 SFTEST_OPENID 环境变量配置
+    access_token: str = ""           # 可选，用于余额查询 (通过 SFTEST_ACCESS_TOKEN)
+    timeout: int = 15
+    low_power_threshold: float = 20.0
+    unit_price: float = 0.6998       # 深大统一电价 (元/度)
+
+    @classmethod
+    def from_env(cls, env_file: str | os.PathLike[str] | None = None) -> "SftestConfig":
+        load_dotenv(str(env_file or DEFAULT_ENV_FILE))
+        return cls(
+            base_url=os.getenv("SFTEST_API_BASE", cls.base_url),
+            openid=os.getenv("SFTEST_OPENID", cls.openid),
+            access_token=os.getenv("SFTEST_ACCESS_TOKEN", cls.access_token),
+            timeout=int(os.getenv("SFTEST_TIMEOUT", cls.timeout)),
+            low_power_threshold=float(
+                os.getenv("SFTEST_LOW_POWER_THRESHOLD", cls.low_power_threshold)
+            ),
+            unit_price=float(os.getenv("SFTEST_UNIT_PRICE", cls.unit_price)),
+        )
+
+
 # ── Campus group identifiers ─────────────────────────────────────────────────
 # Maps logical campus groups to their network client IPs.
 # Used by handlers and frontend to identify campus without hardcoding IPs.
@@ -108,6 +134,7 @@ _CAMPUS_GROUP_DEFAULTS = {
     "yuehai_north":   "192.168.84.1",    # 粤海/北校区
     "yuehai_south":   "192.168.84.110",  # 粤海/南校区
     "yuehai_newzhai": "192.168.84.87",   # 粤海/新斋区
+    "yuehai_sftest":  "sftest",          # 粤海/后勤部新宿舍（测试）
 }
 
 
