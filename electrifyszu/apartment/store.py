@@ -53,15 +53,35 @@ def reconstruct_apartment_status(
         total_used = cum
         daily_avg = round(total_used / max(len(daily_rows), 1), 2)
 
-        # Build trend with estimated_remaining (reverse-engineered from total)
+        # Build trend with estimated_remaining (reverse-engineered from total).
+        # When recharges happened inside the query window, subtract their kWh
+        # from the back-computed remaining so that recharge amounts don't inflate
+        # historical data points.
+        recharge_entries: list[tuple[str, float]] = []
+        if recharge_records:
+            for r in recharge_records:
+                t = str(r.get("recharge_time", ""))
+                k = to_float(r.get("kwh"))
+                if t and k > 0:
+                    recharge_entries.append((t[:10], k))
+            recharge_entries.sort(key=lambda x: x[0])
+
         future_kwh = total_used
+        future_recharge = sum(k for _, k in recharge_entries)
+        ri = 0
         trend: list[dict[str, Any]] = []
         for entry in daily_rows:
             future_kwh -= entry["kwh"]
+            # Advance past recharges that occurred on or before this day
+            entry_date = entry["date"][:10]
+            while ri < len(recharge_entries) and recharge_entries[ri][0] <= entry_date:
+                future_recharge -= recharge_entries[ri][1]
+                ri += 1
+            corrected = (remaining + future_kwh - future_recharge
+                         if remaining is not None else None)
             trend.append({
                 "date": entry["date"],
-                "remaining": (round(remaining + future_kwh, 2)
-                              if remaining is not None else None),
+                "remaining": round(corrected, 2) if corrected is not None else None,
                 "daily_used_kwh": round(entry["kwh"], 2),
                 "total_used_kwh": round(entry["cum"], 2),
             })
