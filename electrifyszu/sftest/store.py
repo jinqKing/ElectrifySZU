@@ -55,9 +55,13 @@ def reconstruct_sftest_status(
         )
 
         if has_cumulative:
-            trend, total_used, daily_avg = _build_trend_from_cumulative(usage_records, remaining)
+            trend, total_used, daily_avg = _build_trend_from_cumulative(
+                usage_records, remaining, recharge_records,
+            )
         else:
-            trend, total_used, daily_avg = _build_trend_from_daily(usage_records, remaining)
+            trend, total_used, daily_avg = _build_trend_from_daily(
+                usage_records, remaining, recharge_records,
+            )
 
         result["trend"] = trend
         result["records"] = len(trend)
@@ -88,13 +92,20 @@ def reconstruct_sftest_status(
 # ── Trend builders ─────────────────────────────────────────────────────────
 
 def _build_trend_from_cumulative(
-    records: list[dict[str, Any]], remaining: float | None,
+    records: list[dict[str, Any]],
+    remaining: float | None,
+    recharge_records: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], float, float]:
     """Build trend from cumulative total_used (dorm-style).
 
     When *remaining* reflects the latest known balance, per-entry remaining
-    is back-computed from the cumulative meter readings.
+    is back-computed from the cumulative meter readings, with recharge kWh
+    subtracted to avoid inflating historical data points.
     """
+    recharge_entries = _sorted_recharge_kwh(recharge_records)
+    future_recharge = sum(k for _, k in recharge_entries)
+    ri = 0
+
     trend: list[dict[str, Any]] = []
     previous_total: float | None = None
 
@@ -104,11 +115,15 @@ def _build_trend_from_cumulative(
     for row in records:
         total = to_float(row.get("total_used"))
         daily_used = 0.0 if previous_total is None else max(total - previous_total, 0.0)
-        # Back-compute remaining: if we consumed N kWh since this entry,
-        # the remaining at this entry was N kWh higher.
+        # Advance past recharges that occurred on or before this row's date
+        row_date = str(row.get("record_time", ""))[:10]
+        while ri < len(recharge_entries) and recharge_entries[ri][0] <= row_date:
+            future_recharge -= recharge_entries[ri][1]
+            ri += 1
+        # Back-compute: latest_balance + consumed_since - recharged_since
         row_remaining: float | None = None
         if remaining is not None and latest_total > 0:
-            row_remaining = round(remaining + (latest_total - total), 2)
+            row_remaining = round(remaining + (latest_total - total) - future_recharge, 2)
         trend.append({
             "date": str(row.get("record_time", "")),
             "remaining": row_remaining,
@@ -128,13 +143,19 @@ def _build_trend_from_cumulative(
 
 
 def _build_trend_from_daily(
-    records: list[dict[str, Any]], remaining: float | None,
+    records: list[dict[str, Any]],
+    remaining: float | None,
+    recharge_records: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], float, float]:
     """Build trend by accumulating daily_kwh (apartment-style).
 
-    When *remaining* reflects the latest known balance, per-entry remaining
-    is back-computed so the trend line decreases rather than staying flat.
+    Per-entry remaining is back-computed from total consumption, with
+    recharge kWh subtracted to avoid inflating historical data points.
     """
+    recharge_entries = _sorted_recharge_kwh(recharge_records)
+    future_recharge = sum(k for _, k in recharge_entries)
+    ri = 0
+
     trend: list[dict[str, Any]] = []
     cum = 0.0
     for row in records:
@@ -148,10 +169,32 @@ def _build_trend_from_daily(
         })
     total_used = cum
 
-    # Back-compute per-entry remaining (same logic as _build_trend_from_cumulative)
+    # Back-compute per-entry remaining with recharge correction
     for t in trend:
-        t["remaining"] = (round(remaining + (total_used - t["total_used_kwh"]), 2)
-                          if remaining is not None else None)
+        entry_date = t["date"][:10]
+        while ri < len(recharge_entries) and recharge_entries[ri][0] <= entry_date:
+            future_recharge -= recharge_entries[ri][1]
+            ri += 1
+        t["remaining"] = (
+            round(remaining + (total_used - t["total_used_kwh"]) - future_recharge, 2)
+            if remaining is not None else None
+        )
 
     daily_avg = round(total_used / max(len(trend), 1), 2)
     return trend, total_used, daily_avg
+
+
+def _sorted_recharge_kwh(
+    recharge_records: list[dict[str, Any]] | None,
+) -> list[tuple[str, float]]:
+    """Extract (date, kwh) pairs from recharge records, sorted chronologically."""
+    if not recharge_records:
+        return []
+    entries: list[tuple[str, float]] = []
+    for r in recharge_records:
+        t = str(r.get("recharge_time", ""))
+        k = to_float(r.get("kwh"))
+        if t and k > 0:
+            entries.append((t[:10], k))
+    entries.sort(key=lambda x: x[0])
+    return entries
