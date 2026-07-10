@@ -167,12 +167,6 @@ class ApartmentPowerApi:
                 ])
 
         stored = get_usage_records(client, room_code, begin, end)
-        usage_list = [
-            {"date": r["record_time"], "kwh": _to_float(r.get("daily_kwh") or r.get("remaining"), default=None),
-             "unit_price": _to_float(r.get("unit_price") or r.get("total_used"), default=None)}
-            for r in stored
-        ]
-        usage_list = [u for u in usage_list if u["kwh"] is not None]
 
         # 2. Recharge
         if recharge_is_stale(client, room_code):
@@ -185,40 +179,24 @@ class ApartmentPowerApi:
                     for r in records
                 ])
         recharge_stored = get_recharge_records(client, room_code)
-        recharge_list = [
-            {"time": r["recharge_time"], "room": room_name,
-             "kwh": _to_float(r.get("kwh")), "yuan": _to_float(r.get("yuan")),
-             "person": str(r.get("method", ""))}
-            for r in recharge_stored
-        ]
 
-        # 3. Reconstruct
-        remaining = fresh_remaining  # fresh if we hit the API, None if fully cached
-        total_used = round(sum(u["kwh"] for u in usage_list), 2)
-        daily_avg = round(total_used / max(len(usage_list), 1), 2)
-
-        return {
+        # 3. Reconstruct via unified glue layer
+        from electrifyszu.dorm.store import reconstruct_apartment_status
+        unit_price = _last_unit_price_from_stored(stored)
+        result = reconstruct_apartment_status(
+            stored, recharge_stored,
+            room_code, room_name, begin, end, days, threshold,
+            fresh_remaining=fresh_remaining,
+        )
+        result.update({
             "building_code": building.code,
             "building_name": building.name,
             "floor_code": floor_code,
             "room_code": room_code,
-            "room_name": room_name,
             "room_label": room_label,
-            "period": {"begin": begin, "end": end, "days": days},
-            "records": len(usage_list),
-            "threshold_kwh": threshold,
-            "status": _status_level(remaining, threshold),
-            "remaining": remaining,
-            "total_used_kwh": total_used,
-            "daily_avg_kwh": daily_avg,
-            "est_days_left": round(remaining / daily_avg, 1)
-            if remaining is not None and daily_avg > 0
-            else None,
-            "last_record": max((u["date"] for u in usage_list), default=""),
-            "unit_price": _last_unit_price(usage_list),
-            "trend": _build_trend(usage_list, remaining),
-            "recharges": recharge_list,
-        }
+            "unit_price": unit_price,
+        })
+        return result
 
     def _query_records(
         self,
@@ -605,6 +583,15 @@ def _last_unit_price(usage_records: list[dict[str, Any]]) -> float | None:
     for row in reversed(usage_records):
         if row["unit_price"] > 0:
             return row["unit_price"]
+    return None
+
+
+def _last_unit_price_from_stored(stored: list[dict[str, Any]]) -> float | None:
+    """Extract *unit_price* from raw DB records (which now include the column)."""
+    for row in reversed(stored):
+        up = _to_float(row.get("unit_price"), default=None)
+        if up is not None and up > 0:
+            return up
     return None
 
 
