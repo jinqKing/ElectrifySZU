@@ -47,21 +47,9 @@ def reconstruct_sftest_status(
         remaining = round(balance_yuan / UNIT_PRICE, 2)
 
     if usage_records:
-        # Build trend from cumulative total_used when available;
-        # fall back to daily_kwh accumulation
-        has_cumulative = any(
-            r.get("total_used") is not None and to_float(r.get("total_used")) > 0
-            for r in usage_records
+        trend, total_used, daily_avg = _build_trend_from_cumulative(
+            usage_records, remaining, recharge_records,
         )
-
-        if has_cumulative:
-            trend, total_used, daily_avg = _build_trend_from_cumulative(
-                usage_records, remaining, recharge_records,
-            )
-        else:
-            trend, total_used, daily_avg = _build_trend_from_daily(
-                usage_records, remaining, recharge_records,
-            )
 
         result["trend"] = trend
         result["records"] = len(trend)
@@ -138,48 +126,6 @@ def _build_trend_from_cumulative(
         total_used = max(total_used, 0)
     else:
         total_used = 0.0
-    daily_avg = round(total_used / max(len(trend), 1), 2)
-    return trend, total_used, daily_avg
-
-
-def _build_trend_from_daily(
-    records: list[dict[str, Any]],
-    remaining: float | None,
-    recharge_records: list[dict[str, Any]] | None = None,
-) -> tuple[list[dict[str, Any]], float, float]:
-    """Build trend by accumulating daily_kwh (apartment-style).
-
-    Per-entry remaining is back-computed from total consumption, with
-    recharge kWh subtracted to avoid inflating historical data points.
-    """
-    recharge_entries = _sorted_recharge_kwh(recharge_records)
-    future_recharge = sum(k for _, k in recharge_entries)
-    ri = 0
-
-    trend: list[dict[str, Any]] = []
-    cum = 0.0
-    for row in records:
-        kwh = to_float(row.get("daily_kwh") or 0)
-        cum += kwh
-        trend.append({
-            "date": str(row.get("record_time", "")),
-            "remaining": remaining,   # placeholder — computed below
-            "daily_used_kwh": round(kwh, 2),
-            "total_used_kwh": round(cum, 2),
-        })
-    total_used = cum
-
-    # Back-compute per-entry remaining with recharge correction
-    for t in trend:
-        entry_date = t["date"][:10]
-        while ri < len(recharge_entries) and recharge_entries[ri][0] <= entry_date:
-            future_recharge -= recharge_entries[ri][1]
-            ri += 1
-        t["remaining"] = (
-            round(remaining + (total_used - t["total_used_kwh"]) - future_recharge, 2)
-            if remaining is not None else None
-        )
-
     daily_avg = round(total_used / max(len(trend), 1), 2)
     return trend, total_used, daily_avg
 
