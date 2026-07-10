@@ -9,6 +9,7 @@ from electrifyszu.config import (
     CAMPUS_GROUP, MAX_QUERY_DAYS,
     DormConfig as Config,
     ApartmentConfig,
+    SftestConfig,
     client_for_group,
     group_for_client,
 )
@@ -25,6 +26,7 @@ from electrifyszu.server.handlers.types import (
 )
 
 import electrifyszu.apartment.api as _apt_api
+import electrifyszu.sftest.api as _sftest_api
 
 logger = logging.getLogger("server")
 
@@ -68,6 +70,12 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
         lihu_ip = CAMPUS_GROUP.get("lihu", "")
         if (client_raw == "lihu" or client_ip == lihu_ip) and building_id in ("01", "02", "03", "04", "05", "06"):
             _handle_apartment_status(handler, building_id, room_name, days)
+            return
+
+        # 粤海后勤部新宿舍（编码01-09）走 SftestApi
+        sftest_ip = CAMPUS_GROUP.get("yuehai_sftest", "")
+        if (client_raw == "yuehai_sftest" or client_ip == sftest_ip) and building_id in ("01", "02", "03", "04", "05", "06", "07", "08", "09"):
+            _handle_sftest_status(handler, building_id, room_name, days)
             return
 
         config = Config.from_env(str(ENV_FILE))
@@ -115,6 +123,34 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
         send_error(
             handler, "ROOM_NOT_FOUND", str(exc),
             "请确认校区、楼栋与房间号是否正确。", status=404,
+        )
+    except Exception as exc:
+        send_error(
+            handler, "CAMPUS_NETWORK_ERROR", str(exc),
+            "请确认已连接校园网，稍后重试。", status=502,
+        )
+
+
+def _handle_sftest_status(
+    handler: BaseHTTPRequestHandler, building_code: str, room_name: str, days: int
+) -> None:
+    try:
+        sftest_config = SftestConfig.from_env(str(ENV_FILE))
+        api = _sftest_api.SftestApi(sftest_config)
+        result = api.get_status(
+            building_code=building_code,
+            room_name=room_name,
+            days=days,
+            threshold=sftest_config.low_power_threshold,
+        )
+        result["client"] = "yuehai_sftest"
+        result["campus_name"] = "粤海新宿舍"
+        result["building_id"] = building_code
+        send_json(handler, {"ok": True, "data": result})
+    except LookupError as exc:
+        send_error(
+            handler, "ROOM_NOT_FOUND", str(exc),
+            "请确认楼栋与房间号是否正确。", status=404,
         )
     except Exception as exc:
         send_error(
