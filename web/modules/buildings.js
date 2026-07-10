@@ -188,7 +188,12 @@ export function selectCampus(fields, value) {
 
 export function renderBuildingOptions(fields, filter = "", { manageOpenState = true } = {}) {
   const keyword = filter.trim().toLowerCase();
-  const options = buildingChoices.filter((choice) => {
+  const campusVal = fields.campusGroupId?.value;
+  let scope = buildingChoices;
+  if (campusVal && campusVal !== "all") {
+    scope = scope.filter((c) => c.uiCampus === campusVal);
+  }
+  const options = scope.filter((choice) => {
     if (!keyword) return true;
     return choice.searchText.includes(keyword);
   });
@@ -297,10 +302,14 @@ export function syncSelectedBuilding(fields) {
   fields.campusName.value = selected.sourceCampusName;
   fields.buildingId.value = selected.id;
   fields.buildingName.value = selected.name;
-  fields.campusGroupId.value = selected.uiCampus;
-  // Sync campus search display
-  const campus = _CAMPUS_GROUPS.find((c) => c.value === selected.uiCampus);
-  if (campus && fields.campusSearch) fields.campusSearch.value = t(campus.labelKey);
+  // Only update campus selector if the current filter excludes this building.
+  // Otherwise keep the user's explicit campus choice (including "全部").
+  const cur = fields.campusGroupId.value;
+  if (cur && cur !== "all" && selected.uiCampus !== cur) {
+    fields.campusGroupId.value = selected.uiCampus;
+    const campus = _CAMPUS_GROUPS.find((c) => c.value === selected.uiCampus);
+    if (campus && fields.campusSearch) fields.campusSearch.value = t(campus.labelKey);
+  }
 }
 
 export function resolveBuildingMatch(fields, text, campusValue) {
