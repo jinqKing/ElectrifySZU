@@ -1,6 +1,6 @@
 """Sftest campus power query API client.
 
-Target: http://sftest.hqb.szu.edu.cn (后勤部测试系统)
+Target: sftest.hqb.szu.edu.cn (后勤部新宿舍用电系统)
 Protocol: JSON-over-HTTP, no authentication beyond an ``openid`` parameter.
 """
 
@@ -148,14 +148,14 @@ class SftestApi:
         threshold: float | None = None,
     ) -> dict[str, Any]:
         """Return a dorm-compatible room power summary."""
-        from electrifyszu.dorm.store import (
+        from electrifyszu.store import (
             get_usage_gap,
             get_usage_records,
             get_recharge_records,
             insert_usage_records,
             recharge_is_stale,
-            reconstruct_sftest_status,
         )
+        from electrifyszu.sftest.store import reconstruct_sftest_status
         from electrifyszu.config import CAMPUS_GROUP
 
         days = min(max(days, 1), MAX_QUERY_DAYS)
@@ -220,7 +220,7 @@ class SftestApi:
             try:
                 cz = self._fetch_recharges(rm_guid)
                 if cz:
-                    from electrifyszu.dorm.store import insert_recharge_records
+                    from electrifyszu.store import insert_recharge_records
                     insert_recharge_records(client, rm_guid, [
                         {"recharge_time": r["time"], "kwh": r.get("kwh"),
                          "yuan": r.get("yuan"), "method": r.get("method", "")}

@@ -96,7 +96,7 @@ class ApartmentConfig:
         )
 
 
-# ── Sftest campus config (后勤部测试系统, 粤海新宿舍) ─────────────────
+# ── Sftest campus config (后勤部新宿舍, 粤海校区) ─────────────────
 
 @dataclass
 class SftestConfig:
@@ -134,7 +134,7 @@ _CAMPUS_GROUP_DEFAULTS = {
     "yuehai_north":   "192.168.84.1",    # 粤海/北校区
     "yuehai_south":   "192.168.84.110",  # 粤海/南校区
     "yuehai_newzhai": "192.168.84.87",   # 粤海/新斋区
-    "yuehai_sftest":  "sftest",          # 粤海/后勤部新宿舍（测试）
+    "yuehai_sftest":  "sftest",          # 粤海/后勤部新宿舍
 }
 
 

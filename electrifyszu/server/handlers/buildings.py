@@ -202,7 +202,7 @@ def _merge_sftest_into_yuehai(data: list[dict[str, object]]) -> None:
         return
     data.append({
         "client": "yuehai_sftest",
-        "name": "粤海新宿舍(测试)",
+        "name": "粤海新宿舍",
         "group": "yuehai_sftest",
         "buildings": sftest_list,
     })
