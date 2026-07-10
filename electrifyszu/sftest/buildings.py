@@ -1,6 +1,6 @@
-"""Sftest (后勤部测试系统) building registry.
+"""Sftest (后勤部新宿舍) building registry.
 
-Nine dormitories served by http://<CAMPUS_SFTEST_HOST>.
+Nine dormitories served by the <CAMPUS_SFTEST_HOST> electricity system.
 Each building uses a UUID ``guid`` for API calls and a short
 ``prefix`` for room identifiers (e.g. DFX-101).
 """

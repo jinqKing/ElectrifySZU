@@ -137,7 +137,7 @@ class ApartmentPowerApi:
         begin = (today - timedelta(days=days)).strftime("%Y-%m-%d")
         end = today.strftime("%Y-%m-%d")
 
-        from electrifyszu.dorm.store import (
+        from electrifyszu.store import (
             get_usage_gap,
             get_usage_records,
             get_recharge_records,
@@ -181,7 +181,7 @@ class ApartmentPowerApi:
         recharge_stored = get_recharge_records(client, room_code)
 
         # 3. Reconstruct via unified glue layer
-        from electrifyszu.dorm.store import reconstruct_apartment_status
+        from electrifyszu.apartment.store import reconstruct_apartment_status
         unit_price = _last_unit_price_from_stored(stored)
         result = reconstruct_apartment_status(
             stored, recharge_stored,

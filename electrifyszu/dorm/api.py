@@ -96,15 +96,15 @@ class DormApi:
         stores records permanently in SQLite. Once a day's meter reading is
         stored it is never re-fetched.
         """
-        from electrifyszu.dorm.store import (
+        from electrifyszu.store import (
             get_usage_gap,
             get_usage_records,
             get_recharge_records,
             insert_usage_records,
             insert_recharge_records,
             recharge_is_stale,
-            reconstruct_dorm_status,
         )
+        from electrifyszu.dorm.store import reconstruct_dorm_status
 
         days = min(max(days, 1), MAX_QUERY_DAYS)
         today = datetime.now()

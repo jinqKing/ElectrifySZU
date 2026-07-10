@@ -19,7 +19,7 @@
   {
     "client": "yuehai_sftest",
     "group": "yuehai_sftest",
-    "name": "粤海新宿舍(测试)",
+    "name": "粤海新宿舍",
     "buildings": [
       { "id": "01", "name": "海桐斋" },
       { "id": "02", "name": "米兰斋" },
