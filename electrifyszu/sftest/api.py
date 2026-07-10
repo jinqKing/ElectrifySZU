@@ -218,7 +218,9 @@ class SftestApi:
         # 2. Recharge (sftest has its own recharge API but DB is shared)
         if recharge_is_stale(client, rm_guid):
             try:
-                cz = self._fetch_recharges(rm_guid)
+                # The findMyCzdata endpoint requires beginTime/endTime;
+                # without them it returns [].  Use a wide range to fetch all history.
+                cz = self._fetch_recharges(rm_guid, begin_time="2020-01-01", end_time=end)
                 if cz:
                     from electrifyszu.store import insert_recharge_records
                     insert_recharge_records(client, rm_guid, [
@@ -260,26 +262,50 @@ class SftestApi:
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             return json.loads(resp.read())
 
-    def _fetch_recharges(self, rm_guid: str) -> list[dict[str, Any]]:
-        """Fetch recharge records from the sftest API."""
-        url = (
-            f"{self.base_url}/gzhnew/findMyCzdata.action"
-            f"?openid={self.openid}&rmGuid={rm_guid}"
+    def _fetch_recharges(self, rm_guid: str, begin_time: str = "", end_time: str = "") -> list[dict[str, Any]]:
+        """Fetch recharge records from the sftest API.
+
+        The endpoint supports optional *beginTime* / *endTime* filters
+        (``YYYY-MM-DD``) and requires *access_token* in the query string.
+
+        Response fields: *type* (1-5), *pt_name*, *money* (元), *time*.
+        No kWh field is returned; kWh is derived from yuan via unit price.
+        """
+        if not self.access_token:
+            return []
+        params = (
+            f"openid={self.openid}&access_token={self.access_token}"
+            f"&rmGuid={rm_guid}"
         )
+        if begin_time:
+            params += f"&beginTime={begin_time}"
+        if end_time:
+            params += f"&endTime={end_time}"
+        url = f"{self.base_url}/gzhnew/findMyCzdata.action?{params}"
         raw = self._get_json(url)
         if not isinstance(raw, list):
             return []
         records = []
+        TYPE_NAMES = {
+            "1": "人工充值",
+            "2": "微信支付",
+            "3": "支付宝支付",
+            "4": "第三方接口充值",
+            "5": "结算调整",
+        }
         for r in raw:
-            time_val = str(r.get("TRADE_DATE", r.get("TRADE_TIME", "")))
-            kwh = _to_float(r.get("ENERGY", r.get("KWH", 0)), default=None)
-            yuan = _to_float(r.get("PAY_MONEY", r.get("MONEY", r.get("YUAN", 0))), default=None)
+            time_val = str(r.get("time", ""))
+            yuan = _to_float(r.get("money"), default=None)
+            # No kWh field from this endpoint; derive from yuan
+            kwh = round(yuan / self.unit_price, 6) if yuan is not None and self.unit_price > 0 else None
+            type_code = str(r.get("type", ""))
+            method = TYPE_NAMES.get(type_code, r.get("pt_name", type_code) or "")
             if time_val:
                 records.append({
                     "time": time_val,
                     "kwh": kwh,
                     "yuan": yuan,
-                    "method": str(r.get("TRADE_TYPE", r.get("TYPE", ""))),
+                    "method": method,
                 })
         return records
 
