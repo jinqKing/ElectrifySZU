@@ -48,10 +48,11 @@ class DormApi:
         if proxy:
             handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
             opener = urllib.request.build_opener(handler)
-            resp = opener.open(req, timeout=self.timeout)
+            with opener.open(req, timeout=self.timeout) as resp:
+                return resp.read()
         else:
-            resp = urllib.request.urlopen(req, timeout=self.timeout)
-        return resp.read()
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                return resp.read()
 
     def get_recharge(
         self,

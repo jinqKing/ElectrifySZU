@@ -369,14 +369,15 @@ class ApartmentPowerApi:
             body = urllib.parse.urlencode(data).encode("ascii")
 
         req = urllib.request.Request(url, data=body, headers=headers)
-        resp = opener.open(req, timeout=self.timeout)
-        raw = resp.read()
-        charset = _response_charset(resp.headers.get("Content-Type", ""))
-        page_html = raw.decode(charset, errors="replace")
+        with opener.open(req, timeout=self.timeout) as resp:
+            raw = resp.read()
+            charset = _response_charset(resp.headers.get("Content-Type", ""))
+            page_html = raw.decode(charset, errors="replace")
+            final_url = resp.geturl()
         parser = _PageParser()
         parser.feed(page_html)
         return _FormPage(
-            url=resp.geturl(),
+            url=final_url,
             html=page_html,
             hidden=parser.hidden,
             selects=parser.selects,

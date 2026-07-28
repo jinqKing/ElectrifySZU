@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import socket
+import urllib.error
 from http.server import BaseHTTPRequestHandler
 
 from electrifyszu.config import (
@@ -29,6 +31,20 @@ import electrifyszu.apartment.api as _apt_api
 import electrifyszu.sftest.api as _sftest_api
 
 logger = logging.getLogger("server")
+
+# 安全导入 httpx 网络异常类型（用于异常分类）
+try:
+    from httpx import NetworkError as _HttpxNetworkError
+except ImportError:
+    _HttpxNetworkError = Exception  # 不可能匹配的 fallback
+
+# 所有网络层异常：502 返回给前端要求重试
+_NETWORK_EXCEPTIONS = (
+    urllib.error.URLError,
+    ConnectionError,
+    socket.timeout,
+    _HttpxNetworkError,
+)
 
 # Ranking cache (lazy-loaded on first request)
 _RANKING_CACHE: dict = {}
@@ -124,10 +140,16 @@ def handle_status(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) 
             handler, "ROOM_NOT_FOUND", str(exc),
             "请确认校区、楼栋与房间号是否正确。", status=404,
         )
-    except Exception as exc:
+    except _NETWORK_EXCEPTIONS as exc:
         send_error(
             handler, "CAMPUS_NETWORK_ERROR", str(exc),
             "请确认已连接校园网，稍后重试。", status=502,
+        )
+    except Exception:
+        logger.exception("Unexpected error in dorm status query")
+        send_error(
+            handler, "INTERNAL_ERROR", "服务器内部错误",
+            "请稍后重试。", status=500,
         )
 
 
@@ -152,10 +174,16 @@ def _handle_sftest_status(
             handler, "ROOM_NOT_FOUND", str(exc),
             "请确认楼栋与房间号是否正确。", status=404,
         )
-    except Exception as exc:
+    except _NETWORK_EXCEPTIONS as exc:
         send_error(
             handler, "CAMPUS_NETWORK_ERROR", str(exc),
             "请确认已连接校园网，稍后重试。", status=502,
+        )
+    except Exception:
+        logger.exception("Unexpected error in sftest status query")
+        send_error(
+            handler, "INTERNAL_ERROR", "服务器内部错误",
+            "请稍后重试。", status=500,
         )
 
 
@@ -180,8 +208,14 @@ def _handle_apartment_status(
             handler, "ROOM_NOT_FOUND", str(exc),
             "请确认楼栋与房间号是否正确。", status=404,
         )
-    except Exception as exc:
+    except _NETWORK_EXCEPTIONS as exc:
         send_error(
             handler, "CAMPUS_NETWORK_ERROR", str(exc),
             "请确认已连接校园网，稍后重试。", status=502,
+        )
+    except Exception:
+        logger.exception("Unexpected error in apartment status query")
+        send_error(
+            handler, "INTERNAL_ERROR", "服务器内部错误",
+            "请稍后重试。", status=500,
         )

@@ -66,10 +66,10 @@ def list_buildings(client_ip: str = "", base_url: str = "") -> dict:
         ).fetchall()
         return {r["building_id"]: r["building_name"] for r in rows}
 
-    client = httpx.Client(proxy=get_proxy() or None)
-    r = client.get(f"{_base_url(base_url)}/login.do?task=station&client={client_ip}")
-    opts = re.findall(rb'<option value="(\d+)">([^<]*)</option>', r.content)
-    result = {bid.decode(): name.decode("gb2312").strip() for bid, name in opts}
+    with httpx.Client(proxy=get_proxy() or None) as client:
+        r = client.get(f"{_base_url(base_url)}/login.do?task=station&client={client_ip}")
+        opts = re.findall(rb'<option value="(\d+)">([^<]*)</option>', r.content)
+        result = {bid.decode(): name.decode("gb2312").strip() for bid, name in opts}
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for bid, name in result.items():
@@ -112,54 +112,54 @@ def discover_room_id(building_id: str, room_name: str,
 def _discover_room_id_impl(building_id: str, room_name: str,
                            client_ip: str, base_url: str) -> str | None:
     """原始 discover_room_id 实现（直接请求校园 API）。"""
-    client = httpx.Client(proxy=get_proxy() or None)
-    api_base = _base_url(base_url)
+    with httpx.Client(proxy=get_proxy() or None) as client:
+        api_base = _base_url(base_url)
 
-    # Step 1: GET login page
-    r = client.get(f"{api_base}/login.do?task=station&client={client_ip}",
-                   headers={"User-Agent": "Mozilla/5.0"})
+        # Step 1: GET login page
+        r = client.get(f"{api_base}/login.do?task=station&client={client_ip}",
+                       headers={"User-Agent": "Mozilla/5.0"})
 
-    # 提取 form action 和 building option 文本
-    action_m = re.search(rb'action="([^"]+)"', r.content)
-    if not action_m:
+        # 提取 form action 和 building option 文本
+        action_m = re.search(rb'action="([^"]+)"', r.content)
+        if not action_m:
+            return None
+        action = action_m.group(1).decode()
+
+        # 查找 buildingId 对应的 option 文本
+        opt_m = re.search(
+            rf'<option value="{building_id}">([^<]*)</option>'.encode(), r.content)
+        if not opt_m:
+            # buildingId 不在当前校区的建筑列表中
+            return None
+
+        opt_text = opt_m.group(1).decode("gb2312")
+
+        # Step 2: POST 登录表单
+        body = "&".join([
+            f"client={client_ip}",
+            f"buildingId={building_id}",
+            "buildingName=" + quote(opt_text.encode("gb2312")),
+            f"roomName={room_name}",
+            "select=" + quote("查询".encode("gb2312")),
+        ]).encode("ascii")
+
+        resp = client.post(
+            urljoin(api_base + "/", action),
+            content=body,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Referer": f"{api_base}/login.do?task=station&client={client_ip}",
+                "User-Agent": "Mozilla/5.0",
+            }
+        )
+
+        # Step 3: 从响应中提取 roomId
+        html = resp.text
+        room_id_m = re.search(
+            r'<input[^>]*type="hidden"[^>]*name="roomId"[^>]*value="(\d+)"', html)
+        if room_id_m:
+            return room_id_m.group(1)
         return None
-    action = action_m.group(1).decode()
-
-    # 查找 buildingId 对应的 option 文本
-    opt_m = re.search(
-        rf'<option value="{building_id}">([^<]*)</option>'.encode(), r.content)
-    if not opt_m:
-        # buildingId 不在当前校区的建筑列表中
-        return None
-
-    opt_text = opt_m.group(1).decode("gb2312")
-
-    # Step 2: POST 登录表单
-    body = "&".join([
-        f"client={client_ip}",
-        f"buildingId={building_id}",
-        "buildingName=" + quote(opt_text.encode("gb2312")),
-        f"roomName={room_name}",
-        "select=" + quote("查询".encode("gb2312")),
-    ]).encode("ascii")
-
-    resp = client.post(
-        urljoin(api_base + "/", action),
-        content=body,
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Referer": f"{api_base}/login.do?task=station&client={client_ip}",
-            "User-Agent": "Mozilla/5.0",
-        }
-    )
-
-    # Step 3: 从响应中提取 roomId
-    html = resp.text
-    room_id_m = re.search(
-        r'<input[^>]*type="hidden"[^>]*name="roomId"[^>]*value="(\d+)"', html)
-    if room_id_m:
-        return room_id_m.group(1)
-    return None
 
 
 def main():
