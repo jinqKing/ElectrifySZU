@@ -188,12 +188,7 @@ export function selectCampus(fields, value) {
 
 export function renderBuildingOptions(fields, filter = "", { manageOpenState = true } = {}) {
   const keyword = filter.trim().toLowerCase();
-  const campusVal = fields.campusGroupId?.value;
-  let scope = buildingChoices;
-  if (campusVal && campusVal !== "all") {
-    scope = scope.filter((c) => c.uiCampus === campusVal);
-  }
-  const options = scope.filter((choice) => {
+  const options = buildingChoices.filter((choice) => {
     if (!keyword) return true;
     return choice.searchText.includes(keyword);
   });
