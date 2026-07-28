@@ -5,7 +5,7 @@ export const BUILDING_DEFAULTS = {
   client: "",
   buildingId: "7126",
   buildingName: "风槐斋",
-  campusName: "粤海",
+  campusName: "西南",
 };
 
 // Allow server-side injection via template substitution (deploy-time).

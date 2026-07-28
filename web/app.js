@@ -251,7 +251,7 @@ document.querySelector("#buildingSearch").closest(".combo").addEventListener("po
   if (list.classList.contains("open")) { closeBuildingOptions(fields); fields.buildingSearch.blur(); }
   else {
     const v = fields.campusGroupId.value;
-    renderBuildingOptionsForList(fields, v ? buildingChoices.filter(c => c.campusGroup === v) : buildingChoices, "");
+    renderBuildingOptionsForList(fields, (v && v !== "all") ? buildingChoices.filter(c => c.uiCampus === v) : buildingChoices, "");
     fields.buildingSearch.focus();
   }
 });
@@ -262,7 +262,7 @@ document.querySelector("#buildingSearch").closest(".combo").addEventListener("cl
   if (isArrow || e.target.closest(".combo-option")) return;
   if (!document.querySelector("#buildingOptions").classList.contains("open")) {
     const v = fields.campusGroupId.value;
-    renderBuildingOptionsForList(fields, v ? buildingChoices.filter(c => c.campusGroup === v) : buildingChoices, "");
+    renderBuildingOptionsForList(fields, (v && v !== "all") ? buildingChoices.filter(c => c.uiCampus === v) : buildingChoices, "");
   }
 });
 
@@ -284,8 +284,8 @@ fields.buildingSearch.addEventListener("focus", () => {
   // destroy the option DOM and break the in-flight click handler.
   if (document.querySelector("#buildingOptions").classList.contains("open")) return;
   const campusVal = fields.campusGroupId.value;
-  if (campusVal) {
-    const campusBuildings = buildingChoices.filter((c) => c.campusGroup === campusVal);
+  if (campusVal && campusVal !== "all") {
+    const campusBuildings = buildingChoices.filter((c) => c.uiCampus === campusVal);
     renderBuildingOptionsForList(fields, campusBuildings, "");
   } else {
     renderBuildingOptions(fields, "");

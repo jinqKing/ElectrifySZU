@@ -26,6 +26,7 @@ from electrifyszu.server.handlers.types import (
 )
 
 import electrifyszu.apartment.buildings as _apt_buildings
+import electrifyszu.sftest.buildings as _sftest_buildings
 
 ROOT = Path(__file__).resolve().parents[3]
 BUILDINGS_FILE = ROOT / "electrifyszu" / "data" / "buildings.txt"
@@ -35,6 +36,7 @@ def handle_buildings(handler: BaseHTTPRequestHandler) -> None:
     config = Config.from_env(str(ENV_FILE))
     data = merge_campuses(default_campuses(config), load_buildings_file())
     _merge_apartment_into_lihu(data)
+    _merge_sftest_into_yuehai(data)
     send_json(handler, {"ok": True, "data": data})
 
 
@@ -185,4 +187,22 @@ def _merge_apartment_into_lihu(data: list[dict[str, object]]) -> None:
         "name": "西丽校区",
         "group": "lihu",
         "buildings": apt_list,
+    })
+
+
+def _merge_sftest_into_yuehai(data: list[dict[str, object]]) -> None:
+    """Append sftest (粤海新宿舍) buildings into the yuehai_sftest campus group."""
+    try:
+        buildings = _sftest_buildings.load_buildings()
+        sftest_list = [
+            {"id": b.code, "name": b.name}
+            for b in sorted(buildings.values(), key=lambda x: x.code)
+        ]
+    except Exception:
+        return
+    data.append({
+        "client": "yuehai_sftest",
+        "name": "粤海新宿舍",
+        "group": "yuehai_sftest",
+        "buildings": sftest_list,
     })
