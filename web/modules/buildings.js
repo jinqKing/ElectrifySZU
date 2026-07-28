@@ -53,19 +53,23 @@ export function normalizeCampuses(data) {
 }
 
 export function flattenBuildings(campusData) {
+  // Map backend campus groups to UI campus groups
+  const UI_CAMPUS_MAP = {
+    yuehai_north: "xinan",
+    yuehai_sftest: "xinan",
+    yuehai_newzhai: "xinzhai",
+    yuehai_south: "nansouth",
+    lihu: "lihu",
+  };
   return campusData.flatMap((campus) => {
-    const rawGroup = campus.group || (campus.client === "apartment" ? "apartment" : "yuehai");
-    // Normalise backend sub-campus groups (yuehai_north, yuehai_south, etc.)
-    // to the three UI campus groups expected by _CAMPUS_GROUPS.
-    const campusGroup = rawGroup.startsWith("yuehai") ? "yuehai" : rawGroup;
-    const uiCampus = campusGroup === "lihu" ? "丽湖" : campusGroup === "apartment" ? "公寓" : "粤海";
+    const rawGroup = campus.group || campus.client || "";
+    const uiCampus = UI_CAMPUS_MAP[rawGroup] || rawGroup;
     return (campus.buildings || []).map((building) => ({
       id: building.id,
       name: building.name,
       ...floorRange(building.name),
       client: campus.client,
-      campusName: uiCampus,
-      campusGroup,
+      uiCampus,
       sourceCampusName: campus.name,
     }));
   });
@@ -74,13 +78,12 @@ export function flattenBuildings(campusData) {
 export function mergeBuildingChoices(buildings) {
   const groups = new Map();
   for (const building of buildings) {
-    const key = `${building.campusGroup}:${baseBuildingName(building.name)}`;
+    const key = `${building.uiCampus}:${baseBuildingName(building.name)}`;
     const current = groups.get(key) || {
       displayName: baseBuildingName(building.name),
       displayLabel: bilingualBuildingName(baseBuildingName(building.name)),
       searchText: "",
-      campusGroup: building.campusGroup,
-      campusName: building.campusName,
+      uiCampus: building.uiCampus,
       sourceCampusNames: new Set(),
       variants: [],
     };
@@ -94,7 +97,7 @@ export function mergeBuildingChoices(buildings) {
     sourceCampusLabel: [...group.sourceCampusNames].map(bilingualSourceCampusName).join(" / "),
     searchText: [
       group.displayName, group.displayLabel, buildingEnglishName(group.displayName),
-      group.campusName, bilingualCampusName(group.campusName),
+      group.uiCampus, campusLabels[t("campus." + group.uiCampus)] || "",
       ...group.sourceCampusNames,
       ...[...group.sourceCampusNames].map(bilingualSourceCampusName),
       ...group.variants.map((b) => b.name),
@@ -119,16 +122,20 @@ async function _fetchJSON(relativePath) {
 // ── Render ─────────────────────────────────────────────────────────
 
 const _CAMPUS_GROUPS = [
-  { value: "yuehai", labelKey: "campus.yuehai" },
+  { value: "all", labelKey: "campus.all" },
+  { value: "xinan", labelKey: "campus.xinan" },
+  { value: "xinzhai", labelKey: "campus.xinzhai" },
+  { value: "nansouth", labelKey: "campus.nansouth" },
   { value: "lihu", labelKey: "campus.lihu" },
-  { value: "apartment", labelKey: "campus.apartment" },
 ];
 
 export function renderCampusOptions(fields) {
-  const preferredCampus = fields.campusGroupId.value || "yuehai";
+  // Show all groups that have at least one building
   const campusGroups = _CAMPUS_GROUPS.filter((group) =>
-    allBuildings.some((b) => b.campusGroup === group.value)
+    group.value === "all" || allBuildings.some((b) => b.uiCampus === group.value)
   );
+  // Default to "all" unless user previously selected something
+  const preferredCampus = fields.campusGroupId.value || "all";
   fields.campusOptions.innerHTML = "";
   for (const campus of campusGroups) {
     const div = document.createElement("div");
@@ -231,7 +238,7 @@ export function renderBuildingOptionsForList(fields, options, rawKeyword = "", {
     const label = keywordLower
       ? highlightBuildingText(choice.displayLabel, rawKeyword)
       : escapeHtml(choice.displayLabel);
-    const campusInfo = escapeHtml(`${bilingualCampusName(choice.campusName)} · ${choice.sourceCampusLabel}`);
+    const campusInfo = escapeHtml(`${t("campus." + choice.uiCampus)} · ${choice.sourceCampusLabel}`);
     div.innerHTML = `${label}<small>${campusInfo}</small>`;
     div.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -278,7 +285,7 @@ export function closeBuildingOptions(fields) {
 
 export function chooseDefaultBuildingForCampus(fields) {
   const campusVal = fields.campusGroupId?.value;
-  const campusChoices = campusVal ? choicesForCurrentCampus(fields) : [];
+  const campusChoices = choicesForCurrentCampus({ campusGroupId: { value: campusVal || "all" } });
   const defaultChoice = campusChoices[0] || preferredChoice() || buildingChoices[0];
   if (defaultChoice) fields.buildingSearch.value = defaultChoice.displayLabel;
 }
@@ -287,13 +294,17 @@ export function syncSelectedBuilding(fields) {
   const selected = selectedBuilding(fields);
   if (!selected) return;
   fields.client.value = selected.client;
-  fields.campusName.value = selected.campusName;
+  fields.campusName.value = selected.sourceCampusName;
   fields.buildingId.value = selected.id;
   fields.buildingName.value = selected.name;
-  fields.campusGroupId.value = selected.campusGroup;
-  // Sync campus search display
-  const campus = _CAMPUS_GROUPS.find((c) => c.value === selected.campusGroup);
-  if (campus && fields.campusSearch) fields.campusSearch.value = t(campus.labelKey);
+  // Only update campus selector if the current filter excludes this building.
+  // Otherwise keep the user's explicit campus choice (including "全部").
+  const cur = fields.campusGroupId.value;
+  if (cur && cur !== "all" && selected.uiCampus !== cur) {
+    fields.campusGroupId.value = selected.uiCampus;
+    const campus = _CAMPUS_GROUPS.find((c) => c.value === selected.uiCampus);
+    if (campus && fields.campusSearch) fields.campusSearch.value = t(campus.labelKey);
+  }
 }
 
 export function resolveBuildingMatch(fields, text, campusValue) {
@@ -304,10 +315,10 @@ export function resolveBuildingMatch(fields, text, campusValue) {
     (item) => item.displayName === trimmed || item.displayLabel === trimmed || buildingEnglishName(item.displayName) === lower
   );
   if (exactChoice) {
-    const filtered = (campusValue && campusValue !== "") ? [exactChoice].filter(c => c.campusGroup === campusValue) : [exactChoice];
+    const filtered = (campusValue && campusValue !== "" && campusValue !== "all") ? [exactChoice].filter(c => c.uiCampus === campusValue) : [exactChoice];
     return { matched: true, source: "exact", choice: filtered[0] || exactChoice };
   }
-  const scope = campusValue ? buildingChoices.filter((c) => c.campusGroup === campusValue) : buildingChoices;
+  const scope = (campusValue && campusValue !== "all") ? buildingChoices.filter((c) => c.uiCampus === campusValue) : buildingChoices;
   const fuzzyHit = scope.find((item) => item.searchText.includes(lower));
   if (fuzzyHit) return { matched: true, source: "fuzzy", choice: fuzzyHit };
   return { matched: false, source: "none", choice: null };
@@ -368,7 +379,9 @@ function preferredChoice() {
 }
 
 function choicesForCurrentCampus(fields) {
-  return buildingChoices.filter((choice) => choice.campusGroup === fields?.campusGroupId?.value);
+  const campusVal = fields?.campusGroupId?.value;
+  if (!campusVal || campusVal === "all") return buildingChoices;
+  return buildingChoices.filter((choice) => choice.uiCampus === campusVal);
 }
 
 // ── Master loader (with localStorage cache) ───────────────────────
@@ -409,7 +422,7 @@ function applyBuildingsData(campusData, fields) {
   renderCampusOptions(fields);
   // Sync campus search display
   {
-    const cur = fields.campusGroupId.value || "yuehai";
+    const cur = fields.campusGroupId.value || "all";
     const campus = _CAMPUS_GROUPS.find((c) => c.value === cur);
     if (campus && fields.campusSearch) fields.campusSearch.value = t(campus.labelKey);
   }
