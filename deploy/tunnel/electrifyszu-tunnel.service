@@ -1,0 +1,23 @@
+[Unit]
+Description=ElectrifySZU SSH reverse tunnel to ZC (Dorm API: 19090)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/autossh -M 0 \
+    -o "ServerAliveInterval=30" \
+    -o "ServerAliveCountMax=3" \
+    -o "ExitOnForwardFailure=yes" \
+    -o "StrictHostKeyChecking=accept-new" \
+    -i /home/light/.ssh/electrifyszu_zc_tunnel \
+    -N -T \
+    -R 127.0.0.1:19090:192.168.84.3:9090 \
+    ubuntu@123.207.17.143
+Restart=always
+RestartSec=30
+StartLimitBurst=3
+StartLimitIntervalSec=120
+
+[Install]
+WantedBy=default.target

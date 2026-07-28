@@ -1,0 +1,24 @@
+[Unit]
+Description=ElectrifySZU apartment API tunnel (19091)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/bin/autossh -M 0 -N \
+    -i %h/.ssh/electrifyszu_zc_tunnel \
+    -o ServerAliveInterval=30 \
+    -o ServerAliveCountMax=3 \
+    -o ExitOnForwardFailure=yes \
+    -o StrictHostKeyChecking=accept-new \
+    -R 127.0.0.1:19091:172.25.100.105:8010 \
+    ubuntu@123.207.17.143
+Restart=always
+RestartSec=35
+StartLimitBurst=3
+StartLimitIntervalSec=120
+KillMode=process
+
+[Install]
+WantedBy=default.target

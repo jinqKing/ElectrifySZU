@@ -1,0 +1,24 @@
+[Unit]
+Description=ElectrifySZU Sftest API tunnel (19092)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/bin/autossh -M 0 -N \
+    -i %h/.ssh/electrifyszu_zc_tunnel \
+    -o ServerAliveInterval=30 \
+    -o ServerAliveCountMax=3 \
+    -o ExitOnForwardFailure=yes \
+    -o StrictHostKeyChecking=accept-new \
+    -R 127.0.0.1:19092:sftest.hqb.szu.edu.cn:80 \
+    ubuntu@123.207.17.143
+Restart=always
+RestartSec=40
+StartLimitBurst=3
+StartLimitIntervalSec=120
+KillMode=process
+
+[Install]
+WantedBy=default.target
