@@ -276,6 +276,12 @@ export function updateActiveDescendant(fields, options) {
   }
 }
 
+/** Text shown in the campus combo for a given group value (current locale). */
+export function campusSearchTextFor(value) {
+  const campus = _CAMPUS_GROUPS.find((c) => c.value === value);
+  return campus ? t(campus.labelKey) : "";
+}
+
 export function closeBuildingOptions(fields) {
   document.querySelector("#buildingOptions").classList.remove("open");
   fields.buildingSearch.setAttribute("aria-expanded", "false");
@@ -397,8 +403,11 @@ export async function loadBuildings(fields, { setMessageKey } = {}) {
   const cached = loadCachedBuildings();
   if (cached) {
     applyBuildingsData(cached, fields);
-    refreshBuildingsInBackground(fields); // silent background refresh
-    return;
+    // Await the silent background refresh: if it lands newer data it
+    // re-applies (and re-defaults the form). Callers that restore a saved
+    // selection (app.js) must run only after that second apply settles,
+    // otherwise the refresh would wipe the restored fields.
+    return refreshBuildingsInBackground(fields);
   }
 
   try {
@@ -422,9 +431,8 @@ function applyBuildingsData(campusData, fields) {
   renderCampusOptions(fields);
   // Sync campus search display
   {
-    const cur = fields.campusGroupId.value || "all";
-    const campus = _CAMPUS_GROUPS.find((c) => c.value === cur);
-    if (campus && fields.campusSearch) fields.campusSearch.value = t(campus.labelKey);
+    const text = campusSearchTextFor(fields.campusGroupId.value || "all");
+    if (text && fields.campusSearch) fields.campusSearch.value = text;
   }
   chooseDefaultBuildingForCampus(fields);
   // Pass manageOpenState:false so renderBuildingOptions only rebuilds

@@ -2,7 +2,7 @@
 import { setLanguage, resolveInitialLocale, t, syncEmailInputState } from './modules/i18n.js';
 import { setState, currentLocale, currentStatusData, customUsageLevels,
          buildingActiveIndex, allBuildings, buildingChoices, metricMode,
-         suppressNextRender, VISITOR_ID_KEY } from './modules/state.js';
+         suppressNextRender, VISITOR_ID_KEY, USER_SELECTION_KEY } from './modules/state.js';
 import { escapeHtml, debounce, numberOrNull,
   loadUsageLevelSettings, saveUsageLevelSettings, readUsageLevelInputs } from './modules/utils.js';
 import { canUseBackend, apiUrl, fetchJson } from './modules/api.js';
@@ -12,6 +12,7 @@ import {
   openCampusOptions, closeCampusOptions, selectCampus,
   updateBuildingFeedback, closeBuildingOptions, updateActiveDescendant,
   mergeBuildingChoices, flattenBuildings, normalizeCampuses, fetchDemoStatus,
+  campusSearchTextFor,
 } from './modules/buildings.js';
 import { initLike, handleLike } from './modules/likes.js';
 
@@ -112,6 +113,44 @@ const visitorId = (() => {
   return id;
 })();
 
+// ── User selection persistence (campus, building, room) ──────────
+
+function saveUserSelection(selection) {
+  try {
+    localStorage.setItem(USER_SELECTION_KEY, JSON.stringify(selection));
+  } catch { /* ignore */ }
+}
+
+function restoreUserSelection(fields) {
+  try {
+    const raw = localStorage.getItem(USER_SELECTION_KEY);
+    if (!raw) return;
+    const sel = JSON.parse(raw);
+    if (!sel || typeof sel !== "object") return;
+    // Restore room number (safe regardless of building validity)
+    if (sel.roomName) fields.roomName.value = sel.roomName;
+    // Resolve the saved building by its backend id — the authoritative key.
+    // The stored label may be partial/fuzzy text the user typed last time,
+    // so don't paste it back verbatim.
+    const choice = sel.buildingId
+      ? buildingChoices.find((c) => c.variants.some((v) => v.id === sel.buildingId))
+      : null;
+    if (!choice) return;
+    // Show the canonical (bilingual) label so hidden fields sync exactly.
+    fields.buildingSearch.value = choice.displayLabel;
+    // Keep the campus filter unless it no longer matches this building
+    // ("all" = global scope, always valid).
+    const savedCampus = sel.campusGroupId || "all";
+    fields.campusGroupId.value =
+      savedCampus === "all" || savedCampus === choice.uiCampus ? savedCampus : choice.uiCampus;
+    syncSelectedBuilding(fields);
+    // Derive the combo text from the group value — never stale/locale-locked.
+    const campusText = campusSearchTextFor(fields.campusGroupId.value);
+    if (campusText) fields.campusSearch.value = campusText;
+    updateBuildingFeedback(fields);
+  } catch { /* ignore */ }
+}
+
 // ── Concurrency guard ─────────────────────────────────────────────
 let _loadStatusInFlight = false;
 
@@ -120,6 +159,16 @@ let _loadStatusInFlight = false;
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   syncSelectedBuilding(fields);
+  saveUserSelection({
+    campusGroupId: fields.campusGroupId.value,
+    campusSearchText: fields.campusSearch.value,
+    campusName: fields.campusName.value,
+    client: fields.client.value,
+    buildingId: fields.buildingId.value,
+    buildingName: fields.buildingName.value,
+    buildingDisplayLabel: fields.buildingSearch.value,
+    roomName: fields.roomName.value,
+  });
   if (!canUseBackend()) {
     setMessageKey("message.staticPage", {}, true);
     setHeroStatusKey("status.needBackend", {}, "critical");
@@ -460,7 +509,7 @@ showPageNotice();
 
 // Wait for all essential setup, then switch hero status back to idle.
 Promise.all([
-  loadBuildings(fields, { setMessageKey }),
+  loadBuildings(fields, { setMessageKey }).then(() => restoreUserSelection(fields)),
   import('./modules/github.js').then(mod => mod.loadGithubStars()),
   import('./modules/sponsor.js').then(mod => { mod.setupSponsor(); mod.setupSponsorKeyboard(); }),
   import('./modules/lightbox.js').then(mod => mod.initLightbox()),
