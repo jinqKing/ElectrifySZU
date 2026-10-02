@@ -43,3 +43,5 @@ logs/
 
 nul
 AGENTS.md
+# 本地 agent 备忘 / 真实部署拓扑（含真实 IP、域名、节点职责）——禁止提交到远程
+CLAUDE.md
