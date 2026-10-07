@@ -273,11 +273,3 @@
 ---
 
 *右上角固定链接：[返回主页](./index.html)*
-
----
-
-## Ending
-
-> **And wasn't it electrifying**<br>
-> **When I made the neon shine?**<br>
-> — Hadestown, [Chant](https://genius.com/Hadestown-original-broadway-company-chant-lyrics)
