@@ -1,75 +1,455 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <meta name="robots" content="noindex,follow">
-  <meta http-equiv="refresh" content="3;url=https://www.iotun.com/">
-  <title>ElectrifySZU 已迁移至 IoTUN</title>
-  <style>
-    :root{
-      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-      color-scheme:light dark;
-      --bg:#f6f7f9;--card:rgba(255,255,255,.88);--text:#17191d;--muted:#6b7280;
-      --accent:#2563eb;--border:rgba(17,24,39,.08)
-    }
-    @media(prefers-color-scheme:dark){
-      :root{--bg:#0f1115;--card:rgba(28,31,38,.9);--text:#f4f4f5;--muted:#a1a1aa;--accent:#60a5fa;--border:rgba(255,255,255,.1)}
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;color:var(--text);
-      background:
-        radial-gradient(circle at 20% 20%,rgba(37,99,235,.12),transparent 34%),
-        radial-gradient(circle at 80% 75%,rgba(14,165,233,.10),transparent 30%),
-        var(--bg)
-    }
-    main{
-      width:min(100%,520px);padding:36px 30px;border:1px solid var(--border);border-radius:24px;
-      background:var(--card);box-shadow:0 24px 70px rgba(0,0,0,.10);backdrop-filter:blur(18px);text-align:center
-    }
-    .icon{
-      width:64px;height:64px;margin:0 auto 20px;display:grid;place-items:center;border-radius:18px;
-      font-size:32px;background:rgba(37,99,235,.10)
-    }
-    h1{margin:0 0 12px;font-size:clamp(24px,6vw,32px);line-height:1.2}
-    p{margin:0 auto;max-width:420px;color:var(--muted);line-height:1.75}
-    .countdown{margin:18px 0 24px;font-size:14px;color:var(--muted)}
-    .countdown strong{color:var(--text);font-variant-numeric:tabular-nums}
-    .button{
-      display:block;width:100%;padding:14px 18px;border-radius:14px;background:var(--accent);
-      color:#fff;text-decoration:none;font-weight:650;transition:transform .15s ease,opacity .15s ease
-    }
-    .button:active{transform:scale(.985)}
-    .url{margin-top:16px;font-size:13px}
-    .url a{color:var(--accent);text-decoration:none}
-  </style>
-</head>
-<body>
-  <main>
-    <div class="icon" aria-hidden="true">⚡</div>
-    <h1>ElectrifySZU 已迁移</h1>
-    <p>电费查询与提醒服务现已由 <strong>IoTUN</strong> 提供。你将自动前往新的服务页面。</p>
-    <div class="countdown"><strong id="seconds">3</strong> 秒后自动跳转</div>
-    <a class="button" href="https://www.iotun.com/">立即前往 IoTUN</a>
-    <p class="url">如果没有自动跳转，请访问 <a href="https://www.iotun.com/">iotun.com</a></p>
-  </main>
-  <script>
-    (() => {
-      const target = 'https://www.iotun.com/';
-      const el = document.getElementById('seconds');
-      let seconds = 3;
-      const timer = setInterval(() => {
-        seconds -= 1;
-        if (seconds <= 0) {
-          clearInterval(timer);
-          window.location.replace(target);
-          return;
-        }
-        el.textContent = String(seconds);
-      }, 1000);
-    })();
-  </script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ElectrifySZU · 深大宿舍电费查询与预警</title>
+    <meta name="description" content="ElectrifySZU - 深大宿舍电费余额查询与预警系统。查询宿舍剩余电量、日均用电、预计可用天数，订阅电费预警邮件。" />
+    <meta property="og:title" content="ElectrifySZU · 深大宿舍电费查询与预警" />
+    <meta property="og:description" content="深大宿舍电费余额查询与预警系统。查询宿舍剩余电量、日均用电、预计可用天数，设置用电预警，支持多校区多楼栋。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://electrifyszu.app" />
+    <meta property="og:image" content="https://electrifyszu.app/pic/og-image.png" />
+    <meta property="og:image:width" content="600" />
+    <meta property="og:image:height" content="315" />
+    <link rel="canonical" href="https://electrifyszu.app" />
+    <link rel="icon" type="image/png" sizes="32x32" href="pic/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="pic/favicon-16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="pic/favicon-180.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="modulepreload" href="modules/chart.js" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <div class="hero-kicker">
+            <p class="eyebrow">
+              SZU Dorm Power Monitor
+              <a class="version-label" id="editionVersion" href="work-intro.html#9" data-i18n="brand.version">Version 2.71828</a>
+            </p>
+          </div>
+          <h1 id="page-title" data-i18n="hero.title">宿舍不断电：电费仪表盘</h1>
+          <p class="subtitle" data-i18n="hero.subtitle">搜索宿舍楼栋并输入房间号，自动完成查询并展示余额和使用情况。</p>
+        </div>
+        <div class="hero-side">
+          <a
+            class="repo-link"
+            id="repoLink"
+            aria-label="GitHub Repository"
+            data-i18n-aria-label="brand.repo"
+            href="https://github.com/jinqKing/ElectrifySZU"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path
+                fill="currentColor"
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52
+                -.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78
+                -.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21
+                2.2.82a7.65 7.65 0 0 1 4.01 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82
+                1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2
+                0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
+              ></path>
+            </svg>
+            <span class="star-badge" id="starBadge"></span>
+            <span class="sr-only" data-i18n="brand.repo">GitHub Repository</span>
+          </a>
+          <button
+            class="secondary sponsor-trigger"
+            id="sponsorButton"
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="supportDialog"
+            data-i18n="brand.sponsor"
+          >
+            ☕ 赞助我们
+          </button>
+          <a
+            class="secondary recharge-trigger"
+            id="rechargeButton"
+            href="#"
+            target="_blank"
+            rel="noreferrer"
+            data-i18n="brand.recharge"
+          >
+            🔌 一键充值
+          </a>
+          <div class="language-switcher" role="group" aria-label="Language">
+            <button type="button" data-lang="zh-CN" aria-pressed="true">中文</button>
+            <button type="button" data-lang="en-US" aria-pressed="false">English</button>
+          </div>
+          <div class="hero-status" id="heroStatus">
+            <span class="pulse"></span>
+            <span data-i18n="status.waiting">等待查询</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="query-panel" aria-label="查询条件" data-i18n-aria-label="query.ariaLabel">
+        <form id="queryForm" class="query-form">
+          <label>
+            <span data-i18n="form.campus">校区</span>
+            <div class="combo campus-combo">
+              <input id="campusSearch" readonly placeholder="选择校区" data-i18n-placeholder="form.campusPlaceholder" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="campusOptions" />
+              <div id="campusOptions" class="combo-list campus-options" role="listbox"></div>
+            </div>
+            <input id="campusGroupId" name="campusGroupId" type="hidden" value="all" />
+            <input id="client" name="client" type="hidden" value="" />
+            <input id="campusName" name="campusName" type="hidden" value="粤海" />
+          </label>
+          <label>
+            <span data-i18n="form.building">宿舍楼栋</span>
+            <div class="combo">
+              <input id="buildingSearch" value="风槐斋" placeholder="搜索宿舍楼栋" data-i18n-placeholder="form.buildingPlaceholder" autocomplete="off" role="combobox" aria-autocomplete="both" aria-expanded="false" aria-controls="buildingOptions" />
+              <div id="buildingOptions" class="combo-list" role="listbox"></div>
+              <div class="combo-feedback" id="buildingFeedback" aria-live="polite"></div>
+            </div>
+            <input id="buildingId" name="buildingId" type="hidden" value="7126" />
+            <input id="buildingName" name="buildingName" type="hidden" value="风槐斋" />
+          </label>
+          <label>
+            <span data-i18n="form.room">房间号</span>
+            <input id="roomName" name="roomName" value="713" placeholder="例如 713" data-i18n-placeholder="form.roomPlaceholder" autocomplete="off" />
+          </label>
+          <label>
+            <span data-i18n="form.days">统计天数</span>
+            <input id="days" name="days" type="number" min="1" max="180" value="30" />
+          </label>
+          <div class="actions">
+            <button class="primary" type="submit" data-i18n="form.submit">查询余额</button>
+            <button class="secondary" type="button" id="demoButton" data-i18n="form.demo">载入演示</button>
+          </div>
+        </form>
+        <p class="message query-hint" id="message" data-i18n="message.initial" aria-live="polite">
+          连接校园网后查询真实余额，可先载入演示数据预览效果。
+        </p>
+      </section>
+
+      <section class="subscription-panel" aria-label="订阅设置">
+        <div class="subscription-wrapper">
+          <div class="subscription-summary" id="subscriptionSummary" hidden></div>
+          <div class="subscription-body-wrap">
+            <div class="subscription-inner">
+              <form id="subscriptionForm" class="subscription-form">
+                <label>
+                  <span data-i18n="subscribe.email">预警邮箱</span>
+                  <div class="email-input-group" data-default-domain="@email.szu.edu.cn">
+                    <input
+                      id="subscriberEmail"
+                      name="email"
+                      type="text"
+                      inputmode="email"
+                      placeholder="yourid"
+                      data-i18n-placeholder="subscribe.emailPlaceholder"
+                      autocomplete="email"
+                      required
+                    />
+                    <span class="email-domain-hint" id="subscriberEmailDomainHint" aria-hidden="true">@email.szu.edu.cn</span>
+                  </div>
+                  <small class="field-hint" data-i18n="subscribe.emailHint">输入学号自动补全后缀，仅支持深大邮箱；提交后需到邮箱点击确认链接。</small>
+                </label>
+                <fieldset class="subscription-options" aria-label="订阅类型" data-i18n-aria-label="subscribe.optionsLabel">
+                  <label class="checkbox-option">
+                    <input id="subscribeAlert" name="alertEnabled" type="checkbox" checked />
+                    <span data-i18n="subscribe.alertOption">订阅电费预警</span>
+                  </label>
+                  <label class="checkbox-option">
+                    <input id="subscribeDailyReport" name="dailyReportEnabled" type="checkbox" />
+                    <span data-i18n="subscribe.dailyReportOption">每日电费报告</span>
+                  </label>
+                </fieldset>
+                <button class="secondary" type="submit" data-i18n="subscribe.submit">发送订阅</button>
+              </form>
+            </div>
+            <button type="button" class="subscription-toggle" id="subscriptionTrigger">
+              <span class="btn-primary-text"><span class="ring-icon">🔔</span> 订阅电费预警邮件</span>
+              <span class="btn-secondary-text">余额不足时收预警 / 每日电费报告</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <dialog class="subscription-dialog" id="subscriptionDialog" aria-labelledby="subscriptionDialogTitle">
+        <form method="dialog">
+          <h2 id="subscriptionDialogTitle" data-i18n="subscribe.dialogTitle">订阅确认</h2>
+          <p id="subscriptionDialogMessage"></p>
+          <div class="dialog-actions">
+            <button class="secondary" id="subscriptionDialogCancel" type="submit" value="cancel" data-i18n="subscribe.dialogCancel">取消</button>
+            <button class="primary" id="subscriptionDialogConfirm" type="submit" value="confirm" data-i18n="subscribe.dialogConfirm">确认</button>
+          </div>
+        </form>
+      </dialog>
+
+      <div class="results-container">
+      <section class="metrics">
+        <article class="metric balance" data-metric-card data-metric-key="remaining" role="button" tabindex="0" aria-label="Toggle current balance unit">
+          <span class="metric-label" data-i18n="metrics.remaining">当前余额</span>
+          <div class="metric-main">
+            <strong id="remaining">--</strong>
+            <small id="remainingUnit">kWh</small>
+          </div>
+          <small id="remainingAlt" class="metric-alt">--</small>
+        </article>
+        <article class="metric" data-metric-card data-metric-key="dailyAvg" role="button" tabindex="0" aria-label="Toggle daily average unit">
+          <span class="metric-label" data-i18n="metrics.dailyAvg">日均用电</span>
+          <div class="metric-main">
+            <strong id="dailyAvg">--</strong>
+            <small id="dailyAvgUnit">kWh / day</small>
+          </div>
+          <small id="dailyAvgAlt" class="metric-alt">--</small>
+        </article>
+        <article class="metric" data-metric-card data-metric-key="daysLeft" role="button" tabindex="0" aria-label="Toggle estimated days amount">
+          <span class="metric-label" data-i18n="metrics.daysLeft">预计可用</span>
+          <div class="metric-main">
+            <strong id="daysLeft">--</strong>
+            <small id="daysLeftUnit" data-i18n="unit.days">days</small>
+          </div>
+          <small id="daysLeftDate" class="metric-subtext">--</small>
+        </article>
+        <article class="metric" data-metric-card data-metric-key="totalUsed" role="button" tabindex="0" aria-label="Toggle period usage unit">
+          <span class="metric-label" data-i18n="metrics.totalUsed">周期用电</span>
+          <div class="metric-main">
+            <strong id="totalUsed">--</strong>
+            <small id="totalUsedUnit">kWh</small>
+          </div>
+          <small id="totalUsedAlt" class="metric-alt">--</small>
+        </article>
+      </section>
+
+      <section class="chart-panel" aria-label="用电趋势" data-i18n-aria-label="chart.ariaLabel">
+        <div class="section-head">
+          <div>
+            <h2 data-i18n="chart.title">余额与用电趋势</h2>
+            <p class="section-note" data-i18n="chart.note">余额走势和每日用电量会在查询后自动更新。</p>
+          </div>
+          <div class="chart-meta">
+            <div class="chart-legend" aria-label="图例" data-i18n-aria-label="chart.legendLabel">
+              <span><i class="legend-line"></i><span data-i18n="chart.balanceLegend">余额</span></span>
+              <span><i class="legend-bar low"></i><span data-i18n="chart.lowUseLegend">低用电</span></span>
+              <span><i class="legend-bar medium"></i><span data-i18n="chart.mediumUseLegend">中用电</span></span>
+              <span><i class="legend-bar high"></i><span data-i18n="chart.highUseLegend">高用电</span></span>
+            </div>
+            <button type="button" id="chartUnitToggle" class="secondary compact" data-i18n="chart.unitToggle">金额/电量</button>
+            <span id="chartRange" data-i18n="empty.noData">暂无数据</span>
+          </div>
+        </div>
+        <form id="usageLevelForm" class="usage-level-form" aria-label="用电等级配置" data-i18n-aria-label="chart.levelConfigLabel">
+          <label>
+            <span data-i18n="chart.mediumThreshold">中用电起点</span>
+            <input id="mediumUseThreshold" type="number" min="0" step="0.1" />
+            <small>kWh</small>
+          </label>
+          <label>
+            <span data-i18n="chart.highThreshold">高用电起点</span>
+            <input id="highUseThreshold" type="number" min="0" step="0.1" />
+            <small>kWh</small>
+          </label>
+          <button class="secondary compact" type="button" id="resetUsageLevels" data-i18n="chart.resetLevels">自动分档</button>
+        </form>
+        <div id="trendChart" class="trend-chart empty" data-i18n="empty.noTrend">暂无趋势数据</div>
+      </section>
+
+      <section class="details-grid">
+        <article class="detail results-section">
+          <div class="section-head">
+            <h2 data-i18n="details.warning">预警状态</h2>
+            <span class="badge" id="statusBadge" data-i18n="status.unchecked">未查询</span>
+          </div>
+          <div class="meter" aria-hidden="true">
+            <div id="meterFill"></div>
+          </div>
+          <dl class="facts">
+            <div>
+              <dt data-i18n="details.room">房间</dt>
+              <dd id="roomLabel">--</dd>
+            </div>
+            <div>
+              <dt data-i18n="details.lastRecord">最近记录</dt>
+              <dd id="lastRecord">--</dd>
+            </div>
+            <div>
+              <dt data-i18n="details.period">统计周期</dt>
+              <dd id="period">--</dd>
+            </div>
+            <div>
+              <dt data-i18n="details.records">记录数</dt>
+              <dd id="records">--</dd>
+            </div>
+            <div id="rankRow" hidden>
+              <dt data-i18n="details.buildingRank">楼内排行</dt>
+              <dd id="buildingRank">-- <small class="rank-note" data-i18n="details.rankNote">(测试数据，仅供参考)</small></dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="detail results-section">
+          <div class="section-head">
+            <h2 data-i18n="recharge.title">最近充值</h2>
+            <span id="rechargeCount">0 条</span>
+          </div>
+          <div id="rechargeList" class="recharge-list empty" data-i18n="empty.noData">暂无数据</div>
+        </article>
+      </section>
+      </div><!-- /.results-container -->
+      <footer class="page-footer">
+        <p id="footerCredit">
+          <span data-i18n="brand.footerLead"></span><a
+            class="footer-team-link"
+            href="work-intro.html"
+            target="_blank"
+            rel="noreferrer"
+            data-i18n="brand.footerTeam"
+          >Matrix 团队</a><span data-i18n="brand.footerTail">完成</span>
+          <span class="footer-divider" role="separator" aria-hidden="true">·</span>
+          <span class="like-section">
+            <button class="like-button" id="likeButton" type="button" aria-label="Like this project" data-i18n-aria-label="like.buttonLabel">❤️</button>
+            <span class="like-count" id="likeCount" data-count="0">0</span>
+            <span class="stats-separator" aria-hidden="true">·</span>
+            <span class="user-count" id="userCount" data-count="0">0</span>
+            <span class="stats-separator" aria-hidden="true" id="subStatsSep">·</span>
+            <span class="sub-count" id="alertSubCount" data-count="0">0</span>
+            <span class="stats-separator" aria-hidden="true">·</span>
+            <span class="sub-count" id="dailySubCount" data-count="0">0</span>
+          </span>
+        </p>
+      </footer>
+    </main>
+
+    <div class="support-modal" id="supportModal" hidden>
+      <div class="support-backdrop" data-support-close></div>
+      <section
+        class="support-dialog"
+        id="supportDialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="supportTitle"
+        aria-describedby="supportDescription"
+        tabindex="-1"
+      >
+        <button
+          class="support-close"
+          id="supportClose"
+          type="button"
+          aria-label="Close sponsor dialog"
+          data-i18n-aria-label="sponsor.close"
+        >
+          ×
+        </button>
+        <div class="support-copy">
+          <p class="support-eyebrow" data-i18n="brand.sponsor">赞助我们</p>
+          <h2 id="supportTitle" data-i18n="sponsor.title">请我们喝杯咖啡</h2>
+          <p id="supportDescription" data-i18n="sponsor.description">
+            感谢每一份支持，它会帮助我们持续维护服务、补充功能和优化体验。
+          </p>
+          <p class="support-work-link">
+            <span data-i18n="sponsor.workPrefix">想先了解我们做了什么？</span>
+            <a href="work-intro.html" target="_blank" rel="noreferrer" data-i18n="sponsor.workLink">查看工作介绍幻灯片</a>
+          </p>
+        </div>
+        <div class="support-qrcodes">
+          <figure class="support-card">
+            <img src="pic/qrcode/wxvu.png" alt="微信赞赏码" data-i18n-alt="sponsor.wechatAlt" loading="lazy" />
+            <figcaption data-i18n="sponsor.wechat">微信支付</figcaption>
+          </figure>
+          <figure class="support-card">
+            <img src="pic/qrcode/alipayvu.png" alt="支付宝收款码" data-i18n-alt="sponsor.alipayAlt" loading="lazy" />
+            <figcaption data-i18n="sponsor.alipay">支付宝</figcaption>
+          </figure>
+        </div>
+        <p class="support-thanks" data-i18n="sponsor.thanks">
+          谢谢你愿意支持这个小项目，愿它继续帮更多同学少一点断电焦虑。
+        </p>
+      </section>
+
+      <!-- Lightbox for QR code images -->
+      <div class="lightbox-overlay" id="lightboxOverlay" hidden>
+        <div class="lightbox-container">
+          <button class="lightbox-close" id="lightboxClose" type="button"
+                  aria-label="关闭" data-i18n-aria-label="lightbox.close">×</button>
+          <img class="lightbox-image" id="lightboxImage" src="" alt="" draggable="false" />
+          <button class="lightbox-download" id="lightboxDownload" type="button"
+                  data-i18n="lightbox.save">保存图片</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="migrationOverlay" class="migration-overlay" hidden>
+      <section class="migration-dialog" role="dialog" aria-modal="true" aria-labelledby="migrationTitle" aria-describedby="migrationDescription">
+        <div class="migration-icon" aria-hidden="true">⚡</div>
+        <h2 id="migrationTitle">ElectrifySZU 服务已迁移</h2>
+        <p id="migrationDescription">电费查询与提醒服务现已由 IoTUN 提供，你将前往新的服务页面。</p>
+        <p class="migration-countdown"><strong id="migrationSeconds">3</strong> 秒后自动跳转</p>
+        <a class="migration-go" href="https://www.iotun.com/">立即前往 IoTUN</a>
+      </section>
+    </div>
+
+    <style>
+      .migration-overlay[hidden]{display:none}
+      .migration-overlay{position:fixed;inset:0;z-index:99999;display:grid;place-items:center;padding:24px;background:rgba(15,17,21,.54);backdrop-filter:blur(8px)}
+      .migration-dialog{width:min(100%,460px);padding:30px;border-radius:22px;text-align:center;color:#17191d;background:rgba(255,255,255,.97);box-shadow:0 24px 80px rgba(0,0,0,.24)}
+      .migration-icon{width:58px;height:58px;margin:0 auto 18px;display:grid;place-items:center;border-radius:16px;font-size:30px;background:rgba(37,99,235,.10)}
+      .migration-dialog h2{margin:0 0 10px;font-size:24px}
+      .migration-dialog p{margin:0;color:#6b7280;line-height:1.7}
+      .migration-countdown{margin-top:14px!important}
+      .migration-countdown strong{color:#17191d;font-variant-numeric:tabular-nums}
+      .migration-go{display:block;margin-top:20px;padding:13px 18px;border-radius:13px;background:#2563eb;color:#fff!important;text-decoration:none;font-weight:650}
+      @media(prefers-color-scheme:dark){
+        .migration-dialog{color:#f4f4f5;background:rgba(28,31,38,.97)}
+        .migration-dialog p{color:#a1a1aa}
+        .migration-countdown strong{color:#f4f4f5}
+      }
+    </style>
+
+    <script>
+      (() => {
+        const target = 'https://www.iotun.com/';
+        const overlay = document.getElementById('migrationOverlay');
+        const secondsEl = document.getElementById('migrationSeconds');
+        const interactiveSelector = 'a[href],button,input,select,textarea,[role="button"],[role="combobox"],label';
+        let redirectStarted = false;
+
+        const beginMigration = (event) => {
+          if (redirectStarted) return;
+          const targetEl = event.target instanceof Element ? event.target.closest(interactiveSelector) : null;
+          if (!targetEl || targetEl.closest('#migrationOverlay')) return;
+
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+
+          redirectStarted = true;
+          overlay.hidden = false;
+          document.body.style.overflow = 'hidden';
+
+          let seconds = 3;
+          secondsEl.textContent = String(seconds);
+          const timer = window.setInterval(() => {
+            seconds -= 1;
+            if (seconds <= 0) {
+              window.clearInterval(timer);
+              window.location.href = target;
+              return;
+            }
+            secondsEl.textContent = String(seconds);
+          }, 1000);
+        };
+
+        document.addEventListener('click', beginMigration, true);
+        document.addEventListener('submit', (event) => {
+          if (redirectStarted) {
+            event.preventDefault();
+            return;
+          }
+          beginMigration(event);
+        }, true);
+      })();
+    </script>
+    <script src="modules/i18n-data.js" defer></script>
+    <script src="modules/loading-status.js" defer></script>
+    <script type="module" src="app.js"></script>
+  </body>
 </html>
