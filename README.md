@@ -5,10 +5,14 @@
   <img src="https://img.shields.io/badge/tests-19%20passed-0f9f6e?style=flat-square" alt="tests">
 </p>
 
+<p align="center">
+  <img src="web/pic/favicon-180.png" width="72" height="72" alt="ElectrifySZU">
+</p>
+
 <h1 align="center">ElectrifySZU</h1>
 
 <p align="center">
-  <a href="https://www.<DOMAIN>"><img src="https://img.shields.io/badge/🚀 Live Demo-www.<DOMAIN>-eab308?style=for-the-badge" alt="官网"></a>
+  <a href="https://www.iotun.com/"><img src="https://img.shields.io/badge/🚀 Live Demo-www.iotun.com-eab308?style=for-the-badge" alt="官网"></a>
 </p>
 
 <p align="center">
@@ -304,7 +308,6 @@ FORCE_SEND_DAILY_REPORT=0
 
 ElectrifySZU 由 Matrix 团队开发维护。我们也是深大学生，也在用这个工具查电费。
 
-- [飞书项目 Wiki](https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb)
 - [工作介绍幻灯片](web/work-intro.html)
 - 觉得有用的话，欢迎给项目一个 Star
 

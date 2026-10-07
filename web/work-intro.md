@@ -95,7 +95,6 @@
 **视觉元素：** 仪表盘 mockup（输入框 + 指标卡 + 柱状图）
 
 **按钮链接：**
-- [飞书项目 Wiki](https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb)
 - [GitHub 仓库](https://github.com/jinqKing/ElectrifySZU)
 
 ---
@@ -261,10 +260,9 @@
 
 **标题：** 你的支持会变成更稳定的服务和更少的断电焦虑
 
-**副文：** 我们会继续维护宿舍楼栋数据、优化查询体验、完善预警链路，并把项目过程沉淀到飞书文档中。
+**副文：** 我们会继续维护宿舍楼栋数据、优化查询体验、完善预警链路，并把项目过程沉淀到 GitHub 仓库中。
 
 **按钮链接：**
-- [打开飞书 Wiki](https://my.feishu.cn/wiki/EuOXwd1Efi0uLCktmx7cIocynBb)
 - [回到电费仪表盘](./index.html)
 
 **底部统计块：**
@@ -275,3 +273,11 @@
 ---
 
 *右上角固定链接：[返回主页](./index.html)*
+
+---
+
+## Ending
+
+> **And wasn't it electrifying**<br>
+> **When I made the neon shine?**<br>
+> — Hadestown, [Chant](https://genius.com/Hadestown-original-broadway-company-chant-lyrics)
